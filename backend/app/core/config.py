@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List, Optional, Literal
-from pydantic import BaseSettings, PostgresDsn, validator
+from pydantic import field_validator, PostgresDsn
+from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
 # Load environment variables from .env
@@ -50,16 +51,19 @@ class Settings(BaseSettings):
     EMAILS_FROM_EMAIL: Optional[str] = None
     EMAILS_FROM_NAME: Optional[str] = None
 
-    @validator("SECRET_KEY")
+    @field_validator("SECRET_KEY")
+    @classmethod
     def validate_secret_key(cls, v):
         if not v or len(v) < 32:
             raise ValueError("SECRET_KEY must be set and at least 32 characters long.")
         return v
 
-    @validator("DATABASE_URL", pre=True, always=True)
-    def assemble_db_connection(cls, v, values):
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
+    def assemble_db_connection(cls, v, info):
         if v:
             return v
+        values = info.data
         return PostgresDsn.build(
             scheme="postgresql",
             user=values["POSTGRES_USER"],

@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 project_root = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(project_root))
 
-from app.db.base import async_engine, async_session
+from app.db.base import engine, AsyncSessionLocal
 from app.db.models import Base, User
 from app.core.security import get_password_hash
 
@@ -27,14 +27,14 @@ ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@example.com")
 ADMIN_PHONE = os.getenv("ADMIN_PHONE", "+15555555555")
 
 async def reset_db():
-    async with async_engine.begin() as conn:
+    async with engine.begin() as conn:
         print("📛 Dropping existing database schema...")
         await conn.run_sync(Base.metadata.drop_all)
         print("📐 Creating new database schema...")
         await conn.run_sync(Base.metadata.create_all)
 
 async def create_admin_user():
-    async with async_session() as session:
+    async with AsyncSessionLocal() as session:
         admin = User(
             username=ADMIN_USERNAME,
             email=ADMIN_EMAIL,
