@@ -1,19 +1,20 @@
 #!/bin/bash
 set -e
 
-# Determine the script directory and project root
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_NAME=bellasreef
+VENV_PATH="$HOME/.venvs/$PROJECT_NAME"
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-VENV_PATH="$HOME/.venvs/bellasreef"
 
 echo "🔧 Checking Python 3 and required packages..."
-if ! command -v python3 &>/dev/null; then
-  echo "❌ Python 3 is not installed."
-  exit 1
+
+# Install python3-venv if missing
+if ! dpkg -s python3-venv &> /dev/null; then
+  echo "📦 Installing python3-venv..."
+  sudo apt update && sudo apt install -y python3-venv
 fi
 
-cd "$PROJECT_ROOT"
-
+# Create venv if missing
 if [ ! -d "$VENV_PATH" ]; then
   echo "🧪 Creating virtual environment at $VENV_PATH..."
   python3 -m venv "$VENV_PATH"
@@ -26,6 +27,9 @@ echo "⬆️  Upgrading pip..."
 pip install --upgrade pip
 
 echo "📦 Installing requirements..."
-pip install -r requirements.txt
+pip install -r "$PROJECT_ROOT/requirements.txt"
 
-echo "✅ Setup complete."
+# echo "🛠️ Initializing database..."
+# python "$PROJECT_ROOT/scripts/init_db.py"
+
+echo "✅ Bella's Reef environment setup complete!"
