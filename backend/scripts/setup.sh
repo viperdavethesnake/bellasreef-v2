@@ -28,6 +28,6 @@ echo "📦 Installing requirements..."
 pip install -r requirements.txt
 
 echo "🛠️ Initializing database..."
-python scripts/init_db.py
+#python scripts/init_db.py
 
 echo "✅ Bella's Reef environment setup complete!"
