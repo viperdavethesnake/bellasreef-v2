@@ -1,31 +1,75 @@
-# === Core Backend ===
+# =============================================================================
+# Bella's Reef - Backend Requirements
+# =============================================================================
+# Python 3.11+ compatible requirements for Raspberry Pi (arm64)
+# Target: FastAPI + Pydantic v2 + Async SQLAlchemy + Hardware Control
+
+# === Core Backend Framework ===
 fastapi==0.104.1
-uvicorn==0.24.0
+uvicorn[standard]==0.24.0  # Standard extras for production server
+
+# === Database & Async Support ===
 sqlalchemy==2.0.23
-
-# === Database ===
-psycopg2-binary==2.9.9  # ⚠️ Consider switching to psycopg3 when Python 3.13 support is needed
 asyncpg==0.29.0  # Async PostgreSQL driver
+psycopg2-binary==2.9.9  # ⚠️ Consider psycopg3 for Python 3.13+
 
-# === Auth & Security ===
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.6
-
-# === Configuration ===
-python-dotenv==1.0.0
-pydantic==2.4.2
+# === Pydantic v2 & Configuration ===
+pydantic[email]==2.4.2  # EmailStr support
 pydantic-settings==2.0.3
+python-dotenv==1.0.0
+
+# === Authentication & Security ===
+python-jose[cryptography]==3.3.0  # JWT handling
+passlib[bcrypt]==1.7.4  # Password hashing
+python-multipart==0.0.6  # Form data parsing
 
 # === Raspberry Pi Hardware Support ===
+# Core GPIO libraries
 gpiozero==2.0
 RPi.GPIO==0.7.1
-adafruit-circuitpython-pca9685==3.4.1
 
-# === Async & HTTP ===
+# CircuitPython for I2C and PWM
+adafruit-circuitpython-pca9685==3.4.1
+adafruit-blinka==8.32.0  # CircuitPython compatibility layer
+
+# === Async HTTP Client ===
 aiohttp==3.8.6  # ⚠️ Not compatible with Python 3.13+
-httpx==0.25.1
 
 # === Testing ===
 pytest==7.4.3
 pytest-asyncio==0.21.1
+httpx==0.25.1  # For async HTTP testing
+
+# =============================================================================
+# Optional Development Tools (uncomment as needed)
+# =============================================================================
+
+# === Code Quality & Linting ===
+# ruff==0.1.6  # Fast Python linter and formatter
+# black==23.11.0  # Code formatting
+# isort==5.12.0  # Import sorting
+
+# === Type Checking ===
+# mypy==1.7.1  # Static type checker
+# types-psycopg2==2.9.21.14  # Type stubs for psycopg2
+
+# === Development Server ===
+# watchfiles==0.21.0  # Auto-reload for development
+
+# === Documentation ===
+# mkdocs==1.5.3  # Documentation generator
+# mkdocs-material==9.4.8  # Material theme for MkDocs
+
+# === Monitoring & Debugging ===
+# structlog==23.2.0  # Structured logging
+# sentry-sdk[fastapi]==1.38.0  # Error tracking
+
+# =============================================================================
+# Version Compatibility Notes
+# =============================================================================
+# - Python: 3.11+ (tested on 3.11, 3.12)
+# - Target: Raspberry Pi (arm64) with Python 3.11
+# - FastAPI: 0.104.1 (latest stable)
+# - Pydantic: 2.4.2 (v2 with email extras)
+# - SQLAlchemy: 2.0.23 (async support)
+# - Hardware: RPi.GPIO + CircuitPython for I2C/PWM
