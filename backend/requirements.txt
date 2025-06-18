@@ -21,28 +21,27 @@ python-dotenv==1.0.0
 # === Authentication & Security ===
 python-jose[cryptography]==3.3.0  # JWT handling
 passlib[bcrypt]==1.7.4  # Password hashing
-python-multipart==0.0.6  # Form data parsing
+python-multipart==0.0.6  # Form data parsing for FastAPI
 
 # === Raspberry Pi Hardware Support ===
 # Core GPIO libraries
-gpiozero==2.0
-RPi.GPIO==0.7.1
+RPi.GPIO==0.7.1  # Low-level GPIO control
 
 # CircuitPython for I2C and PWM
-adafruit-circuitpython-pca9685==3.4.1
+adafruit-circuitpython-pca9685==3.4.1  # I2C PWM controller
 adafruit-blinka==8.32.0  # CircuitPython compatibility layer
 
 # === Async HTTP Client ===
-aiohttp==3.8.6  # ⚠️ Not compatible with Python 3.13+
-
-# === Testing ===
-pytest==7.4.3
-pytest-asyncio==0.21.1
-httpx==0.25.1  # For async HTTP testing
+aiohttp==3.8.6  # Used in outlets.py for HTTP requests
 
 # =============================================================================
 # Optional Development Tools (uncomment as needed)
 # =============================================================================
+
+# === Testing ===
+# pytest==7.4.3  # Testing framework
+# pytest-asyncio==0.21.1  # Async testing support
+# httpx==0.25.1  # Async HTTP client for testing
 
 # === Code Quality & Linting ===
 # ruff==0.1.6  # Fast Python linter and formatter
