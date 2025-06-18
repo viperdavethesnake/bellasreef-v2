@@ -21,9 +21,11 @@ async def root():
     return {"message": "Welcome to Bella's Reef API"}
 
 # Import and include routers
-# from app.api import auth, lights, outlets, sensors, system
-# app.include_router(auth.router)
-# app.include_router(lights.router)
-# app.include_router(outlets.router)
-# app.include_router(sensors.router)
-# app.include_router(system.router) 
+from app.api import auth, users, health
+
+# API v1 routers
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(users.router, prefix="/api/v1")
+
+# Health check router (no version prefix)
+app.include_router(health.router) 
