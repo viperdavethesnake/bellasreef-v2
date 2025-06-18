@@ -6,13 +6,18 @@ Drops and recreates the database schema and adds a default admin user.
 
 import asyncio
 import os
+import sys
+from pathlib import Path
+
 from dotenv import load_dotenv
+
+# --- Ensure backend is on the Python path ---
+project_root = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(project_root))
+
 from app.db.base import async_engine, async_session
 from app.db.models import Base, User
 from app.core.security import get_password_hash
-import sys
-from pathlib import Path
-sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 load_dotenv()
 
@@ -49,3 +54,4 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
