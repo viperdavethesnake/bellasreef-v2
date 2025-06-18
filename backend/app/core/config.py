@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List, Optional, Literal
-from pydantic import field_validator, PostgresDsn
+from pydantic import field_validator, computed_field
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
@@ -28,12 +28,25 @@ class Settings(BaseSettings):
     POSTGRES_USER: str = "postgres"
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str = "bellasreef"
-    DATABASE_URL: Optional[PostgresDsn] = None
+    POSTGRES_PORT: Optional[int] = 5432
+
+    # Admin User (for database initialization)
+    ADMIN_USERNAME: str = "admin"
+    ADMIN_PASSWORD: str = "reefrocks"
+    ADMIN_EMAIL: str = "admin@example.com"
+    ADMIN_PHONE: str = "+15555555555"
 
     # Hardware
     PWM_FREQUENCY: int = 1000
     PWM_CHANNELS: int = 16
     SENSOR_POLL_INTERVAL: int = 60  # seconds
+    
+    # Raspberry Pi Platform
+    RPI_PLATFORM: Literal["auto", "legacy", "rpi5", "none"] = "auto"
+    
+    # PCA9685 Configuration
+    PCA9685_ADDRESS: str = "0x40"
+    PCA9685_FREQUENCY: int = 1000
 
     # CORS
     CORS_ORIGINS: List[str] = [
@@ -58,18 +71,12 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be set and at least 32 characters long.")
         return v
 
-    @field_validator("DATABASE_URL", mode="before")
-    @classmethod
-    def assemble_db_connection(cls, v, info):
-        if v:
-            return v
-        values = info.data
-        return PostgresDsn.build(
-            scheme="postgresql",
-            user=values["POSTGRES_USER"],
-            password=values["POSTGRES_PASSWORD"],
-            host=values["POSTGRES_SERVER"],
-            path=f"/{values['POSTGRES_DB']}",
-        )
+    @computed_field
+    def DATABASE_URL(self) -> str:
+        """Assemble database URL from individual components."""
+        if self.POSTGRES_PORT and self.POSTGRES_PORT != 5432:
+            return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        else:
+            return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
 
 settings = Settings()
