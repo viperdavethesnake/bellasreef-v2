@@ -1,104 +1,113 @@
-# Bella's Reef Backend
+# Bella's Reef - Reef Tank Management System
 
-**A modular backend system for intelligent reef tank automation.** Built with Python, FastAPI, and PostgreSQL, this API-driven application supports real-time monitoring, lighting behaviors, smart outlet control, and hardware integration with Raspberry Pi.
+A comprehensive reef tank management system for tracking and maintaining your aquarium's health and parameters.
 
----
-
-## ✨ Features
-
-- **FastAPI backend** with modular routing and JWT-based auth
-- **PostgreSQL** database for config and historical sensor data
-- **PWM lighting control** (Native Pi GPIO + PCA9685)
-- **Advanced lighting behaviors**:
-  - Daylight, lunar, moonlight, and weather-based cycles
-  - Location-aware simulation (e.g., mimic Bora Bora lighting)
-  - User-triggered cloudburst, storms, lightning
-- **Smart outlet integration** (VeSync cloud, Shelly, Kasa local)
-- **Polling engine** for sensors and probe logging
-- **Scheduler** for lights, pumps, and automated tasks
-- **Alerting and triggers** based on defined conditions
-- **System health** monitoring and centralized system manager
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Python 3.11+
-- PostgreSQL 14+
-- Raspberry Pi (for hardware integration)
-- Optional: Docker, I2C-enabled PCA board
-
-### Installation
-
-Clone the repo:
-
-```bash
-git clone https://github.com/your-username/bellasreef-backend.git
-cd bellasreef-backend
-```
-
-Create a virtual environment:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Setup database:
-
-```bash
-alembic upgrade head
-```
-
-Run the app:
-
-```bash
-uvicorn app.main:app --reload
-```
-
----
-
-## 📝 Project Structure
+## Project Structure
 
 ```
-app/
-├── api/                # API routes
-├── core/               # Auth, system manager, scheduler
-├── db/                 # Models, schemas, DB logic
-├── hardware/           # PWM, outlets, sensors
-├── services/           # Polling, triggers, lighting behaviors
-├── main.py             # FastAPI app startup
+bellasreef-v2/
+├── backend/               # Backend API server
+│   ├── src/
+│   │   ├── controllers/  # Route controllers
+│   │   ├── models/      # Database models
+│   │   ├── routes/      # API routes
+│   │   ├── services/    # Business logic
+│   │   ├── utils/       # Utility functions
+│   │   ├── middleware/  # Custom middleware
+│   │   ├── config/      # Configuration files
+│   │   └── tests/       # Backend tests
+│   └── docs/            # Backend documentation
+│
+└── frontend/            # React frontend application
+    ├── src/
+    │   ├── components/  # Reusable components
+    │   ├── pages/      # Page components
+    │   ├── services/   # API services
+    │   ├── utils/      # Utility functions
+    │   ├── hooks/      # Custom React hooks
+    │   ├── styles/     # CSS and styling
+    │   ├── assets/     # Static assets
+    │   ├── context/    # React context
+    │   └── tests/      # Frontend tests
 ```
 
----
+## Setup Instructions
 
-## 🌐 API Usage
+### Backend Setup
 
-Interactive API docs will be available at:
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
 
-```
-http://localhost:8000/docs
-```
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
----
+3. Create a .env file based on .env.example:
+   ```bash
+   cp .env.example .env
+   ```
 
-## ⚖️ License
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
 
-MIT License
+### Frontend Setup
 
----
+1. Navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
 
-## ❤️ Contributing
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
 
-Pull requests welcome! For major changes, please open an issue first.
+3. Create a .env file based on .env.example:
+   ```bash
+   cp .env.example .env
+   ```
 
-For questions, ideas, or help: [**David**](mailto\:your-email@example.com)
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+
+## Features
+
+- Tank parameter tracking (temperature, salinity, pH, etc.)
+- Equipment monitoring and maintenance scheduling
+- Livestock management
+- Water change tracking
+- Feeding schedule management
+- Test result logging
+- Maintenance task scheduling
+- Data visualization and reporting
+
+## Tech Stack
+
+### Backend
+- Node.js
+- Express.js
+- MongoDB
+- JWT Authentication
+
+### Frontend
+- React
+- Vite
+- TailwindCSS
+- Chart.js
+- React Router
+
+## Contributing
+
+Please read our contributing guidelines before submitting pull requests.
+
+## License
+
+This project is licensed under the MIT License.
 
