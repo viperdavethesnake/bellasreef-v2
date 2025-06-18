@@ -1,40 +1,30 @@
-# requirements.txt
-
-# --- Core Backend ---
-
+# === Core Backend ===
 fastapi==0.104.1
 uvicorn==0.24.0
 sqlalchemy==2.0.23
-alembic==1.12.1
 
-# --- Database ---
+# === Database ===
+psycopg2-binary==2.9.9  # ⚠️ Consider switching to psycopg3 when Python 3.13 support is needed
 
-psycopg2-binary==2.9.9  # Use psycopg3 later if targeting Python 3.13+
-
-# --- Auth & Security ---
-
+# === Auth & Security ===
 python-jose\[cryptography]==3.3.0
 passlib\[bcrypt]==1.7.4
 python-multipart==0.0.6
 
-# --- Configuration ---
-
+# === Configuration ===
 python-dotenv==1.0.0
 pydantic==2.4.2
 pydantic-settings==2.0.3
 
-# --- Raspberry Pi Hardware Support ---
-
+# === Raspberry Pi Hardware Support ===
 gpiozero==2.0
 RPi.GPIO==0.7.1
 adafruit-circuitpython-pca9685==3.4.1
 
-# --- Async & HTTP ---
-
-aiohttp==3.8.6  # ⚠️ Requires Python <=3.12
+# === Async & HTTP ===
+aiohttp==3.8.6  # ⚠️ Not compatible with Python 3.13+
 httpx==0.25.1
 
-# --- Testing ---
-
+# === Testing ===
 pytest==7.4.3
 pytest-asyncio==0.21.1
