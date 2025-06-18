@@ -50,23 +50,39 @@ fi
 # ===============================
 # Parse .env for API URL and Credentials
 # ===============================
-# Helper to parse .env (works for both macOS and Linux)
 parse_env() {
   local key="$1"
-  grep -E "^$key=" "$ENV_FILE" | sed -E 's/^$key=//;s/\r$//' | tr -d '"' | tail -n 1
+  grep -E "^${key}=" "$ENV_FILE" | sed -E "s/^${key}=//;s/\r$//" | tr -d '"' | tail -n 1
 }
 
 # API host/port (allow override)
-API_HOST="$(parse_env API_HOST || parse_env POSTGRES_SERVER || echo "localhost")"
-API_PORT="$(parse_env API_PORT || echo "8000")"
+API_HOST="$(parse_env API_HOST)"
+if [[ -z "$API_HOST" ]]; then
+  API_HOST="$(parse_env POSTGRES_SERVER)"
+fi
+if [[ -z "$API_HOST" ]]; then
+  API_HOST="localhost"
+fi
+
+API_PORT="$(parse_env API_PORT)"
+if [[ -z "$API_PORT" ]]; then
+  API_PORT="8000"
+fi
 
 # Compose API base URL
 if [[ -z "$API_URL" ]]; then
   API_URL="http://$API_HOST:$API_PORT"
 fi
 
-ADMIN_USERNAME="$(parse_env ADMIN_USERNAME || echo "admin")"
-ADMIN_PASSWORD="$(parse_env ADMIN_PASSWORD || echo "reefrocks")"
+ADMIN_USERNAME="$(parse_env ADMIN_USERNAME)"
+if [[ -z "$ADMIN_USERNAME" ]]; then
+  ADMIN_USERNAME="admin"
+fi
+
+ADMIN_PASSWORD="$(parse_env ADMIN_PASSWORD)"
+if [[ -z "$ADMIN_PASSWORD" ]]; then
+  ADMIN_PASSWORD="reefrocks"
+fi
 
 # Endpoints
 HEALTH_ENDPOINT="$API_URL/health"
@@ -151,4 +167,4 @@ echo "Tested endpoints:"
 echo "  - $HEALTH_ENDPOINT"
 echo "  - $LOGIN_ENDPOINT"
 echo "  - $ME_ENDPOINT"
-echo "  - $USERS_ENDPOINT" 
+echo "  - $USERS_ENDPOINT"
