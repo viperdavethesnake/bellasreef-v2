@@ -10,6 +10,7 @@ IMPROVEMENTS:
 - Proper exit codes for error conditions
 - Async operation with Pydantic v2 settings
 - Comprehensive validation before database operations
+- Complete PostgreSQL schema reset using DROP SCHEMA public CASCADE
 
 USAGE:
     python scripts/init_db.py          # Normal initialization
@@ -33,6 +34,7 @@ from app.core.config import settings
 from app.db.base import engine, AsyncSessionLocal, Base
 from app.db.models import User
 from app.core.security import get_password_hash
+from sqlalchemy import text
 
 def check_env_file() -> bool:
     """Check if .env file exists and print status."""
@@ -84,18 +86,42 @@ def print_config_summary():
 
 async def reset_db():
     """
-    Drop and recreate all database tables.
-    Uses async SQLAlchemy engine from app.db.base.
+    Completely reset the PostgreSQL database schema.
+    
+    This function performs a complete schema reset by:
+    1. Dropping the entire 'public' schema with CASCADE (removes all tables, constraints, sequences, etc.)
+    2. Recreating the 'public' schema
+    3. Creating all tables using SQLAlchemy Base.metadata.create_all
+    
+    This ensures a complete, dependency-safe reset regardless of foreign key constraints.
     """
     try:
         async with engine.begin() as conn:
-            print("📛 Dropping existing database schema...")
-            await conn.run_sync(Base.metadata.drop_all)
-            print("📐 Creating new database schema...")
+            print("🗑️  Dropping entire 'public' schema with CASCADE...")
+            print("   This will remove ALL tables, constraints, sequences, and dependent objects.")
+            
+            # Drop the entire public schema with CASCADE
+            # This removes all tables, constraints, sequences, functions, etc. regardless of dependencies
+            await conn.execute(text("DROP SCHEMA public CASCADE"))
+            print("✅ Public schema dropped successfully.")
+            
+            print("🏗️  Recreating 'public' schema...")
+            # Recreate the public schema
+            await conn.execute(text("CREATE SCHEMA public"))
+            print("✅ Public schema recreated successfully.")
+            
+            print("📐 Creating all database tables...")
+            # Create all tables using SQLAlchemy metadata
             await conn.run_sync(Base.metadata.create_all)
+            print("✅ All database tables created successfully.")
+            
         print("✅ Database schema reset complete.")
+        print("   All tables, constraints, and sequences have been recreated from scratch.")
+        
     except Exception as e:
         print(f"❌ Database reset failed: {e}")
+        print("   This may indicate a connection issue or insufficient database privileges.")
+        print("   Ensure PostgreSQL is running and the database user has CREATE/DROP privileges.")
         raise
 
 async def create_admin_user():
@@ -137,7 +163,7 @@ async def main():
     
     args = parser.parse_args()
     
-    print("🚀 Bella's Reef Database Initialization")
+    print("🗄️  Bella's Reef Database Initialization")
     print("=" * 50)
     
     # Check .env file
@@ -161,23 +187,42 @@ async def main():
         return
     
     # Confirm before proceeding with database changes
-    print(f"\n⚠️  This will DROP and RECREATE all database tables!")
+    print(f"\n⚠️  DESTRUCTIVE OPERATION WARNING!")
+    print(f"   This will COMPLETELY RESET the database schema:")
+    print(f"   - DROP SCHEMA public CASCADE (removes ALL data)")
+    print(f"   - CREATE SCHEMA public (recreates empty schema)")
+    print(f"   - Recreate all tables from scratch")
+    print(f"   - All existing data will be PERMANENTLY LOST")
+    print(f"")
     print(f"   Database: {settings.DATABASE_URL}")
-    response = input("   Continue? (y/N): ").strip().lower()
+    print(f"   Environment: {settings.ENV}")
+    print(f"")
     
-    if response not in ['y', 'yes']:
-        print("❌ Database initialization cancelled.")
-        sys.exit(0)
+    if settings.ENV == "production":
+        print("🚨 PRODUCTION ENVIRONMENT DETECTED!")
+        print("   This operation will destroy all production data.")
+        response = input("   Type 'DESTROY-PRODUCTION' to continue: ").strip()
+        if response != "DESTROY-PRODUCTION":
+            print("❌ Database initialization cancelled.")
+            sys.exit(0)
+    else:
+        response = input("   Continue with schema reset? (y/N): ").strip().lower()
+        if response not in ['y', 'yes']:
+            print("❌ Database initialization cancelled.")
+            sys.exit(0)
     
     try:
-        print("\n🔄 Starting database initialization...")
+        print("\n🔄 Starting complete database schema reset...")
         await reset_db()
         await create_admin_user()
         print("\n🎉 Database initialization complete!")
+        print("   Database schema has been completely reset and recreated.")
+        print("   Admin user has been created with credentials from .env file.")
         print("   You can now start the application with: uvicorn app.main:app --reload")
         
     except Exception as e:
         print(f"\n❌ Database initialization failed: {e}")
+        print("   Please check your database connection and permissions.")
         sys.exit(1)
 
 if __name__ == "__main__":
