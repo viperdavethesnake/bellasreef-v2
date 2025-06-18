@@ -187,11 +187,12 @@ sys.path.insert(0, '$PROJECT_ROOT')
 try:
     from app.db.base import engine
     from app.core.config import settings
+    from sqlalchemy import text
     
     async def test_connection():
         try:
             async with engine.begin() as conn:
-                await conn.execute('SELECT 1')
+                await conn.execute(text('SELECT 1'))
             print('✅ Database connection successful')
             return True
         except Exception as e:
