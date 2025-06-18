@@ -10,6 +10,9 @@ from dotenv import load_dotenv
 from app.db.base import async_engine, async_session
 from app.db.models import Base, User
 from app.core.security import get_password_hash
+import sys
+from pathlib import Path
+sys.path.append(str(Path(__file__).resolve().parent.parent))
 
 load_dotenv()
 
