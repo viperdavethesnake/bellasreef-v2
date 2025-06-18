@@ -72,12 +72,16 @@ if [ "$HELP" = true ]; then
     echo "🚀 Bella's Reef Application Startup"
     echo "==================================="
     echo ""
+    echo "IMPORTANT: Run this script from the PROJECT ROOT directory"
+    echo "   Project root: /path/to/bellasreef-v2/"
+    echo "   Script location: backend/scripts/start.sh"
+    echo ""
     echo "USAGE:"
-    echo "  ./scripts/start.sh              # Normal startup with validation"
-    echo "  ./scripts/start.sh --check      # Validate environment only"
-    echo "  ./scripts/start.sh --prod       # Production mode (no reload)"
-    echo "  ./scripts/start.sh --debug      # Debug mode with extra logging"
-    echo "  ./scripts/start.sh --help       # Show this help"
+    echo "  ./backend/scripts/start.sh         # Normal startup with validation"
+    echo "  ./backend/scripts/start.sh --check # Validate environment only"
+    echo "  ./backend/scripts/start.sh --prod  # Production mode (no reload)"
+    echo "  ./backend/scripts/start.sh --debug # Debug mode with extra logging"
+    echo "  ./backend/scripts/start.sh --help  # Show this help"
     echo ""
     echo "FEATURES:"
     echo "  ✅ Environment validation"
@@ -85,6 +89,7 @@ if [ "$HELP" = true ]; then
     echo "  ✅ Development and production modes"
     echo "  ✅ Automatic reload in development"
     echo "  ✅ Health check and status monitoring"
+    echo "  ✅ Proper module path resolution"
     echo ""
     exit 0
 fi
@@ -247,7 +252,18 @@ start_application() {
     # Activate virtual environment
     source "$VENV_PATH/bin/activate"
     
-    # Build uvicorn command
+    # Check if app module exists
+    if [ ! -f "$PROJECT_ROOT/app/main.py" ]; then
+        print_error "FastAPI app module not found: $PROJECT_ROOT/app/main.py"
+        print_error "Expected structure: backend/app/main.py"
+        print_info "Make sure you're running from the project root directory"
+        exit 1
+    fi
+    
+    # Change to backend directory for proper module resolution
+    cd "$PROJECT_ROOT"
+    
+    # Build uvicorn command with proper module path
     UVICORN_CMD="uvicorn app.main:app --host $HOST --port $PORT --log-level $LOG_LEVEL"
     
     if [ "$RELOAD" = true ]; then
@@ -256,6 +272,8 @@ start_application() {
     
     echo ""
     echo "🚀 Starting FastAPI server..."
+    echo "   Working Directory: $(pwd)"
+    echo "   App Module: app.main:app"
     echo "   Host: $HOST"
     echo "   Port: $PORT"
     echo "   Log Level: $LOG_LEVEL"
@@ -268,6 +286,8 @@ start_application() {
         print_status "Application started successfully"
     else
         print_error "Failed to start application"
+        print_info "Check that you're running from the project root directory"
+        print_info "Expected command: ./backend/scripts/start.sh"
         exit 1
     fi
 }
@@ -279,6 +299,16 @@ main() {
     echo "🚀 Bella's Reef Application Startup"
     echo "==================================="
     echo ""
+    
+    # Check if we're in the right directory structure
+    if [ ! -d "$PROJECT_ROOT/app" ]; then
+        print_error "Cannot find 'app' directory: $PROJECT_ROOT/app"
+        print_error "Expected structure: backend/app/"
+        print_info "Make sure you're running from the PROJECT ROOT directory"
+        print_info "Current directory: $(pwd)"
+        print_info "Expected command: ./backend/scripts/start.sh"
+        exit 1
+    fi
     
     # Environment validation
     if ! check_environment; then

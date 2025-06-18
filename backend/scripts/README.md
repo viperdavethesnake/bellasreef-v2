@@ -13,6 +13,19 @@ This directory contains enhanced management scripts for the Bella's Reef backend
 | `deploy.sh` | Full deployment pipeline | End-to-end deployment with validation |
 | `init_db.py` | Database initialization | Schema creation, admin user seeding, validation |
 
+## 📋 Important Usage Note
+
+**All scripts must be run from the PROJECT ROOT directory:**
+```bash
+# ✅ Correct - Run from project root
+cd /path/to/bellasreef-v2/
+./backend/scripts/start.sh
+
+# ❌ Incorrect - Don't run from scripts directory
+cd /path/to/bellasreef-v2/backend/scripts/
+./start.sh
+```
+
 ## 📋 Script Details
 
 ### setup.sh - Environment Setup
@@ -30,16 +43,16 @@ This directory contains enhanced management scripts for the Bella's Reef backend
 **Usage**:
 ```bash
 # Normal setup with confirmation
-./scripts/setup.sh
+./backend/scripts/setup.sh
 
 # Validate environment only (no changes)
-./scripts/setup.sh --check
+./backend/scripts/setup.sh --check
 
 # Skip confirmations (automated setup)
-./scripts/setup.sh --force
+./backend/scripts/setup.sh --force
 
 # Show help
-./scripts/setup.sh --help
+./backend/scripts/setup.sh --help
 ```
 
 **Example Output**:
@@ -64,8 +77,8 @@ This directory contains enhanced management scripts for the Bella's Reef backend
 
 📋 Next steps:
    1. Edit .env file with your configuration (if needed)
-   2. Initialize database: ./scripts/init_db.py
-   3. Start the application: ./scripts/start.sh
+   2. Initialize database: python backend/scripts/init_db.py
+   3. Start the application: ./backend/scripts/start.sh
    4. Visit your API at: http://localhost:8000
    5. API documentation at: http://localhost:8000/docs
 ```
@@ -81,23 +94,24 @@ This directory contains enhanced management scripts for the Bella's Reef backend
 - ✅ Security warnings and configuration checks
 - ✅ Interactive production mode confirmation
 - ✅ Health checks and status monitoring
+- ✅ Proper module path resolution
 
 **Usage**:
 ```bash
 # Normal startup with validation
-./scripts/start.sh
+./backend/scripts/start.sh
 
 # Validate environment only
-./scripts/start.sh --check
+./backend/scripts/start.sh --check
 
 # Production mode (no reload, reduced logging)
-./scripts/start.sh --prod
+./backend/scripts/start.sh --prod
 
 # Debug mode (extra logging)
-./scripts/start.sh --debug
+./backend/scripts/start.sh --debug
 
 # Show help
-./scripts/start.sh --help
+./backend/scripts/start.sh --help
 ```
 
 **Example Output**:
@@ -143,19 +157,19 @@ This directory contains enhanced management scripts for the Bella's Reef backend
 **Usage**:
 ```bash
 # Normal deployment with validation
-./scripts/deploy.sh
+./backend/scripts/deploy.sh
 
 # Validate environment only
-./scripts/deploy.sh --check
+./backend/scripts/deploy.sh --check
 
 # Production deployment
-./scripts/deploy.sh --prod
+./backend/scripts/deploy.sh --prod
 
 # Skip confirmations (automated deployment)
-./scripts/deploy.sh --force
+./backend/scripts/deploy.sh --force
 
 # Show help
-./scripts/deploy.sh --help
+./backend/scripts/deploy.sh --help
 ```
 
 **Example Output**:
@@ -205,19 +219,19 @@ This directory contains enhanced management scripts for the Bella's Reef backend
 **Usage**:
 ```bash
 # Normal database initialization
-python scripts/init_db.py
+python backend/scripts/init_db.py
 
 # Validate configuration only (dry run)
-python scripts/init_db.py --check
+python backend/scripts/init_db.py --check
 
 # Show help
-python scripts/init_db.py --help
+python backend/scripts/init_db.py --help
 ```
 
 **Example Output**:
 ```
 🗄️  Bella's Reef Database Initialization
-=========================================
+========================================
 
 ℹ️  Checking environment...
 ✅ Found .env file: /path/to/.env
@@ -320,4 +334,4 @@ These scripts are designed to work together seamlessly:
 - [Environment Configuration](../env.example) - Complete environment variable documentation
 - [Requirements](../requirements.txt) - Python dependencies
 - [API Documentation](http://localhost:8000/docs) - Interactive API documentation (when running)
-- [Project Documentation](../../project_docs/) - Detailed project specifications 
+- [Project Documentation](../../project_docs/) - Detailed project specifications

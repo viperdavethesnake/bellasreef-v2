@@ -20,7 +20,8 @@ python-dotenv==1.0.0
 
 # === Authentication & Security ===
 python-jose[cryptography]==3.3.0  # JWT handling
-passlib[bcrypt]==1.7.4  # Password hashing
+passlib[bcrypt]==1.7.4  # Password hashing (keep current version for stability)
+bcrypt==3.2.2  # Explicit bcrypt version compatible with passlib 1.7.4
 python-multipart==0.0.6  # Form data parsing for FastAPI
 
 # === Raspberry Pi Hardware Support ===
