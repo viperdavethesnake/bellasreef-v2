@@ -24,7 +24,7 @@ source venv/bin/activate
 
 # Install dependencies
 echo -e "${GREEN}Installing dependencies...${NC}"
-pip install -r ../shared/requirements.txt
+pip install -r ../scripts/requirements.txt
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then

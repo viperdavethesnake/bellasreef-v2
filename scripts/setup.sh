@@ -25,7 +25,9 @@ PROJECT_NAME="bellasreef"
 VENV_PATH="$HOME/.venvs/$PROJECT_NAME"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-ENV_FILE="$PROJECT_ROOT/.env"
+CORE_ENV_FILE="$PROJECT_ROOT/core/.env"
+CORE_ENV_EXAMPLE="$PROJECT_ROOT/core/env.example"
+REQUIREMENTS_FILE="$SCRIPT_DIR/requirements.txt"
 
 # =============================================================================
 # CLI Argument Parsing
@@ -69,7 +71,8 @@ if [ "$HELP" = true ]; then
     echo "FEATURES:"
     echo "  ✅ Python 3.11+ environment setup"
     echo "  ✅ Virtual environment creation"
-    echo "  ✅ Dependencies installation"
+    echo "  ✅ Dependencies installation from scripts/requirements.txt"
+    echo "  ✅ Core service environment configuration"
     echo "  ✅ Environment validation"
     echo "  ✅ Configuration checking"
     echo ""
@@ -111,19 +114,19 @@ check_python_version() {
     fi
 }
 
-check_env_file() {
-    if [ -f "$ENV_FILE" ]; then
-        print_status "Found .env file: $ENV_FILE"
+check_core_env_file() {
+    if [ -f "$CORE_ENV_FILE" ]; then
+        print_status "Found core .env file: $CORE_ENV_FILE"
         return 0
     else
-        print_warning ".env file not found: $ENV_FILE"
-        if [ -f "$PROJECT_ROOT/env.example" ]; then
-            print_info "Copying env.example to .env..."
-            cp "$PROJECT_ROOT/env.example" "$ENV_FILE"
-            print_warning "Please edit .env with your configuration before continuing"
+        print_warning "Core .env file not found: $CORE_ENV_FILE"
+        if [ -f "$CORE_ENV_EXAMPLE" ]; then
+            print_info "Copying core/env.example to core/.env..."
+            cp "$CORE_ENV_EXAMPLE" "$CORE_ENV_FILE"
+            print_warning "Please edit core/.env with your configuration before continuing"
             return 1
         else
-            print_error "env.example not found. Please create .env file manually"
+            print_error "core/env.example not found. Please create core/.env file manually"
             return 1
         fi
     fi
@@ -168,8 +171,8 @@ install_dependencies() {
     print_info "Upgrading pip..."
     pip install --upgrade pip
     
-    print_info "Installing requirements..."
-    if pip install -r "$PROJECT_ROOT/requirements.txt"; then
+    print_info "Installing requirements from scripts/requirements.txt..."
+    if pip install -r "$REQUIREMENTS_FILE"; then
         print_status "Dependencies installed successfully"
     else
         print_error "Failed to install dependencies"
@@ -188,12 +191,11 @@ validate_configuration() {
 import sys
 sys.path.insert(0, '$PROJECT_ROOT')
 try:
-    from app.core.config import settings
+    from shared.core.config import settings
     print('✅ Configuration loaded successfully')
-    print(f'   Environment: {settings.ENV}')
-    print(f'   Database: {settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}')
+    print(f'   Database: {settings.DATABASE_URL}')
     print(f'   Admin User: {settings.ADMIN_USERNAME}')
-    print(f'   Hardware Platform: {settings.RPI_PLATFORM}')
+    print(f'   Service Token: {settings.SERVICE_TOKEN[:10]}...')
 except Exception as e:
     print(f'❌ Configuration validation failed: {e}')
     sys.exit(1)
@@ -201,7 +203,7 @@ except Exception as e:
         print_status "Configuration validation passed"
     else
         print_error "Configuration validation failed"
-        return 1
+        exit 1
     fi
 }
 
@@ -213,62 +215,56 @@ main() {
     echo "=================================="
     echo ""
     
-    # Environment checks
-    print_info "Checking environment..."
+    # Check Python version
     if ! check_python_version; then
         print_error "Python 3.11+ is required"
         exit 1
     fi
     
-    if ! check_env_file; then
+    # Check core environment file
+    if ! check_core_env_file; then
         if [ "$CHECK_ONLY" = true ]; then
-            print_error "Environment validation failed"
+            print_error "Core environment not configured"
             exit 1
         fi
-        print_warning "Continuing with setup, but please configure .env file"
+        if [ "$FORCE" = false ]; then
+            read -p "Continue with setup? (y/N): " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_error "Setup cancelled"
+                exit 1
+            fi
+        fi
     fi
     
     if [ "$CHECK_ONLY" = true ]; then
-        print_info "Check-only mode - validating configuration..."
-        if validate_configuration; then
-            print_status "Environment validation complete"
-            exit 0
-        else
-            print_error "Environment validation failed"
-            exit 1
-        fi
+        print_info "Environment check completed"
+        exit 0
     fi
     
-    # System setup
-    print_info "Setting up system environment..."
+    # Check system packages
     check_system_packages
+    
+    # Create virtual environment
     create_virtual_environment
+    
+    # Install dependencies
     install_dependencies
     
-    # Configuration validation
-    if validate_configuration; then
-        print_status "Configuration validation passed"
-    else
-        print_warning "Configuration validation failed - please check your .env file"
-    fi
+    # Validate configuration
+    validate_configuration
     
-    # Success message
     echo ""
-    echo "🎉 Bella's Reef environment setup complete!"
+    echo "🎉 Setup completed successfully!"
     echo ""
-    echo "📋 Next steps:"
-    echo "   1. Edit .env file with your configuration (if needed)"
-    echo "   2. Initialize database: ./scripts/init_db.py"
-    echo "   3. Start the application: ./scripts/start.sh"
-    echo "   4. Visit your API at: http://localhost:8000"
-    echo "   5. API documentation at: http://localhost:8000/docs"
+    echo "Next steps:"
+    echo "1. Edit core/.env with your configuration"
+    echo "2. Run: python scripts/init_db.py"
+    echo "3. Start core service: ./core/start.sh"
     echo ""
-    echo "🔧 Useful commands:"
-    echo "   ./scripts/init_db.py --check     # Validate database config"
-    echo "   ./scripts/start.sh               # Start development server"
-    echo "   source $VENV_PATH/bin/activate   # Activate virtual environment"
-    echo ""
+    echo "For more information, see README.md"
 }
 
 # Run main function
 main "$@"
+

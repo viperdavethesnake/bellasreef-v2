@@ -7,8 +7,8 @@ from pydantic import field_validator, computed_field, ValidationError
 from pydantic_settings import BaseSettings
 from dotenv import load_dotenv
 
-# Load environment variables from .env
-env_path = Path(__file__).parent.parent.parent / ".env"
+# Load environment variables from core/.env
+env_path = Path(__file__).parent.parent.parent / "core" / ".env"
 load_dotenv(dotenv_path=env_path, override=True)
 
 class Settings(BaseSettings):
@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # Security
     SECRET_KEY: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+
+    # Service Configuration
+    SERVICE_TOKEN: str = "changeme_secure_token_here"
+    SERVICE_PORT: int = 8000
+    SERVICE_HOST: str = "0.0.0.0"
 
     # Database
     POSTGRES_SERVER: str = "localhost"
@@ -99,6 +104,18 @@ class Settings(BaseSettings):
         if v in ["your-super-secret-key-change-this-in-production-minimum-32-chars", 
                  "change-this-in-production", "default-secret-key"]:
             print("⚠️  WARNING: Using default SECRET_KEY. Change this in production!")
+        
+        return v.strip()
+
+    @field_validator("SERVICE_TOKEN")
+    @classmethod
+    def validate_service_token(cls, v: str) -> str:
+        """Validate SERVICE_TOKEN for security requirements."""
+        if not v or v.strip() == "changeme_secure_token_here":
+            raise ValueError(
+                "SERVICE_TOKEN must be set to a secure value. "
+                "This token is used for inter-service API authentication."
+            )
         
         return v.strip()
 

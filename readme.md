@@ -4,6 +4,43 @@
 
 A comprehensive reef tank management system for tracking and maintaining your aquarium's health and parameters, built with modern async Python technologies.
 
+## 🚀 Quick Start - Core Service Only
+
+**For testing core service endpoints (login, auth, health) only:**
+
+1. **Clone and navigate to project:**
+   ```bash
+   cd bellasreef-v2
+   ```
+
+2. **Run setup script:**
+   ```bash
+   ./scripts/setup.sh
+   ```
+
+3. **Copy and configure core environment:**
+   ```bash
+   cp core/env.example core/.env
+   # Edit core/.env with your database and security settings
+   ```
+
+4. **Initialize database (REQUIRED):**
+   ```bash
+   python scripts/init_db.py
+   ```
+
+5. **Start core service:**
+   ```bash
+   ./core/start.sh
+   ```
+
+6. **Test system endpoints:**
+   - Health check: `http://localhost:8000/health`
+   - API docs: `http://localhost:8000/docs`
+   - Auth endpoints: `http://localhost:8000/api/v1/auth/`
+
+**✅ Core service is now ready for system endpoint testing!**
+
 ## 🏗️ Modular Service Architecture
 
 This project is organized into isolated service modules that can be developed, tested, and deployed independently:
@@ -23,7 +60,7 @@ bellasreef-v2/
 
 **📋 See `services.yaml` for detailed service documentation and dependencies.**
 
-## 🚀 Quick Start
+## 🚀 Full System Quick Start
 
 ### ⚠️ IMPORTANT: Database Initialization Required
 **Before starting any service, you MUST initialize the database:**

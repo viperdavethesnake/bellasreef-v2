@@ -3,7 +3,7 @@
 Database initialization script for Bella's Reef.
 
 IMPROVEMENTS:
-- Robust error checking for missing .env file and required settings
+- Robust error checking for missing core/.env file and required settings
 - CLI flags for dry-run and configuration checking
 - Flexible path handling (runs from project root or scripts directory)
 - Clear user feedback with status icons and messages
@@ -36,25 +36,25 @@ from shared.crud.user import get_user_by_username
 from sqlalchemy import text
 
 def check_env_file() -> bool:
-    """Check if .env file exists and print status."""
-    env_path = project_root / ".env"
+    """Check if core/.env file exists and print status."""
+    env_path = project_root / "core" / ".env"
     if not env_path.exists():
-        print("❌ Error: .env file not found!")
+        print("❌ Error: core/.env file not found!")
         print(f"   Expected location: {env_path}")
-        print("   Please copy env.example to .env and configure your settings.")
+        print("   Please copy core/env.example to core/.env and configure your settings.")
         return False
     
-    print(f"✅ Found .env file: {env_path}")
+    print(f"✅ Found core/.env file: {env_path}")
     return True
 
 def validate_required_settings() -> bool:
     """Validate that all required settings are present."""
     required_settings = {
         "SECRET_KEY": settings.SECRET_KEY,
-        "POSTGRES_PASSWORD": settings.POSTGRES_PASSWORD,
-        "POSTGRES_USER": settings.POSTGRES_USER,
-        "POSTGRES_DB": settings.POSTGRES_DB,
-        "POSTGRES_SERVER": settings.POSTGRES_SERVER,
+        "DATABASE_URL": settings.DATABASE_URL,
+        "ADMIN_USERNAME": settings.ADMIN_USERNAME,
+        "ADMIN_PASSWORD": settings.ADMIN_PASSWORD,
+        "ADMIN_EMAIL": settings.ADMIN_EMAIL,
     }
     
     missing_settings = []
@@ -63,10 +63,10 @@ def validate_required_settings() -> bool:
             missing_settings.append(name)
     
     if missing_settings:
-        print("❌ Error: Missing required settings in .env file:")
+        print("❌ Error: Missing required settings in core/.env file:")
         for setting in missing_settings:
             print(f"   - {setting}")
-        print("   Please check your .env file and ensure all required values are set.")
+        print("   Please check your core/.env file and ensure all required values are set.")
         return False
     
     print("✅ All required settings are configured.")
@@ -75,13 +75,9 @@ def validate_required_settings() -> bool:
 def print_config_summary():
     """Print a summary of the current configuration."""
     print("\n📋 Configuration Summary:")
-    print(f"   Environment: {settings.ENV}")
-    print(f"   Database: {settings.POSTGRES_SERVER}:{settings.POSTGRES_PORT}/{settings.POSTGRES_DB}")
     print(f"   Database URL: {settings.DATABASE_URL}")
     print(f"   Admin User: {settings.ADMIN_USERNAME} ({settings.ADMIN_EMAIL})")
-    print(f"   Hardware Platform: {settings.RPI_PLATFORM}")
-    print(f"   PWM Channels: {settings.PWM_CHANNELS}")
-    print(f"   CORS Origins: {settings.CORS_ORIGINS}")
+    print(f"   Service Token: {settings.SERVICE_TOKEN[:10]}...")
 
 async def reset_db():
     """
