@@ -134,7 +134,7 @@ class Schedule(Base):
     end_time = Column(DateTime(timezone=True), nullable=True)  # End time for the schedule
     timezone = Column(String, nullable=False, default='UTC')  # IANA timezone string
     is_enabled = Column(Boolean, default=True, index=True)  # Whether schedule is active
-    next_run = Column(DateTime(timezone=True), nullable=True, index=True)  # Next scheduled run time
+    next_run = Column(DateTime(timezone=True), nullable=True)  # Next scheduled run time
     last_run = Column(DateTime(timezone=True), nullable=True)  # Last execution time
     last_run_status = Column(String, nullable=True)  # 'success', 'failed', 'skipped'
     action_type = Column(String, nullable=False)  # 'on', 'off', 'set_pwm', 'set_level', 'ramp', etc.
