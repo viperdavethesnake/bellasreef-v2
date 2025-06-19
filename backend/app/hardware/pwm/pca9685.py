@@ -16,9 +16,16 @@ class PCA9685Controller(PWMController):
             frequency: PWM frequency in Hz (defaults to PCA9685_FREQUENCY from settings)
             channels: Number of channels (defaults to 16 for PCA9685)
         """
+        # Validate that PCA9685 is explicitly enabled
+        if not settings.PCA9685_ENABLED:
+            raise ValueError(
+                "PCA9685 controller requires PCA9685_ENABLED=true in configuration"
+            )
+        
         self._i2c: Optional[busio.I2C] = None
         self._pca: Optional[PCA9685] = None
         self._address = int(settings.PCA9685_ADDRESS, 16)
+        
         super().__init__(
             frequency or settings.PCA9685_FREQUENCY,
             channels
@@ -26,22 +33,36 @@ class PCA9685Controller(PWMController):
     
     async def initialize(self) -> None:
         """Initialize the PCA9685 controller."""
+        if self._initialized:
+            return
+        
         try:
             self._i2c = busio.I2C(board.SCL, board.SDA)
             self._pca = PCA9685(self._i2c, address=self._address)
             self._pca.frequency = self.frequency
+            
+            # Initialize all channels to 0
+            for channel in range(self.channels):
+                self._pca.channels[channel].duty_cycle = 0
+            
             self._initialized = True
+            
         except Exception as e:
+            # Clean up on failure
+            await self.cleanup()
             raise RuntimeError(f"Failed to initialize PCA9685: {str(e)}")
     
     async def cleanup(self) -> None:
         """Clean up PCA9685 resources."""
         if self._initialized:
             await self.all_off()
-            self._pca = None
+            
+            # Clean up I2C
             if self._i2c:
                 self._i2c.deinit()
-                self._i2c = None
+            
+            self._pca = None
+            self._i2c = None
             self._initialized = False
     
     async def set_channel(self, channel: int, value: float) -> None:
@@ -81,11 +102,13 @@ class PCA9685Controller(PWMController):
     
     @property
     def hardware_info(self) -> Dict[str, str]:
+        """Get detailed hardware information."""
         return {
             "type": "pca9685",
             "driver": "adafruit-circuitpython-pca9685",
+            "platform": "External I2C Controller",
             "channels": str(self.channels),
             "frequency": f"{self.frequency}Hz",
             "address": f"0x{self._address:02x}",
-            "additional": "I2C-based PWM controller"
+            "additional": f"I2C-based PWM controller at address 0x{self._address:02x}"
         } 

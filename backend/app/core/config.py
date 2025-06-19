@@ -54,10 +54,14 @@ class Settings(BaseSettings):
     PWM_CHANNELS: int = 16
     SENSOR_POLL_INTERVAL: int = 60  # seconds
     
-    # Raspberry Pi Platform
-    RPI_PLATFORM: Literal["auto", "legacy", "rpi5", "none"] = "auto"
+    # Raspberry Pi Platform (NO AUTO-DETECTION)
+    RPI_PLATFORM: Literal["legacy", "rpi5", "none"] = "none"
+    
+    # GPIO PWM Configuration (BCM pin numbers, comma-separated)
+    PWM_GPIO_PINS: str = ""  # e.g., "18,19" for BCM GPIO pins
     
     # PCA9685 Configuration
+    PCA9685_ENABLED: bool = False
     PCA9685_ADDRESS: str = "0x40"
     PCA9685_FREQUENCY: int = 1000
 
@@ -188,6 +192,41 @@ class Settings(BaseSettings):
         
         return f"0x{addr:02x}"
 
+    @field_validator("PWM_GPIO_PINS")
+    @classmethod
+    def validate_pwm_gpio_pins(cls, v: str) -> str:
+        """Parse and validate PWM GPIO pins (BCM numbering)."""
+        if not v.strip():
+            return ""
+        
+        try:
+            pins = [int(pin.strip()) for pin in v.split(",") if pin.strip()]
+            
+            # Validate each pin number
+            for pin in pins:
+                if not (1 <= pin <= 40):  # BCM GPIO range
+                    raise ValueError(f"GPIO pin {pin} must be between 1 and 40")
+            
+            # Check for duplicates
+            if len(pins) != len(set(pins)):
+                raise ValueError("Duplicate GPIO pins found")
+            
+            return ",".join(str(pin) for pin in pins)
+            
+        except ValueError as e:
+            raise ValueError(f"Invalid PWM_GPIO_PINS format: {v}. Expected comma-separated BCM GPIO numbers (e.g., '18,19'). Error: {e}")
+        except Exception as e:
+            raise ValueError(f"Failed to parse PWM_GPIO_PINS: {v}. Error: {e}")
+
+    @field_validator("RPI_PLATFORM")
+    @classmethod
+    def validate_rpi_platform(cls, v: str) -> str:
+        """Validate RPI_PLATFORM setting."""
+        valid_platforms = ["legacy", "rpi5", "none"]
+        if v not in valid_platforms:
+            raise ValueError(f"RPI_PLATFORM must be one of: {', '.join(valid_platforms)}")
+        return v
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
@@ -270,11 +309,30 @@ class Settings(BaseSettings):
 
     @computed_field
     def DATABASE_URL(self) -> str:
-        """Assemble database URL from individual components."""
-        if self.POSTGRES_PORT and self.POSTGRES_PORT != 5432:
-            return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
-        else:
-            return f"postgresql://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}/{self.POSTGRES_DB}"
+        """Construct database URL from components."""
+        return f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_SERVER}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+
+    @computed_field
+    def PWM_GPIO_PIN_LIST(self) -> List[int]:
+        """Get PWM GPIO pins as a list of integers."""
+        if not self.PWM_GPIO_PINS.strip():
+            return []
+        return [int(pin.strip()) for pin in self.PWM_GPIO_PINS.split(",") if pin.strip()]
+
+    @computed_field
+    def PWM_CONFIGURATION_VALID(self) -> bool:
+        """Validate PWM configuration based on platform and settings."""
+        if self.RPI_PLATFORM == "none":
+            # No PWM hardware configured
+            return True
+        
+        if self.RPI_PLATFORM in ["legacy", "rpi5"]:
+            # Must have GPIO pins configured
+            if not self.PWM_GPIO_PIN_LIST:
+                return False
+            return True
+        
+        return False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
