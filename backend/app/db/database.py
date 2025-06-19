@@ -5,7 +5,7 @@ This module provides:
 - Async engine creation with asyncpg
 - Async session factory using async_sessionmaker
 - FastAPI dependency for database sessions
-- Proper connection pooling and error handling
+- Environment-aware connection pooling
 """
 
 from typing import AsyncGenerator
@@ -13,58 +13,56 @@ from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sess
 from sqlalchemy.pool import NullPool
 from app.core.config import settings
 
-# Create async engine with proper configuration
-engine = create_async_engine(
-    # Convert postgresql:// to postgresql+asyncpg:// for async support
-    str(settings.DATABASE_URL).replace("postgresql://", "postgresql+asyncpg://"),
-    
-    # Engine configuration
-    echo=settings.DEBUG,  # SQL logging in debug mode
-    future=True,  # Use SQLAlchemy 2.x features
-    
-    # Connection pooling (disabled for development, enabled for production)
-    poolclass=NullPool if settings.ENV == "development" else None,
-    pool_size=10 if settings.ENV != "development" else None,
-    max_overflow=20 if settings.ENV != "development" else None,
-    pool_pre_ping=True,  # Validate connections before use
-    
-    # Performance settings
-    pool_recycle=3600,  # Recycle connections after 1 hour
-    pool_timeout=30,  # Wait up to 30 seconds for a connection
-)
+# Database URL with asyncpg driver
+DATABASE_URL = str(settings.DATABASE_URL).replace("postgresql://", "postgresql+asyncpg://")
 
-# Create async session factory
-AsyncSessionLocal = async_sessionmaker(
+# Engine configuration based on environment
+if settings.ENV == "development":
+    # Development: Simple configuration with NullPool for easier debugging
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=settings.DEBUG,
+        poolclass=NullPool,
+    )
+else:
+    # Production: Full connection pooling for performance and reliability
+    engine = create_async_engine(
+        DATABASE_URL,
+        echo=settings.DEBUG,
+        pool_size=10,
+        max_overflow=20,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+        pool_timeout=30,
+    )
+
+# Async session factory
+async_session = async_sessionmaker(
     engine,
     class_=AsyncSession,
-    expire_on_commit=False,  # Keep objects accessible after commit
-    autoflush=True,  # Auto-flush changes
-    autocommit=False,  # Use explicit transactions
+    expire_on_commit=False,
+    autoflush=False,  # Disable autoflush for better performance and explicit control
 )
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     FastAPI dependency for database sessions.
     
-    This is an async generator that yields database sessions.
-    It properly handles session lifecycle and cleanup.
+    Provides an async session with automatic cleanup and error handling.
+    Sessions are automatically closed when the request completes.
     
-    Usage in FastAPI endpoints:
+    Usage:
         @router.get("/items")
         async def get_items(db: AsyncSession = Depends(get_db)):
             result = await db.execute(select(Item))
             return result.scalars().all()
     """
-    async with AsyncSessionLocal() as session:
+    async with async_session() as session:
         try:
             yield session
         except Exception:
-            # Rollback on any exception
             await session.rollback()
             raise
-        finally:
-            # Session is automatically closed by async context manager
-            pass
 
 # Export for convenience
-__all__ = ["engine", "AsyncSessionLocal", "get_db"] 
+__all__ = ["engine", "async_session", "get_db"] 

@@ -11,6 +11,6 @@ from sqlalchemy.orm import declarative_base
 Base = declarative_base()
 
 # Import database components for convenience
-from app.db.database import engine, AsyncSessionLocal, get_db
+from app.db.database import engine, async_session, get_db
 
-__all__ = ["Base", "engine", "AsyncSessionLocal", "get_db"] 
+__all__ = ["Base", "engine", "async_session", "get_db"] 
