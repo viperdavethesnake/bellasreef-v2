@@ -3,7 +3,7 @@
 # =============================================================================
 # Python 3.11+ compatible requirements for Raspberry Pi (arm64)
 # Target: FastAPI + Pydantic v2 + Async SQLAlchemy + Modern Hardware Control
-# 
+#
 # Hardware Compatibility Notes:
 # - lgpio: Modern GPIO library for Pi 5 and newer Pi models
 # - adafruit-blinka: CircuitPython compatibility layer for I2C/PWM
@@ -40,7 +40,7 @@ python-multipart==0.0.6  # Form data parsing for FastAPI
 # - Replaces RPi.GPIO for better Pi 5 compatibility
 # - Supports hardware PWM on all GPIO pins via RP1
 # - Better performance and modern API
-lgpio==1.2.4.0  # Modern GPIO library (Pi 5 compatible)
+lgpio==0.2.2.0  # Modern GPIO library (Pi 5 compatible) - CORRECTED VERSION
 
 # CircuitPython for I2C and PWM - Latest versions for Pi 5 compatibility
 adafruit-circuitpython-pca9685==3.4.19  # I2C PWM controller
