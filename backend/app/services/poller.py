@@ -2,8 +2,8 @@ import asyncio
 import logging
 from typing import Dict, List, Optional
 from datetime import datetime, timedelta, timezone
-from sqlalchemy.orm import Session
-from app.db.database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.db.database import async_session
 from app.crud.device import device as device_crud, history as history_crud
 from app.hardware.device_factory import DeviceFactory
 from app.hardware.device_base import BaseDevice, PollResult
@@ -63,14 +63,14 @@ class DevicePoller:
     async def load_devices(self):
         """Load all pollable devices from the database"""
         try:
-            db = next(get_db())
-            devices = device_crud.get_pollable_devices(db)
-            
-            for db_device in devices:
-                await self.add_device(db_device)
-            
-            self.logger.info(f"Loaded {len(devices)} devices for polling")
-            
+            async with async_session() as db:
+                devices = await device_crud.get_pollable_devices(db)
+                
+                for db_device in devices:
+                    await self.add_device(db_device)
+                
+                self.logger.info(f"Loaded {len(devices)} devices for polling")
+                
         except Exception as e:
             self.logger.error(f"Failed to load devices: {e}")
     
@@ -131,18 +131,18 @@ class DevicePoller:
         while self.running:
             try:
                 # Get current device config from database
-                db = next(get_db())
-                db_device = device_crud.get(db, device_id)
-                
-                if not db_device or not db_device.poll_enabled or not db_device.is_active:
-                    self.logger.info(f"Device {device.name} is no longer pollable, stopping")
-                    break
-                
-                # Poll the device
-                await self._poll_single_device(device_id, db_device)
-                
-                # Wait for next poll interval
-                await asyncio.sleep(db_device.poll_interval)
+                async with async_session() as db:
+                    db_device = await device_crud.get(db, device_id)
+                    
+                    if not db_device or not db_device.poll_enabled or not db_device.is_active:
+                        self.logger.info(f"Device {device.name} is no longer pollable, stopping")
+                        break
+                    
+                    # Poll the device
+                    await self._poll_single_device(device_id, db_device)
+                    
+                    # Wait for next poll interval
+                    await asyncio.sleep(db_device.poll_interval)
                 
             except asyncio.CancelledError:
                 self.logger.info(f"Polling task cancelled for device: {device.name}")
@@ -175,36 +175,36 @@ class DevicePoller:
     async def _store_poll_result(self, device_id: int, result: PollResult):
         """Store poll result in history table"""
         try:
-            db = next(get_db())
-            
-            history_data = {
-                "device_id": device_id,
-                "value": result.value,
-                "json_value": result.json_value,
-                "history_metadata": result.metadata
-            }
-            
-            history_crud.create(db, history_data)
-            
+            async with async_session() as db:
+                from app.schemas.device import HistoryCreate
+                
+                history_data = HistoryCreate(
+                    device_id=device_id,
+                    value=result.value,
+                    json_value=result.json_value,
+                    history_metadata=result.metadata
+                )
+                
+                await history_crud.create(db, history_data)
+                
         except Exception as e:
             self.logger.error(f"Failed to store poll result for device {device_id}: {e}")
     
     async def _update_device_status(self, device_id: int, result: Optional[PollResult], error: Optional[str] = None):
         """Update device's last_polled and last_error fields"""
         try:
-            db = next(get_db())
-            
-            last_error = error
-            if result and not result.success:
-                last_error = result.error
-            
-            device_crud.update_poll_status(
-                db=db,
-                device_id=device_id,
-                last_polled=datetime.now(timezone.utc),
-                last_error=last_error
-            )
-            
+            async with async_session() as db:
+                last_error = error
+                if result and not result.success:
+                    last_error = result.error
+                
+                await device_crud.update_poll_status(
+                    db, 
+                    device_id=device_id,
+                    last_polled=datetime.now(timezone.utc),
+                    last_error=last_error
+                )
+                
         except Exception as e:
             self.logger.error(f"Failed to update device status for device {device_id}: {e}")
     
@@ -212,53 +212,54 @@ class DevicePoller:
         """Main polling loop for periodic tasks"""
         while self.running:
             try:
-                # Check for new devices or configuration changes
+                # Refresh device list periodically
                 await self._refresh_devices()
                 
                 # Clean up old history data
                 await self._cleanup_old_history()
                 
-                # Wait before next check
-                await asyncio.sleep(300)  # Check every 5 minutes
+                # Wait before next iteration
+                await asyncio.sleep(300)  # 5 minutes
                 
+            except asyncio.CancelledError:
+                break
             except Exception as e:
                 self.logger.error(f"Error in main polling loop: {e}")
                 await asyncio.sleep(60)
     
     async def _refresh_devices(self):
-        """Refresh device list and configuration"""
+        """Refresh the list of pollable devices"""
         try:
-            db = next(get_db())
-            current_devices = device_crud.get_pollable_devices(db)
-            current_device_ids = {d.id for d in current_devices}
-            
-            # Remove devices that are no longer pollable
-            for device_id in list(self.devices.keys()):
-                if device_id not in current_device_ids:
+            async with async_session() as db:
+                current_devices = set(self.devices.keys())
+                pollable_devices = await device_crud.get_pollable_devices(db)
+                pollable_device_ids = {device.id for device in pollable_devices}
+                
+                # Remove devices that are no longer pollable
+                for device_id in current_devices - pollable_device_ids:
                     await self.remove_device(device_id)
-            
-            # Add new devices
-            for db_device in current_devices:
-                if db_device.id not in self.devices:
-                    await self.add_device(db_device)
-            
+                
+                # Add new pollable devices
+                for device in pollable_devices:
+                    if device.id not in current_devices:
+                        await self.add_device(device)
+                        
         except Exception as e:
             self.logger.error(f"Failed to refresh devices: {e}")
     
     async def _cleanup_old_history(self):
-        """Clean up history data older than 90 days"""
+        """Clean up old history data"""
         try:
-            db = next(get_db())
-            deleted_count = history_crud.cleanup_old_data(db, days=90)
-            
-            if deleted_count > 0:
-                self.logger.info(f"Cleaned up {deleted_count} old history records")
-                
+            async with async_session() as db:
+                deleted_count = await history_crud.cleanup_old_data(db, days=90)
+                if deleted_count > 0:
+                    self.logger.info(f"Cleaned up {deleted_count} old history records")
+                    
         except Exception as e:
             self.logger.error(f"Failed to cleanup old history: {e}")
     
     def get_status(self) -> Dict:
-        """Get current poller status"""
+        """Get the current status of the poller"""
         return {
             "running": self.running,
             "device_count": len(self.devices),
@@ -267,9 +268,8 @@ class DevicePoller:
                 {
                     "id": device_id,
                     "name": device.name,
-                    "type": device.__class__.__name__,
-                    "address": device.address,
-                    "unit": getattr(device, 'unit', None)
+                    "device_type": device.device_type,
+                    "unit": device.unit
                 }
                 for device_id, device in self.devices.items()
             ]

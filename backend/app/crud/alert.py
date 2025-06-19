@@ -1,21 +1,23 @@
 from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, desc, func
 from datetime import datetime, timezone, timedelta
 from app.db.models import Alert, Device, AlertEvent
 from app.schemas.alert import AlertCreate, AlertUpdate, AlertEventCreate, AlertEventUpdate
 
 class AlertCRUD:
-    def get(self, db: Session, alert_id: int) -> Optional[Alert]:
-        return db.query(Alert).filter(Alert.id == alert_id).first()
+    async def get(self, db: AsyncSession, alert_id: int) -> Optional[Alert]:
+        result = await db.execute(select(Alert).filter(Alert.id == alert_id))
+        return result.scalar_one_or_none()
     
-    def get_by_device(self, db: Session, device_id: int) -> List[Alert]:
+    async def get_by_device(self, db: AsyncSession, device_id: int) -> List[Alert]:
         """Get all alerts for a specific device"""
-        return db.query(Alert).filter(Alert.device_id == device_id).all()
+        result = await db.execute(select(Alert).filter(Alert.device_id == device_id))
+        return result.scalars().all()
     
-    def get_multi(
+    async def get_multi(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
         device_id: Optional[int] = None,
@@ -23,7 +25,7 @@ class AlertCRUD:
         trend_enabled: Optional[bool] = None,
         metric: Optional[str] = None
     ) -> List[Alert]:
-        query = db.query(Alert)
+        query = select(Alert)
         
         if device_id is not None:
             query = query.filter(Alert.device_id == device_id)
@@ -34,11 +36,12 @@ class AlertCRUD:
         if metric is not None:
             query = query.filter(Alert.metric == metric)
         
-        return query.offset(skip).limit(limit).all()
+        result = await db.execute(query.offset(skip).limit(limit))
+        return result.scalars().all()
     
-    def get_with_device_info(
+    async def get_multi_with_device_info(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
         device_id: Optional[int] = None,
@@ -47,7 +50,7 @@ class AlertCRUD:
         metric: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get alerts with device metadata included"""
-        query = db.query(Alert, Device).join(Device, Alert.device_id == Device.id)
+        query = select(Alert, Device).join(Device, Alert.device_id == Device.id)
         
         if device_id is not None:
             query = query.filter(Alert.device_id == device_id)
@@ -58,7 +61,8 @@ class AlertCRUD:
         if metric is not None:
             query = query.filter(Alert.metric == metric)
         
-        results = query.offset(skip).limit(limit).all()
+        result = await db.execute(query.offset(skip).limit(limit))
+        results = result.all()
         
         # Convert to dictionary format with device info
         alerts_with_device = []
@@ -77,37 +81,39 @@ class AlertCRUD:
                     "id": device.id,
                     "name": device.name,
                     "device_type": device.device_type,
-                    "unit": device.unit,
-                    "poll_enabled": device.poll_enabled,
-                    "is_active": device.is_active
+                    "unit": device.unit
                 }
             }
             alerts_with_device.append(alert_dict)
         
         return alerts_with_device
     
-    def get_enabled_alerts(self, db: Session) -> List[Alert]:
+    async def get_enabled_alerts(self, db: AsyncSession) -> List[Alert]:
         """Get all enabled alerts"""
-        return db.query(Alert).filter(Alert.is_enabled == True).all()
+        result = await db.execute(select(Alert).filter(Alert.is_enabled == True))
+        return result.scalars().all()
     
-    def get_trend_alerts(self, db: Session) -> List[Alert]:
+    async def get_trend_alerts(self, db: AsyncSession) -> List[Alert]:
         """Get all trend-enabled alerts"""
-        return db.query(Alert).filter(Alert.trend_enabled == True).all()
+        result = await db.execute(select(Alert).filter(Alert.trend_enabled == True))
+        return result.scalars().all()
     
-    def get_alerts_by_metric(self, db: Session, metric: str) -> List[Alert]:
+    async def get_by_metric(self, db: AsyncSession, metric: str) -> List[Alert]:
         """Get all alerts for a specific metric"""
-        return db.query(Alert).filter(Alert.metric == metric).all()
+        result = await db.execute(select(Alert).filter(Alert.metric == metric))
+        return result.scalars().all()
     
-    def create(self, db: Session, obj_in: AlertCreate) -> Alert:
+    async def create(self, db: AsyncSession, obj_in: AlertCreate) -> Alert:
         db_obj = Alert(**obj_in.model_dump())
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def update(
+    async def update(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         db_obj: Alert, 
         obj_in: AlertUpdate
     ) -> Alert:
@@ -117,65 +123,84 @@ class AlertCRUD:
         
         db_obj.updated_at = datetime.now(timezone.utc)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def remove(self, db: Session, alert_id: int) -> Optional[Alert]:
-        obj = db.query(Alert).get(alert_id)
+    async def remove(self, db: AsyncSession, alert_id: int) -> Optional[Alert]:
+        result = await db.execute(select(Alert).filter(Alert.id == alert_id))
+        obj = result.scalar_one_or_none()
         if obj:
-            db.delete(obj)
-            db.commit()
+            await db.delete(obj)
+            await db.commit()
         return obj
     
-    def get_stats(self, db: Session) -> Dict[str, Any]:
+    async def get_stats(self, db: AsyncSession) -> Dict[str, Any]:
         """Get alert statistics"""
-        total_alerts = db.query(Alert).count()
-        enabled_alerts = db.query(Alert).filter(Alert.is_enabled == True).count()
-        trend_alerts = db.query(Alert).filter(Alert.trend_enabled == True).count()
+        # Total alerts
+        result = await db.execute(select(func.count(Alert.id)))
+        total_alerts = result.scalar()
         
-        # Get alert count by device
-        alerts_by_device = {}
-        results = db.query(Alert, Device).join(Device, Alert.device_id == Device.id).all()
+        # Enabled alerts
+        result = await db.execute(select(func.count(Alert.id)).filter(Alert.is_enabled == True))
+        enabled_alerts = result.scalar()
+        
+        # Trend alerts
+        result = await db.execute(select(func.count(Alert.id)).filter(Alert.trend_enabled == True))
+        trend_alerts = result.scalar()
+        
+        # Alerts with device info
+        result = await db.execute(
+            select(Alert, Device).join(Device, Alert.device_id == Device.id)
+        )
+        results = result.all()
+        
+        # Group by device type
+        device_type_counts = {}
         for alert, device in results:
-            device_name = device.name
-            if device_name not in alerts_by_device:
-                alerts_by_device[device_name] = 0
-            alerts_by_device[device_name] += 1
+            device_type = device.device_type
+            if device_type not in device_type_counts:
+                device_type_counts[device_type] = 0
+            device_type_counts[device_type] += 1
         
         return {
             "total_alerts": total_alerts,
             "enabled_alerts": enabled_alerts,
             "trend_alerts": trend_alerts,
-            "alerts_by_device": alerts_by_device
+            "device_type_counts": device_type_counts
         }
 
 class AlertEventCRUD:
-    def get(self, db: Session, event_id: int) -> Optional[AlertEvent]:
-        return db.query(AlertEvent).filter(AlertEvent.id == event_id).first()
+    async def get(self, db: AsyncSession, event_id: int) -> Optional[AlertEvent]:
+        result = await db.execute(select(AlertEvent).filter(AlertEvent.id == event_id))
+        return result.scalar_one_or_none()
     
-    def get_by_alert(self, db: Session, alert_id: int) -> List[AlertEvent]:
+    async def get_by_alert(self, db: AsyncSession, alert_id: int) -> List[AlertEvent]:
         """Get all events for a specific alert"""
-        return db.query(AlertEvent).filter(AlertEvent.alert_id == alert_id).all()
+        result = await db.execute(select(AlertEvent).filter(AlertEvent.alert_id == alert_id))
+        return result.scalars().all()
     
-    def get_by_device(self, db: Session, device_id: int) -> List[AlertEvent]:
+    async def get_by_device(self, db: AsyncSession, device_id: int) -> List[AlertEvent]:
         """Get all events for a specific device"""
-        return db.query(AlertEvent).filter(AlertEvent.device_id == device_id).all()
+        result = await db.execute(select(AlertEvent).filter(AlertEvent.device_id == device_id))
+        return result.scalars().all()
     
-    def get_unresolved_events(self, db: Session) -> List[AlertEvent]:
+    async def get_unresolved(self, db: AsyncSession) -> List[AlertEvent]:
         """Get all unresolved alert events"""
-        return db.query(AlertEvent).filter(AlertEvent.is_resolved == False).all()
+        result = await db.execute(select(AlertEvent).filter(AlertEvent.is_resolved == False))
+        return result.scalars().all()
     
-    def get_multi(
+    async def get_multi(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
         alert_id: Optional[int] = None,
         device_id: Optional[int] = None,
         is_resolved: Optional[bool] = None
     ) -> List[AlertEvent]:
-        query = db.query(AlertEvent)
+        query = select(AlertEvent)
         
         if alert_id is not None:
             query = query.filter(AlertEvent.alert_id == alert_id)
@@ -184,18 +209,20 @@ class AlertEventCRUD:
         if is_resolved is not None:
             query = query.filter(AlertEvent.is_resolved == is_resolved)
         
-        return query.order_by(desc(AlertEvent.triggered_at)).offset(skip).limit(limit).all()
+        result = await db.execute(query.order_by(desc(AlertEvent.triggered_at)).offset(skip).limit(limit))
+        return result.scalars().all()
     
-    def create(self, db: Session, obj_in: AlertEventCreate) -> AlertEvent:
+    async def create(self, db: AsyncSession, obj_in: AlertEventCreate) -> AlertEvent:
         db_obj = AlertEvent(**obj_in.model_dump())
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def update(
+    async def update(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         db_obj: AlertEvent, 
         obj_in: AlertEventUpdate
     ) -> AlertEvent:
@@ -208,25 +235,34 @@ class AlertEventCRUD:
             db_obj.resolved_at = datetime.now(timezone.utc)
         
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def remove(self, db: Session, event_id: int) -> Optional[AlertEvent]:
-        obj = db.query(AlertEvent).get(event_id)
+    async def remove(self, db: AsyncSession, event_id: int) -> Optional[AlertEvent]:
+        result = await db.execute(select(AlertEvent).filter(AlertEvent.id == event_id))
+        obj = result.scalar_one_or_none()
         if obj:
-            db.delete(obj)
-            db.commit()
+            await db.delete(obj)
+            await db.commit()
         return obj
     
-    def cleanup_old_events(self, db: Session, days: int = 90) -> int:
+    async def cleanup_old_events(self, db: AsyncSession, days: int = 30) -> int:
         """Delete alert events older than specified days"""
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-        result = db.query(AlertEvent).filter(
-            AlertEvent.triggered_at < cutoff_date
-        ).delete()
-        db.commit()
-        return result
+        result = await db.execute(
+            select(AlertEvent).filter(
+                AlertEvent.triggered_at < cutoff_date
+            )
+        )
+        old_events = result.scalars().all()
+        
+        for event in old_events:
+            await db.delete(event)
+        
+        await db.commit()
+        return len(old_events)
 
 # Create instances
 alert = AlertCRUD()

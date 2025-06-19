@@ -1,27 +1,29 @@
 from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc, func
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, desc, func
 from datetime import datetime, timezone, timedelta
 from app.db.models import Schedule, DeviceAction, Device
 from app.schemas.schedule import ScheduleCreate, ScheduleUpdate, DeviceActionCreate, DeviceActionUpdate
 
 class ScheduleCRUD:
-    def get(self, db: Session, schedule_id: int) -> Optional[Schedule]:
-        return db.query(Schedule).filter(Schedule.id == schedule_id).first()
+    async def get(self, db: AsyncSession, schedule_id: int) -> Optional[Schedule]:
+        result = await db.execute(select(Schedule).filter(Schedule.id == schedule_id))
+        return result.scalar_one_or_none()
     
-    def get_by_name(self, db: Session, name: str) -> Optional[Schedule]:
-        return db.query(Schedule).filter(Schedule.name == name).first()
+    async def get_by_name(self, db: AsyncSession, name: str) -> Optional[Schedule]:
+        result = await db.execute(select(Schedule).filter(Schedule.name == name))
+        return result.scalar_one_or_none()
     
-    def get_multi(
+    async def get_multi(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
         schedule_type: Optional[str] = None,
         is_enabled: Optional[bool] = None,
         device_id: Optional[int] = None
     ) -> List[Schedule]:
-        query = db.query(Schedule)
+        query = select(Schedule)
         
         if schedule_type is not None:
             query = query.filter(Schedule.schedule_type == schedule_type)
@@ -30,39 +32,47 @@ class ScheduleCRUD:
         if device_id is not None:
             query = query.filter(Schedule.device_ids.contains([device_id]))
         
-        return query.offset(skip).limit(limit).all()
+        result = await db.execute(query.offset(skip).limit(limit))
+        return result.scalars().all()
     
-    def get_enabled_schedules(self, db: Session) -> List[Schedule]:
+    async def get_enabled_schedules(self, db: AsyncSession) -> List[Schedule]:
         """Get all enabled schedules"""
-        return db.query(Schedule).filter(Schedule.is_enabled == True).all()
+        result = await db.execute(select(Schedule).filter(Schedule.is_enabled == True))
+        return result.scalars().all()
     
-    def get_due_schedules(self, db: Session, current_time: datetime) -> List[Schedule]:
+    async def get_due_schedules(self, db: AsyncSession, current_time: datetime) -> List[Schedule]:
         """Get all schedules that are due to run"""
-        return db.query(Schedule).filter(
-            and_(
-                Schedule.is_enabled == True,
-                Schedule.next_run <= current_time
+        result = await db.execute(
+            select(Schedule).filter(
+                and_(
+                    Schedule.is_enabled == True,
+                    Schedule.next_run <= current_time
+                )
             )
-        ).all()
+        )
+        return result.scalars().all()
     
-    def get_schedules_by_type(self, db: Session, schedule_type: str) -> List[Schedule]:
+    async def get_schedules_by_type(self, db: AsyncSession, schedule_type: str) -> List[Schedule]:
         """Get all schedules of a specific type"""
-        return db.query(Schedule).filter(Schedule.schedule_type == schedule_type).all()
+        result = await db.execute(select(Schedule).filter(Schedule.schedule_type == schedule_type))
+        return result.scalars().all()
     
-    def get_static_schedules(self, db: Session) -> List[Schedule]:
+    async def get_static_schedules(self, db: AsyncSession) -> List[Schedule]:
         """Get all static schedules (prepopulated)"""
-        return db.query(Schedule).filter(Schedule.schedule_type == "static").all()
+        result = await db.execute(select(Schedule).filter(Schedule.schedule_type == "static"))
+        return result.scalars().all()
     
-    def create(self, db: Session, obj_in: ScheduleCreate) -> Schedule:
+    async def create(self, db: AsyncSession, obj_in: ScheduleCreate) -> Schedule:
         db_obj = Schedule(**obj_in.model_dump())
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def update(
+    async def update(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         db_obj: Schedule, 
         obj_in: ScheduleUpdate
     ) -> Schedule:
@@ -72,54 +82,67 @@ class ScheduleCRUD:
         
         db_obj.updated_at = datetime.now(timezone.utc)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def update_next_run(self, db: Session, schedule_id: int, next_run: datetime) -> Optional[Schedule]:
+    async def update_next_run(self, db: AsyncSession, schedule_id: int, next_run: datetime) -> Optional[Schedule]:
         """Update the next run time for a schedule"""
-        schedule = self.get(db, schedule_id)
+        schedule = await self.get(db, schedule_id)
         if schedule:
             schedule.next_run = next_run
             schedule.updated_at = datetime.now(timezone.utc)
             db.add(schedule)
-            db.commit()
-            db.refresh(schedule)
+            await db.flush()  # Explicit flush since autoflush=False
+            await db.commit()
+            await db.refresh(schedule)
         return schedule
     
-    def update_last_run(self, db: Session, schedule_id: int, last_run: datetime, status: str) -> Optional[Schedule]:
+    async def update_last_run(self, db: AsyncSession, schedule_id: int, last_run: datetime, status: str) -> Optional[Schedule]:
         """Update the last run time and status for a schedule"""
-        schedule = self.get(db, schedule_id)
+        schedule = await self.get(db, schedule_id)
         if schedule:
             schedule.last_run = last_run
             schedule.last_run_status = status
             schedule.updated_at = datetime.now(timezone.utc)
             db.add(schedule)
-            db.commit()
-            db.refresh(schedule)
+            await db.flush()  # Explicit flush since autoflush=False
+            await db.commit()
+            await db.refresh(schedule)
         return schedule
     
-    def remove(self, db: Session, schedule_id: int) -> Optional[Schedule]:
-        obj = db.query(Schedule).get(schedule_id)
+    async def remove(self, db: AsyncSession, schedule_id: int) -> Optional[Schedule]:
+        result = await db.execute(select(Schedule).filter(Schedule.id == schedule_id))
+        obj = result.scalar_one_or_none()
         if obj:
-            db.delete(obj)
-            db.commit()
+            await db.delete(obj)
+            await db.commit()
         return obj
     
-    def get_stats(self, db: Session) -> Dict[str, Any]:
+    async def get_stats(self, db: AsyncSession) -> Dict[str, Any]:
         """Get schedule statistics"""
-        total_schedules = db.query(Schedule).count()
-        enabled_schedules = db.query(Schedule).filter(Schedule.is_enabled == True).count()
+        # Total schedules
+        result = await db.execute(select(func.count(Schedule.id)))
+        total_schedules = result.scalar()
+        
+        # Enabled schedules
+        result = await db.execute(select(func.count(Schedule.id)).filter(Schedule.is_enabled == True))
+        enabled_schedules = result.scalar()
         
         # Get schedules by type
+        result = await db.execute(
+            select(Schedule.schedule_type, func.count(Schedule.id)).group_by(Schedule.schedule_type)
+        )
+        type_counts = result.all()
         schedules_by_type = {}
-        type_counts = db.query(Schedule.schedule_type, func.count(Schedule.id)).group_by(Schedule.schedule_type).all()
         for schedule_type, count in type_counts:
             schedules_by_type[schedule_type] = count
         
         # Get next runs for all enabled schedules
+        result = await db.execute(select(Schedule).filter(Schedule.is_enabled == True))
+        enabled_schedules_list = result.scalars().all()
         next_runs = []
-        enabled_schedules_list = db.query(Schedule).filter(Schedule.is_enabled == True).all()
         for schedule in enabled_schedules_list:
             next_runs.append({
                 "id": schedule.id,
@@ -136,40 +159,47 @@ class ScheduleCRUD:
         }
 
 class DeviceActionCRUD:
-    def get(self, db: Session, action_id: int) -> Optional[DeviceAction]:
-        return db.query(DeviceAction).filter(DeviceAction.id == action_id).first()
+    async def get(self, db: AsyncSession, action_id: int) -> Optional[DeviceAction]:
+        result = await db.execute(select(DeviceAction).filter(DeviceAction.id == action_id))
+        return result.scalar_one_or_none()
     
-    def get_by_schedule(self, db: Session, schedule_id: int) -> List[DeviceAction]:
+    async def get_by_schedule(self, db: AsyncSession, schedule_id: int) -> List[DeviceAction]:
         """Get all actions for a specific schedule"""
-        return db.query(DeviceAction).filter(DeviceAction.schedule_id == schedule_id).all()
+        result = await db.execute(select(DeviceAction).filter(DeviceAction.schedule_id == schedule_id))
+        return result.scalars().all()
     
-    def get_by_device(self, db: Session, device_id: int) -> List[DeviceAction]:
+    async def get_by_device(self, db: AsyncSession, device_id: int) -> List[DeviceAction]:
         """Get all actions for a specific device"""
-        return db.query(DeviceAction).filter(DeviceAction.device_id == device_id).all()
+        result = await db.execute(select(DeviceAction).filter(DeviceAction.device_id == device_id))
+        return result.scalars().all()
     
-    def get_pending_actions(self, db: Session) -> List[DeviceAction]:
+    async def get_pending_actions(self, db: AsyncSession) -> List[DeviceAction]:
         """Get all pending actions"""
-        return db.query(DeviceAction).filter(DeviceAction.status == "pending").all()
+        result = await db.execute(select(DeviceAction).filter(DeviceAction.status == "pending"))
+        return result.scalars().all()
     
-    def get_due_actions(self, db: Session, current_time: datetime) -> List[DeviceAction]:
+    async def get_due_actions(self, db: AsyncSession, current_time: datetime) -> List[DeviceAction]:
         """Get all actions that are due to be executed"""
-        return db.query(DeviceAction).filter(
-            and_(
-                DeviceAction.status == "pending",
-                DeviceAction.scheduled_time <= current_time
+        result = await db.execute(
+            select(DeviceAction).filter(
+                and_(
+                    DeviceAction.status == "pending",
+                    DeviceAction.scheduled_time <= current_time
+                )
             )
-        ).all()
+        )
+        return result.scalars().all()
     
-    def get_multi(
+    async def get_multi(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
         status: Optional[str] = None,
         device_id: Optional[int] = None,
         schedule_id: Optional[int] = None
     ) -> List[DeviceAction]:
-        query = db.query(DeviceAction)
+        query = select(DeviceAction)
         
         if status is not None:
             query = query.filter(DeviceAction.status == status)
@@ -178,11 +208,12 @@ class DeviceActionCRUD:
         if schedule_id is not None:
             query = query.filter(DeviceAction.schedule_id == schedule_id)
         
-        return query.order_by(desc(DeviceAction.scheduled_time)).offset(skip).limit(limit).all()
+        result = await db.execute(query.order_by(desc(DeviceAction.scheduled_time)).offset(skip).limit(limit))
+        return result.scalars().all()
     
-    def get_with_device_info(
+    async def get_with_device_info(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
         status: Optional[str] = None,
@@ -190,7 +221,7 @@ class DeviceActionCRUD:
         schedule_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Get device actions with device metadata included"""
-        query = db.query(DeviceAction, Device).join(Device, DeviceAction.device_id == Device.id)
+        query = select(DeviceAction, Device).join(Device, DeviceAction.device_id == Device.id)
         
         if status is not None:
             query = query.filter(DeviceAction.status == status)
@@ -199,7 +230,8 @@ class DeviceActionCRUD:
         if schedule_id is not None:
             query = query.filter(DeviceAction.schedule_id == schedule_id)
         
-        results = query.order_by(desc(DeviceAction.scheduled_time)).offset(skip).limit(limit).all()
+        result = await db.execute(query.order_by(desc(DeviceAction.scheduled_time)).offset(skip).limit(limit))
+        results = result.all()
         
         # Convert to dictionary format with device info
         actions_with_device = []
@@ -210,13 +242,12 @@ class DeviceActionCRUD:
                 "device_id": action.device_id,
                 "action_type": action.action_type,
                 "parameters": action.parameters,
-                "status": action.status,
                 "scheduled_time": action.scheduled_time,
-                "executed_time": action.executed_time,
+                "status": action.status,
                 "result": action.result,
                 "error_message": action.error_message,
+                "executed_at": action.executed_at,
                 "created_at": action.created_at,
-                "updated_at": action.updated_at,
                 "device": {
                     "id": device.id,
                     "name": device.name,
@@ -228,32 +259,34 @@ class DeviceActionCRUD:
         
         return actions_with_device
     
-    def create(self, db: Session, obj_in: DeviceActionCreate) -> DeviceAction:
+    async def create(self, db: AsyncSession, obj_in: DeviceActionCreate) -> DeviceAction:
         db_obj = DeviceAction(**obj_in.model_dump())
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def create_bulk(self, db: Session, actions: List[DeviceActionCreate]) -> List[DeviceAction]:
-        """Create multiple device actions in bulk"""
+    async def create_bulk(self, db: AsyncSession, actions: List[DeviceActionCreate]) -> List[DeviceAction]:
+        """Create multiple device actions in a single transaction"""
         db_objs = []
         for action_in in actions:
             db_obj = DeviceAction(**action_in.model_dump())
+            db.add(db_obj)
             db_objs.append(db_obj)
         
-        db.add_all(db_objs)
-        db.commit()
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
         
-        # Refresh all objects
+        # Refresh all objects to get their IDs
         for db_obj in db_objs:
-            db.refresh(db_obj)
+            await db.refresh(db_obj)
         
         return db_objs
     
-    def update(
+    async def update(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         db_obj: DeviceAction, 
         obj_in: DeviceActionUpdate
     ) -> DeviceAction:
@@ -261,61 +294,86 @@ class DeviceActionCRUD:
         for field, value in update_data.items():
             setattr(db_obj, field, value)
         
-        db_obj.updated_at = datetime.now(timezone.utc)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def mark_executed(self, db: Session, action_id: int, result: Optional[Dict[str, Any]] = None, error_message: Optional[str] = None) -> Optional[DeviceAction]:
-        """Mark a device action as executed"""
-        action = self.get(db, action_id)
+    async def mark_executed(
+        self, 
+        db: AsyncSession, 
+        action_id: int, 
+        result: Optional[Dict[str, Any]] = None, 
+        error_message: Optional[str] = None
+    ) -> Optional[DeviceAction]:
+        """Mark an action as executed with result or error"""
+        action = await self.get(db, action_id)
         if action:
-            action.status = "success" if error_message is None else "failed"
-            action.executed_time = datetime.now(timezone.utc)
+            action.status = "failed" if error_message else "success"
             action.result = result
             action.error_message = error_message
-            action.updated_at = datetime.now(timezone.utc)
+            action.executed_at = datetime.now(timezone.utc)
             db.add(action)
-            db.commit()
-            db.refresh(action)
+            await db.flush()  # Explicit flush since autoflush=False
+            await db.commit()
+            await db.refresh(action)
         return action
     
-    def remove(self, db: Session, action_id: int) -> Optional[DeviceAction]:
-        obj = db.query(DeviceAction).get(action_id)
+    async def remove(self, db: AsyncSession, action_id: int) -> Optional[DeviceAction]:
+        result = await db.execute(select(DeviceAction).filter(DeviceAction.id == action_id))
+        obj = result.scalar_one_or_none()
         if obj:
-            db.delete(obj)
-            db.commit()
+            await db.delete(obj)
+            await db.commit()
         return obj
     
-    def cleanup_old_actions(self, db: Session, days: int = 30) -> int:
+    async def cleanup_old_actions(self, db: AsyncSession, days: int = 30) -> int:
         """Delete device actions older than specified days"""
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-        result = db.query(DeviceAction).filter(
-            DeviceAction.created_at < cutoff_date
-        ).delete()
-        db.commit()
-        return result
-    
-    def get_stats(self, db: Session) -> Dict[str, Any]:
-        """Get device action statistics"""
-        total_actions = db.query(DeviceAction).count()
-        pending_actions = db.query(DeviceAction).filter(DeviceAction.status == "pending").count()
-        successful_actions = db.query(DeviceAction).filter(DeviceAction.status == "success").count()
-        failed_actions = db.query(DeviceAction).filter(DeviceAction.status == "failed").count()
+        result = await db.execute(
+            select(DeviceAction).filter(
+                DeviceAction.scheduled_time < cutoff_date
+            )
+        )
+        old_actions = result.scalars().all()
         
-        # Get actions by status
-        actions_by_status = {}
-        status_counts = db.query(DeviceAction.status, func.count(DeviceAction.id)).group_by(DeviceAction.status).all()
-        for status, count in status_counts:
-            actions_by_status[status] = count
+        for action in old_actions:
+            await db.delete(action)
+        
+        await db.commit()
+        return len(old_actions)
+    
+    async def get_stats(self, db: AsyncSession) -> Dict[str, Any]:
+        """Get device action statistics"""
+        # Total actions
+        result = await db.execute(select(func.count(DeviceAction.id)))
+        total_actions = result.scalar()
+        
+        # Pending actions
+        result = await db.execute(select(func.count(DeviceAction.id)).filter(DeviceAction.status == "pending"))
+        pending_actions = result.scalar()
+        
+        # Successful actions
+        result = await db.execute(select(func.count(DeviceAction.id)).filter(DeviceAction.status == "success"))
+        successful_actions = result.scalar()
+        
+        # Failed actions
+        result = await db.execute(select(func.count(DeviceAction.id)).filter(DeviceAction.status == "failed"))
+        failed_actions = result.scalar()
+        
+        # Actions by status
+        result = await db.execute(
+            select(DeviceAction.status, func.count(DeviceAction.id)).group_by(DeviceAction.status)
+        )
+        status_counts = result.all()
         
         return {
             "total_actions": total_actions,
             "pending_actions": pending_actions,
             "successful_actions": successful_actions,
             "failed_actions": failed_actions,
-            "actions_by_status": actions_by_status
+            "status_counts": dict(status_counts)
         }
 
 # Create instances

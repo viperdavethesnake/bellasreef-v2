@@ -8,7 +8,7 @@ schedule types, handling timezone conversions, and managing schedule execution.
 import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timezone, timedelta
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.db.models import Schedule, DeviceAction, Device
 from app.crud.schedule import schedule as schedule_crud, device_action as device_action_crud
 from app.schemas.schedule import ScheduleCreate, DeviceActionCreate, ActionTypeEnum
@@ -26,7 +26,7 @@ class ScheduleCalculator:
     - Bulk schedule processing
     """
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
     
     def calculate_next_run(self, schedule: Schedule, current_time: Optional[datetime] = None) -> Optional[datetime]:
@@ -201,39 +201,41 @@ class ScheduleCalculator:
             return next_run
         elif minute != "*" and hour != "*" and day == "*" and month == "*" and weekday == "*":
             # Daily at specific time
-            next_run = current_time.replace(hour=int(hour), minute=int(minute), second=0, microsecond=0)
+            next_run = current_time.replace(
+                hour=int(hour), 
+                minute=int(minute), 
+                second=0, 
+                microsecond=0
+            )
             if next_run <= current_time:
                 next_run += timedelta(days=1)
             return next_run
         else:
-            # For complex cron expressions, return current time + 1 hour as fallback
+            # For complex patterns, return current time + 1 hour as fallback
             logger.warning(f"Complex cron expression not fully supported: {cron_expr}")
             return current_time + timedelta(hours=1)
     
     def _local_to_utc(self, local_time: datetime, timezone_str: str) -> datetime:
-        """
-        Convert local time to UTC.
-        
-        This is a simplified implementation. In production, use pytz or zoneinfo.
-        """
-        # For now, assume the time is already in UTC
-        # In production, implement proper timezone conversion
-        if local_time.tzinfo is None:
-            # Assume UTC for now
+        """Convert local time to UTC."""
+        # Simplified timezone conversion
+        # In production, use pytz or zoneinfo for proper timezone handling
+        if timezone_str == "UTC":
             return local_time.replace(tzinfo=timezone.utc)
-        return local_time
+        else:
+            # Assume local time is already in UTC for now
+            return local_time.replace(tzinfo=timezone.utc)
     
     def _utc_to_local(self, utc_time: datetime, timezone_str: str) -> datetime:
-        """
-        Convert UTC time to local time.
-        
-        This is a simplified implementation. In production, use pytz or zoneinfo.
-        """
-        # For now, return UTC time as-is
-        # In production, implement proper timezone conversion
-        return utc_time
+        """Convert UTC time to local time."""
+        # Simplified timezone conversion
+        # In production, use pytz or zoneinfo for proper timezone handling
+        if timezone_str == "UTC":
+            return utc_time
+        else:
+            # Return UTC time for now
+            return utc_time
     
-    def process_due_schedules(self, current_time: Optional[datetime] = None) -> Dict[str, Any]:
+    async def process_due_schedules(self, current_time: Optional[datetime] = None) -> Dict[str, Any]:
         """
         Process all schedules that are due to run.
         
@@ -241,33 +243,36 @@ class ScheduleCalculator:
             current_time: Current time (defaults to UTC now)
             
         Returns:
-            Dictionary with processing statistics
+            Dict containing processing statistics
         """
         if current_time is None:
             current_time = datetime.now(timezone.utc)
         
         logger.info(f"Processing due schedules at {current_time}")
         
-        stats = {
-            "total_schedules": 0,
-            "processed": 0,
-            "actions_created": 0,
-            "errors": 0,
-            "skipped": 0
-        }
-        
         # Get all due schedules
-        due_schedules = schedule_crud.get_due_schedules(self.db, current_time)
-        stats["total_schedules"] = len(due_schedules)
+        due_schedules = await schedule_crud.get_due_schedules(self.db, current_time)
+        logger.info(f"Found {len(due_schedules)} schedules due to run")
+        
+        stats = {
+            "total_due": len(due_schedules),
+            "processed": 0,
+            "successful": 0,
+            "failed": 0,
+            "errors": 0
+        }
         
         for schedule in due_schedules:
             try:
-                result = self._process_single_schedule(schedule, current_time)
+                result = await self._process_single_schedule(schedule, current_time)
                 stats["processed"] += 1
-                stats["actions_created"] += result.get("actions_created", 0)
                 
-                if result.get("skipped"):
-                    stats["skipped"] += 1
+                if result["success"]:
+                    stats["successful"] += 1
+                    logger.info(f"Successfully processed schedule {schedule.id}: {result['message']}")
+                else:
+                    stats["failed"] += 1
+                    logger.warning(f"Failed to process schedule {schedule.id}: {result['message']}")
                     
             except Exception as e:
                 stats["errors"] += 1
@@ -276,58 +281,89 @@ class ScheduleCalculator:
         logger.info(f"Schedule processing complete: {stats}")
         return stats
     
-    def _process_single_schedule(self, schedule: Schedule, current_time: datetime) -> Dict[str, Any]:
+    async def _process_single_schedule(self, schedule: Schedule, current_time: datetime) -> Dict[str, Any]:
         """
-        Process a single schedule that is due to run.
+        Process a single schedule and create device actions.
         
         Args:
             schedule: The schedule to process
             current_time: Current time
             
         Returns:
-            Dictionary with processing result
+            Dict containing processing result
         """
-        # Validate schedule
-        if not schedule.is_enabled:
-            return {"skipped": True, "reason": "Schedule disabled"}
-        
-        if not schedule.device_ids:
-            return {"skipped": True, "reason": "No devices specified"}
-        
-        # Create device actions
-        actions_created = 0
-        for device_id in schedule.device_ids:
-            try:
-                action_data = DeviceActionCreate(
-                    schedule_id=schedule.id,
-                    device_id=device_id,
-                    action_type=schedule.action_type,
-                    parameters=schedule.action_params,
-                    scheduled_time=current_time
-                )
-                
-                device_action_crud.create(self.db, action_data)
-                actions_created += 1
-                
-            except Exception as e:
-                logger.error(f"Error creating action for device {device_id}: {e}")
-        
-        # Update schedule last run
-        schedule_crud.update_last_run(self.db, schedule.id, current_time, "success")
-        
-        # Calculate next run time
-        next_run = self.calculate_next_run(schedule, current_time)
-        if next_run:
-            schedule_crud.update_next_run(self.db, schedule.id, next_run)
-        else:
-            # Schedule is expired or invalid, disable it
-            schedule_crud.update(self.db, schedule, {"is_enabled": False})
-            logger.info(f"Schedule {schedule.id} expired, disabled")
-        
-        return {
-            "actions_created": actions_created,
-            "next_run": next_run
-        }
+        try:
+            # Validate schedule
+            validation = self.validate_schedule(schedule)
+            if not validation["valid"]:
+                return {
+                    "success": False,
+                    "message": f"Schedule validation failed: {validation['errors']}"
+                }
+            
+            # Create device actions for each device in the schedule
+            actions_created = []
+            for device_id in schedule.device_ids:
+                try:
+                    # Verify device exists and is active
+                    device = await self._get_device(device_id)
+                    if not device:
+                        logger.warning(f"Device {device_id} not found for schedule {schedule.id}")
+                        continue
+                    
+                    if not device.is_active:
+                        logger.warning(f"Device {device_id} is inactive for schedule {schedule.id}")
+                        continue
+                    
+                    # Create device action
+                    action_data = DeviceActionCreate(
+                        schedule_id=schedule.id,
+                        device_id=device_id,
+                        action_type=schedule.action_type,
+                        parameters=schedule.action_params,
+                        scheduled_time=current_time
+                    )
+                    
+                    action = await device_action_crud.create(self.db, action_data)
+                    actions_created.append(action)
+                    
+                except Exception as e:
+                    logger.error(f"Error creating action for device {device_id}: {e}")
+            
+            if not actions_created:
+                return {
+                    "success": False,
+                    "message": "No device actions were created"
+                }
+            
+            # Update schedule with next run time
+            next_run = self.calculate_next_run(schedule, current_time)
+            if next_run:
+                await schedule_crud.update_next_run(self.db, schedule.id, next_run)
+            else:
+                # Schedule is expired, disable it
+                await schedule_crud.update(self.db, schedule, {"is_enabled": False})
+                logger.info(f"Schedule {schedule.id} expired and disabled")
+            
+            # Update last run time
+            await schedule_crud.update_last_run(self.db, schedule.id, current_time, "success")
+            
+            return {
+                "success": True,
+                "message": f"Created {len(actions_created)} device actions",
+                "actions_created": len(actions_created)
+            }
+            
+        except Exception as e:
+            # Update schedule with error status
+            await schedule_crud.update_last_run(self.db, schedule.id, current_time, "failed")
+            raise e
+    
+    async def _get_device(self, device_id: int) -> Optional[Device]:
+        """Get a device by ID."""
+        from sqlalchemy import select
+        result = await self.db.execute(select(Device).filter(Device.id == device_id))
+        return result.scalar_one_or_none()
     
     def validate_schedule(self, schedule: Schedule) -> Dict[str, Any]:
         """
@@ -337,47 +373,36 @@ class ScheduleCalculator:
             schedule: The schedule to validate
             
         Returns:
-            Dictionary with validation result
+            Dict containing validation result
         """
         errors = []
-        warnings = []
         
         # Check required fields based on schedule type
-        if schedule.schedule_type == "one_off" and not schedule.start_time:
-            errors.append("One-off schedules require start_time")
+        if schedule.schedule_type == "one_off":
+            if not schedule.start_time:
+                errors.append("One-off schedule requires start_time")
+        elif schedule.schedule_type == "interval":
+            if not schedule.interval_seconds:
+                errors.append("Interval schedule requires interval_seconds")
+        elif schedule.schedule_type == "cron":
+            if not schedule.cron_expression:
+                errors.append("Cron schedule requires cron_expression")
+        elif schedule.schedule_type == "recurring":
+            if not schedule.start_time:
+                errors.append("Recurring schedule requires start_time")
+        elif schedule.schedule_type == "static":
+            if not schedule.start_time:
+                errors.append("Static schedule requires start_time")
         
-        if schedule.schedule_type == "interval" and not schedule.interval_seconds:
-            errors.append("Interval schedules require interval_seconds")
-        
-        if schedule.schedule_type == "cron" and not schedule.cron_expression:
-            errors.append("Cron schedules require cron_expression")
-        
-        if schedule.schedule_type == "recurring" and not schedule.start_time:
-            errors.append("Recurring schedules require start_time")
-        
-        # Check device IDs
+        # Check device_ids
         if not schedule.device_ids:
-            errors.append("At least one device_id is required")
-        else:
-            # Validate that devices exist
-            for device_id in schedule.device_ids:
-                device = self.db.query(Device).filter(Device.id == device_id).first()
-                if not device:
-                    errors.append(f"Device {device_id} does not exist")
-                elif not device.is_active:
-                    warnings.append(f"Device {device_id} is not active")
+            errors.append("Schedule must have at least one device")
         
-        # Check timezone
-        if schedule.timezone not in ["UTC", "US/Pacific", "US/Mountain", "US/Central", "US/Eastern"]:
-            warnings.append(f"Timezone {schedule.timezone} may not be supported")
-        
-        # Check end time
-        if schedule.end_time and schedule.start_time:
-            if schedule.end_time <= schedule.start_time:
-                errors.append("End time must be after start time")
+        # Check action_type
+        if not schedule.action_type:
+            errors.append("Schedule must have an action_type")
         
         return {
             "valid": len(errors) == 0,
-            "errors": errors,
-            "warnings": warnings
+            "errors": errors
         } 

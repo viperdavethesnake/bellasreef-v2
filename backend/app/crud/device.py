@@ -1,20 +1,22 @@
 from typing import List, Optional, Dict, Any
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, desc, func
 from datetime import datetime, timedelta, timezone
 from app.db.models import Device, History
 from app.schemas.device import DeviceCreate, DeviceUpdate, HistoryCreate
 
 class DeviceCRUD:
-    def get(self, db: Session, device_id: int) -> Optional[Device]:
-        return db.query(Device).filter(Device.id == device_id).first()
+    async def get(self, db: AsyncSession, device_id: int) -> Optional[Device]:
+        result = await db.execute(select(Device).filter(Device.id == device_id))
+        return result.scalar_one_or_none()
     
-    def get_by_address(self, db: Session, address: str) -> Optional[Device]:
-        return db.query(Device).filter(Device.address == address).first()
+    async def get_by_address(self, db: AsyncSession, address: str) -> Optional[Device]:
+        result = await db.execute(select(Device).filter(Device.address == address))
+        return result.scalar_one_or_none()
     
-    def get_multi(
+    async def get_multi(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         skip: int = 0, 
         limit: int = 100,
         poll_enabled: Optional[bool] = None,
@@ -22,7 +24,7 @@ class DeviceCRUD:
         is_active: Optional[bool] = None,
         unit: Optional[str] = None
     ) -> List[Device]:
-        query = db.query(Device)
+        query = select(Device)
         
         if poll_enabled is not None:
             query = query.filter(Device.poll_enabled == poll_enabled)
@@ -33,31 +35,37 @@ class DeviceCRUD:
         if unit is not None:
             query = query.filter(Device.unit == unit)
         
-        return query.offset(skip).limit(limit).all()
+        result = await db.execute(query.offset(skip).limit(limit))
+        return result.scalars().all()
     
-    def get_pollable_devices(self, db: Session) -> List[Device]:
+    async def get_pollable_devices(self, db: AsyncSession) -> List[Device]:
         """Get all devices that should be polled (enabled and active)"""
-        return db.query(Device).filter(
-            and_(
-                Device.poll_enabled == True,
-                Device.is_active == True
+        result = await db.execute(
+            select(Device).filter(
+                and_(
+                    Device.poll_enabled == True,
+                    Device.is_active == True
+                )
             )
-        ).all()
+        )
+        return result.scalars().all()
     
-    def get_devices_by_unit(self, db: Session, unit: str) -> List[Device]:
+    async def get_devices_by_unit(self, db: AsyncSession, unit: str) -> List[Device]:
         """Get all devices with a specific unit of measurement"""
-        return db.query(Device).filter(Device.unit == unit).all()
+        result = await db.execute(select(Device).filter(Device.unit == unit))
+        return result.scalars().all()
     
-    def create(self, db: Session, obj_in: DeviceCreate) -> Device:
+    async def create(self, db: AsyncSession, obj_in: DeviceCreate) -> Device:
         db_obj = Device(**obj_in.model_dump())
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def update(
+    async def update(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         db_obj: Device, 
         obj_in: DeviceUpdate
     ) -> Device:
@@ -67,70 +75,76 @@ class DeviceCRUD:
         
         db_obj.updated_at = datetime.now(timezone.utc)
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def update_poll_status(
+    async def update_poll_status(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         device_id: int, 
         last_polled: datetime,
         last_error: Optional[str] = None
     ) -> Optional[Device]:
-        device = self.get(db, device_id)
+        device = await self.get(db, device_id)
         if device:
             device.last_polled = last_polled
             device.last_error = last_error
             device.updated_at = datetime.now(timezone.utc)
             db.add(device)
-            db.commit()
-            db.refresh(device)
+            await db.flush()  # Explicit flush since autoflush=False
+            await db.commit()
+            await db.refresh(device)
         return device
     
-    def remove(self, db: Session, device_id: int) -> Optional[Device]:
-        obj = db.query(Device).get(device_id)
+    async def remove(self, db: AsyncSession, device_id: int) -> Optional[Device]:
+        result = await db.execute(select(Device).filter(Device.id == device_id))
+        obj = result.scalar_one_or_none()
         if obj:
-            db.delete(obj)
-            db.commit()
+            await db.delete(obj)
+            await db.commit()
         return obj
 
 class HistoryCRUD:
-    def get(self, db: Session, history_id: int) -> Optional[History]:
-        return db.query(History).filter(History.id == history_id).first()
+    async def get(self, db: AsyncSession, history_id: int) -> Optional[History]:
+        result = await db.execute(select(History).filter(History.id == history_id))
+        return result.scalar_one_or_none()
     
-    def get_by_device(
+    async def get_by_device(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         device_id: int, 
         skip: int = 0, 
         limit: int = 100,
         hours: Optional[int] = None
     ) -> List[History]:
-        query = db.query(History).filter(History.device_id == device_id)
+        query = select(History).filter(History.device_id == device_id)
         
         if hours:
             cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
             query = query.filter(History.timestamp >= cutoff_time)
         
-        return query.order_by(desc(History.timestamp)).offset(skip).limit(limit).all()
+        result = await db.execute(query.order_by(desc(History.timestamp)).offset(skip).limit(limit))
+        return result.scalars().all()
     
-    def get_by_device_with_device_info(
+    async def get_by_device_with_device_info(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         device_id: int, 
         skip: int = 0, 
         limit: int = 100,
         hours: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """Get history records with device metadata included"""
-        query = db.query(History, Device).join(Device, History.device_id == Device.id).filter(History.device_id == device_id)
+        query = select(History, Device).join(Device, History.device_id == Device.id).filter(History.device_id == device_id)
         
         if hours:
             cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
             query = query.filter(History.timestamp >= cutoff_time)
         
-        results = query.order_by(desc(History.timestamp)).offset(skip).limit(limit).all()
+        result = await db.execute(query.order_by(desc(History.timestamp)).offset(skip).limit(limit))
+        results = result.all()
         
         # Convert to dictionary format with device info
         history_with_device = []
@@ -155,19 +169,25 @@ class HistoryCRUD:
         
         return history_with_device
     
-    def get_latest_by_device(self, db: Session, device_id: int) -> Optional[History]:
-        return db.query(History).filter(
-            History.device_id == device_id
-        ).order_by(desc(History.timestamp)).first()
+    async def get_latest_by_device(self, db: AsyncSession, device_id: int) -> Optional[History]:
+        result = await db.execute(
+            select(History).filter(
+                History.device_id == device_id
+            ).order_by(desc(History.timestamp))
+        )
+        return result.scalar_one_or_none()
     
-    def get_latest_by_device_with_device_info(self, db: Session, device_id: int) -> Optional[Dict[str, Any]]:
+    async def get_latest_by_device_with_device_info(self, db: AsyncSession, device_id: int) -> Optional[Dict[str, Any]]:
         """Get latest history record with device metadata included"""
-        result = db.query(History, Device).join(Device, History.device_id == Device.id).filter(
-            History.device_id == device_id
-        ).order_by(desc(History.timestamp)).first()
+        result = await db.execute(
+            select(History, Device).join(Device, History.device_id == Device.id).filter(
+                History.device_id == device_id
+            ).order_by(desc(History.timestamp))
+        )
+        row = result.first()
         
-        if result:
-            history, device = result
+        if row:
+            history, device = row
             return {
                 "id": history.id,
                 "device_id": history.device_id,
@@ -186,25 +206,33 @@ class HistoryCRUD:
             }
         return None
     
-    def create(self, db: Session, obj_in: HistoryCreate) -> History:
+    async def create(self, db: AsyncSession, obj_in: HistoryCreate) -> History:
         db_obj = History(**obj_in.model_dump())
         db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
+        await db.flush()  # Explicit flush since autoflush=False
+        await db.commit()
+        await db.refresh(db_obj)
         return db_obj
     
-    def cleanup_old_data(self, db: Session, days: int = 90) -> int:
+    async def cleanup_old_data(self, db: AsyncSession, days: int = 90) -> int:
         """Delete history data older than specified days"""
         cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
-        result = db.query(History).filter(
-            History.timestamp < cutoff_date
-        ).delete()
-        db.commit()
-        return result
+        result = await db.execute(
+            select(History).filter(
+                History.timestamp < cutoff_date
+            )
+        )
+        old_records = result.scalars().all()
+        
+        for record in old_records:
+            await db.delete(record)
+        
+        await db.commit()
+        return len(old_records)
     
-    def get_device_stats(
+    async def get_device_stats(
         self, 
-        db: Session, 
+        db: AsyncSession, 
         device_id: int, 
         hours: int = 24
     ) -> Dict[str, Any]:
@@ -212,17 +240,20 @@ class HistoryCRUD:
         cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
         
         # Get device info for unit
-        device = device_crud.get(db, device_id)
+        device = await device_crud.get(db, device_id)
         unit = device.unit if device else None
         
         # Get all numeric values in the time period
-        values = db.query(History.value).filter(
-            and_(
-                History.device_id == device_id,
-                History.timestamp >= cutoff_time,
-                History.value.isnot(None)
+        result = await db.execute(
+            select(History.value).filter(
+                and_(
+                    History.device_id == device_id,
+                    History.timestamp >= cutoff_time,
+                    History.value.isnot(None)
+                )
             )
-        ).all()
+        )
+        values = result.scalars().all()
         
         if not values:
             return {
@@ -240,7 +271,7 @@ class HistoryCRUD:
             }
         
         # Extract numeric values
-        numeric_values = [v[0] for v in values if v[0] is not None]
+        numeric_values = [v for v in values if v is not None]
         
         if not numeric_values:
             return {

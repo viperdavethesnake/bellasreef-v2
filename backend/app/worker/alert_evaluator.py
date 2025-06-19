@@ -8,8 +8,8 @@ It's designed to be modular, testable, and extensible for future alert types.
 import logging
 from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timezone, timedelta
-from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_, desc
 from app.db.models import Alert, Device, History, AlertEvent
 from app.crud.alert import alert as alert_crud, alert_event as alert_event_crud
 from app.crud.device import history as history_crud
@@ -28,10 +28,10 @@ class AlertEvaluator:
     - Handling trend-based alerts (future enhancement)
     """
     
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
     
-    def evaluate_all_alerts(self) -> Dict[str, Any]:
+    async def evaluate_all_alerts(self) -> Dict[str, Any]:
         """
         Evaluate all enabled alerts and return summary statistics.
         
@@ -41,7 +41,7 @@ class AlertEvaluator:
         logger.info("Starting alert evaluation cycle")
         
         # Get all enabled alerts
-        enabled_alerts = alert_crud.get_enabled_alerts(self.db)
+        enabled_alerts = await alert_crud.get_enabled_alerts(self.db)
         logger.info(f"Found {len(enabled_alerts)} enabled alerts to evaluate")
         
         stats = {
@@ -54,7 +54,7 @@ class AlertEvaluator:
         
         for alert in enabled_alerts:
             try:
-                result = self._evaluate_single_alert(alert)
+                result = await self._evaluate_single_alert(alert)
                 stats["evaluated"] += 1
                 
                 if result["triggered"]:
@@ -73,7 +73,7 @@ class AlertEvaluator:
         logger.info(f"Alert evaluation complete: {stats}")
         return stats
     
-    def _evaluate_single_alert(self, alert: Alert) -> Dict[str, Any]:
+    async def _evaluate_single_alert(self, alert: Alert) -> Dict[str, Any]:
         """
         Evaluate a single alert against the latest device reading.
         
@@ -84,7 +84,8 @@ class AlertEvaluator:
             Dict containing evaluation result
         """
         # Get the device
-        device = self.db.query(Device).filter(Device.id == alert.device_id).first()
+        result = await self.db.execute(select(Device).filter(Device.id == alert.device_id))
+        device = result.scalar_one_or_none()
         if not device:
             return {
                 "triggered": False,
@@ -101,7 +102,7 @@ class AlertEvaluator:
             }
         
         # Get latest reading for the device
-        latest_reading = history_crud.get_latest_by_device(self.db, alert.device_id)
+        latest_reading = await history_crud.get_latest_by_device(self.db, alert.device_id)
         if not latest_reading:
             return {
                 "triggered": False,
@@ -133,7 +134,7 @@ class AlertEvaluator:
         
         if is_triggered:
             # Check if this alert is already active (unresolved event exists)
-            existing_event = self._get_latest_unresolved_event(alert.id)
+            existing_event = await self._get_latest_unresolved_event(alert.id)
             if existing_event:
                 return {
                     "triggered": False,
@@ -142,7 +143,7 @@ class AlertEvaluator:
                 }
             
             # Create alert event
-            self._create_alert_event(alert, device, latest_reading, metric_value)
+            await self._create_alert_event(alert, device, latest_reading, metric_value)
             return {
                 "triggered": True,
                 "skipped": False,
@@ -150,9 +151,9 @@ class AlertEvaluator:
             }
         else:
             # Check if we should resolve an existing alert
-            existing_event = self._get_latest_unresolved_event(alert.id)
+            existing_event = await self._get_latest_unresolved_event(alert.id)
             if existing_event:
-                self._resolve_alert_event(existing_event, metric_value)
+                await self._resolve_alert_event(existing_event, metric_value)
                 return {
                     "triggered": False,
                     "skipped": False,
@@ -199,6 +200,11 @@ class AlertEvaluator:
                 value = reading.history_metadata[metric]
                 if isinstance(value, (int, float)):
                     return float(value)
+                elif isinstance(value, str):
+                    try:
+                        return float(value)
+                    except ValueError:
+                        pass
         
         return None
     
@@ -208,7 +214,7 @@ class AlertEvaluator:
         
         Args:
             value: The current value
-            operator: The comparison operator
+            operator: The comparison operator (>, <, >=, <=, ==, !=)
             threshold: The threshold value
             
         Returns:
@@ -218,113 +224,73 @@ class AlertEvaluator:
             return value > threshold
         elif operator == "<":
             return value < threshold
-        elif operator == "==":
-            return abs(value - threshold) < 0.001  # Float comparison with tolerance
         elif operator == ">=":
             return value >= threshold
         elif operator == "<=":
             return value <= threshold
+        elif operator == "==":
+            return value == threshold
         elif operator == "!=":
-            return abs(value - threshold) >= 0.001
+            return value != threshold
         else:
             logger.warning(f"Unknown operator: {operator}")
             return False
     
-    def _get_latest_unresolved_event(self, alert_id: int) -> Optional[AlertEvent]:
-        """
-        Get the latest unresolved event for an alert.
-        
-        Args:
-            alert_id: The alert ID
-            
-        Returns:
-            The latest unresolved event, or None if not found
-        """
-        return self.db.query(AlertEvent).filter(
-            and_(
-                AlertEvent.alert_id == alert_id,
-                AlertEvent.is_resolved == False
-            )
-        ).order_by(desc(AlertEvent.triggered_at)).first()
+    async def _get_latest_unresolved_event(self, alert_id: int) -> Optional[AlertEvent]:
+        """Get the latest unresolved event for an alert"""
+        result = await self.db.execute(
+            select(AlertEvent).filter(
+                and_(
+                    AlertEvent.alert_id == alert_id,
+                    AlertEvent.is_resolved == False
+                )
+            ).order_by(desc(AlertEvent.triggered_at))
+        )
+        return result.scalar_one_or_none()
     
-    def _create_alert_event(self, alert: Alert, device: Device, reading: History, value: float):
-        """
-        Create a new alert event.
+    async def _create_alert_event(self, alert: Alert, device: Device, reading: History, value: float):
+        """Create a new alert event"""
+        from app.schemas.alert import AlertEventCreate
         
-        Args:
-            alert: The alert that was triggered
-            device: The device that triggered the alert
-            reading: The reading that triggered the alert
-            value: The metric value that triggered the alert
-        """
-        event_data = {
-            "alert_id": alert.id,
-            "device_id": device.id,
-            "current_value": value,
-            "threshold_value": alert.threshold_value,
-            "operator": alert.operator,
-            "metric": alert.metric,
-            "alert_metadata": {
-                "reading_id": reading.id,
-                "reading_timestamp": reading.timestamp.isoformat(),
+        event_data = AlertEventCreate(
+            alert_id=alert.id,
+            device_id=device.id,
+            triggered_at=datetime.now(timezone.utc),
+            current_value=value,
+            threshold_value=alert.threshold_value,
+            operator=alert.operator,
+            metric=alert.metric,
+            alert_metadata={
                 "device_name": device.name,
                 "device_type": device.device_type,
-                "unit": device.unit
+                "unit": device.unit,
+                "reading_timestamp": reading.timestamp.isoformat()
             }
-        }
+        )
         
-        alert_event_crud.create(self.db, AlertEventCreate(**event_data))
-        logger.info(f"Created alert event for alert {alert.id}, device {device.name}, value {value}")
+        await alert_event_crud.create(self.db, event_data)
+        logger.info(f"Created alert event for alert {alert.id}, device {device.name}")
     
-    def _resolve_alert_event(self, event: AlertEvent, current_value: float):
-        """
-        Resolve an existing alert event.
-        
-        Args:
-            event: The alert event to resolve
-            current_value: The current metric value
-        """
-        update_data = {
-            "is_resolved": True,
-            "resolution_value": current_value
-        }
-        
-        alert_event_crud.update(self.db, event, AlertEventUpdate(**update_data))
-        logger.info(f"Resolved alert event {event.id} with value {current_value}")
-
+    async def _resolve_alert_event(self, event: AlertEvent, current_value: float):
+        """Mark an alert event as resolved"""
+        resolution_notes = f"Alert resolved - current value: {current_value}"
+        await alert_event_crud.mark_resolved(
+            self.db, 
+            event.id, 
+            resolution_notes=resolution_notes
+        )
+        logger.info(f"Resolved alert event {event.id}")
 
 class TrendEvaluator:
-    """
-    Evaluates trend-based alerts (future enhancement).
+    """Evaluates trend-based alerts (future enhancement)"""
     
-    This class will handle trend analysis for alerts with trend_enabled=True.
-    It will analyze historical data to detect trends and patterns.
-    """
-    
-    def __init__(self, db: Session):
+    def __init__(self, db: AsyncSession):
         self.db = db
     
-    def evaluate_trend_alert(self, alert: Alert, hours: int = 24) -> Dict[str, Any]:
-        """
-        Evaluate a trend-based alert.
-        
-        Args:
-            alert: The alert to evaluate
-            hours: Number of hours of historical data to analyze
-            
-        Returns:
-            Dict containing trend evaluation result
-        """
-        # TODO: Implement trend analysis
-        # This will analyze historical data to detect:
-        # - Rate of change
-        # - Moving averages
-        # - Pattern recognition
-        # - Predictive alerts
-        
-        logger.info(f"Trend evaluation not yet implemented for alert {alert.id}")
+    async def evaluate_trend_alert(self, alert: Alert, hours: int = 24) -> Dict[str, Any]:
+        """Evaluate a trend-based alert (placeholder for future implementation)"""
+        # TODO: Implement trend evaluation logic
         return {
             "triggered": False,
-            "skipped": True,
             "reason": "Trend evaluation not yet implemented"
         } 

@@ -1,27 +1,28 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from app.api.deps import get_current_user, get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.api.deps import get_current_user
 from app.crud.device import device as device_crud, history as history_crud
 from app.schemas.device import Device, DeviceCreate, DeviceUpdate, History, DeviceWithHistory, HistoryWithDevice, DeviceStats
 from app.services.poller import poller
 from app.hardware.device_factory import DeviceFactory
+from app.db.base import get_db
 
-router = APIRouter()
+router = APIRouter(prefix="/devices", tags=["devices"])
 
 @router.get("/", response_model=List[Device])
-def get_devices(
+async def get_devices(
     skip: int = 0,
     limit: int = 100,
     poll_enabled: Optional[bool] = None,
     device_type: Optional[str] = None,
     is_active: Optional[bool] = None,
     unit: Optional[str] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get all devices with optional filtering"""
-    devices = device_crud.get_multi(
+    devices = await device_crud.get_multi(
         db, 
         skip=skip, 
         limit=limit,
@@ -38,34 +39,34 @@ def get_device_types(current_user = Depends(get_current_user)):
     return DeviceFactory.get_available_device_types()
 
 @router.get("/units", response_model=List[str])
-def get_device_units(
-    db: Session = Depends(get_db),
+async def get_device_units(
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get all unique units used by devices"""
     # Get all devices and extract unique units
-    devices = device_crud.get_multi(db, limit=1000)
+    devices = await device_crud.get_multi(db, limit=1000)
     units = list(set(device.unit for device in devices if device.unit))
     return sorted(units)
 
 @router.get("/by-unit/{unit}", response_model=List[Device])
-def get_devices_by_unit(
+async def get_devices_by_unit(
     unit: str,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get all devices with a specific unit of measurement"""
-    devices = device_crud.get_devices_by_unit(db, unit)
+    devices = await device_crud.get_devices_by_unit(db, unit)
     return devices
 
 @router.get("/{device_id}", response_model=Device)
-def get_device(
+async def get_device(
     device_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get a specific device by ID"""
-    device = device_crud.get(db, device_id=device_id)
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -74,9 +75,9 @@ def get_device(
     return device
 
 @router.post("/", response_model=Device)
-def create_device(
+async def create_device(
     device_in: DeviceCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Create a new device"""
@@ -88,25 +89,25 @@ def create_device(
         )
     
     # Check if device with same address already exists
-    existing_device = device_crud.get_by_address(db, device_in.address)
+    existing_device = await device_crud.get_by_address(db, device_in.address)
     if existing_device:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Device with address {device_in.address} already exists"
         )
     
-    device = device_crud.create(db, obj_in=device_in)
+    device = await device_crud.create(db, obj_in=device_in)
     return device
 
 @router.put("/{device_id}", response_model=Device)
-def update_device(
+async def update_device(
     device_id: int,
     device_in: DeviceUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Update a device"""
-    device = device_crud.get(db, device_id=device_id)
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -122,52 +123,52 @@ def update_device(
     
     # Check address uniqueness if being changed
     if device_in.address and device_in.address != device.address:
-        existing_device = device_crud.get_by_address(db, device_in.address)
+        existing_device = await device_crud.get_by_address(db, device_in.address)
         if existing_device:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Device with address {device_in.address} already exists"
             )
     
-    device = device_crud.update(db, db_obj=device, obj_in=device_in)
+    device = await device_crud.update(db, db_obj=device, obj_in=device_in)
     return device
 
 @router.delete("/{device_id}")
-def delete_device(
+async def delete_device(
     device_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Delete a device"""
-    device = device_crud.get(db, device_id=device_id)
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
     
-    device_crud.remove(db, device_id=device_id)
+    await device_crud.remove(db, device_id=device_id)
     return {"message": "Device deleted successfully"}
 
 @router.get("/{device_id}/history", response_model=List[History])
-def get_device_history(
+async def get_device_history(
     device_id: int,
     skip: int = 0,
     limit: int = 100,
     hours: Optional[int] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get history for a specific device"""
     # Verify device exists
-    device = device_crud.get(db, device_id=device_id)
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
     
-    history = history_crud.get_by_device(
+    history = await history_crud.get_by_device(
         db, 
         device_id=device_id, 
         skip=skip, 
@@ -177,24 +178,24 @@ def get_device_history(
     return history
 
 @router.get("/{device_id}/history-with-device")
-def get_device_history_with_device_info(
+async def get_device_history_with_device_info(
     device_id: int,
     skip: int = 0,
     limit: int = 100,
     hours: Optional[int] = None,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
     """Get history for a specific device with device metadata included"""
     # Verify device exists
-    device = device_crud.get(db, device_id=device_id)
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
     
-    history_with_device = history_crud.get_by_device_with_device_info(
+    history_with_device = await history_crud.get_by_device_with_device_info(
         db, 
         device_id=device_id, 
         skip=skip, 
@@ -204,110 +205,112 @@ def get_device_history_with_device_info(
     return history_with_device
 
 @router.get("/{device_id}/latest", response_model=History)
-def get_device_latest(
+async def get_device_latest(
     device_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get the latest reading for a device"""
+    """Get the latest reading for a specific device"""
     # Verify device exists
-    device = device_crud.get(db, device_id=device_id)
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
     
-    latest = history_crud.get_latest_by_device(db, device_id=device_id)
+    latest = await history_crud.get_latest_by_device(db, device_id=device_id)
     if not latest:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No history data found for this device"
+            detail="No history found for this device"
         )
     
     return latest
 
 @router.get("/{device_id}/latest-with-device")
-def get_device_latest_with_device_info(
+async def get_device_latest_with_device_info(
     device_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get the latest reading for a device with device metadata included"""
+    """Get the latest reading for a specific device with device metadata included"""
     # Verify device exists
-    device = device_crud.get(db, device_id=device_id)
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
     
-    latest_with_device = history_crud.get_latest_by_device_with_device_info(db, device_id=device_id)
+    latest_with_device = await history_crud.get_latest_by_device_with_device_info(db, device_id=device_id)
     if not latest_with_device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail="No history data found for this device"
+            detail="No history found for this device"
         )
     
     return latest_with_device
 
 @router.get("/{device_id}/stats", response_model=DeviceStats)
-def get_device_stats(
+async def get_device_stats(
     device_id: int,
     hours: int = 24,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Get statistics for a device over a time period"""
+    """Get statistics for a specific device over the specified time period"""
     # Verify device exists
-    device = device_crud.get(db, device_id=device_id)
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
     
-    stats = history_crud.get_device_stats(db, device_id=device_id, hours=hours)
+    stats = await history_crud.get_device_stats(db, device_id=device_id, hours=hours)
     return stats
 
 @router.post("/{device_id}/test")
-def test_device_connection(
+async def test_device_connection(
     device_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
-    """Test connection to a device"""
-    device = device_crud.get(db, device_id=device_id)
+    """Test the connection to a specific device"""
+    # Get the device
+    device = await device_crud.get(db, device_id=device_id)
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device not found"
         )
     
-    # Create device instance for testing
-    device_instance = DeviceFactory.create_device(
-        device_type=device.device_type,
-        device_id=device.id,
-        name=device.name,
-        address=device.address,
-        config=device.config
-    )
-    
-    if not device_instance:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Failed to create device instance for type: {device.device_type}"
-        )
-    
-    # Test connection (this would need to be async in a real implementation)
-    # For now, return a placeholder response
-    return {
-        "device_id": device_id,
-        "device_name": device.name,
-        "device_unit": device.unit,
-        "test_result": "Test endpoint - implement actual device testing",
-        "status": "pending"
-    }
+    try:
+        # Create device instance and test connection
+        device_instance = DeviceFactory.create_device(device.device_type, device.address)
+        result = await device_instance.test_connection()
+        
+        return {
+            "device_id": device_id,
+            "device_name": device.name,
+            "device_type": device.device_type,
+            "address": device.address,
+            "connection_test": result,
+            "timestamp": result.get("timestamp") if result else None
+        }
+    except Exception as e:
+        return {
+            "device_id": device_id,
+            "device_name": device.name,
+            "device_type": device.device_type,
+            "address": device.address,
+            "connection_test": {
+                "success": False,
+                "error": str(e)
+            },
+            "timestamp": None
+        }
 
 @router.get("/poller/status")
 def get_poller_status(current_user = Depends(get_current_user)):
@@ -317,17 +320,11 @@ def get_poller_status(current_user = Depends(get_current_user)):
 @router.post("/poller/start")
 def start_poller(current_user = Depends(get_current_user)):
     """Start the device poller"""
-    # This would need to be async in a real implementation
-    return {
-        "message": "Poller start endpoint - implement actual poller start",
-        "status": "pending"
-    }
+    poller.start()
+    return {"message": "Poller started successfully"}
 
 @router.post("/poller/stop")
 def stop_poller(current_user = Depends(get_current_user)):
     """Stop the device poller"""
-    # This would need to be async in a real implementation
-    return {
-        "message": "Poller stop endpoint - implement actual poller stop",
-        "status": "pending"
-    } 
+    poller.stop()
+    return {"message": "Poller stopped successfully"} 

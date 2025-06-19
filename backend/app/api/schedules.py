@@ -1,27 +1,28 @@
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy.orm import Session
-from app.api.deps import get_db, get_current_user
-from app.crud.schedule import schedule as schedule_crud, device_action as device_action_crud
-from app.schemas.schedule import (
-    Schedule, ScheduleCreate, ScheduleUpdate, ScheduleStats,
-    DeviceAction, DeviceActionCreate, DeviceActionUpdate, DeviceActionStats,
-    DeviceActionWithDevice, SchedulerHealth
-)
-from app.db.models import User, Device
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 from datetime import datetime, timezone
+from app.api.deps import get_current_user, get_current_active_admin
+from app.crud.schedule import schedule as schedule_crud, device_action as device_action_crud
+from app.crud.device import device as device_crud
+from app.db.base import get_db
+from app.db.models import User, Device
+from app.schemas.schedule import (
+    Schedule, ScheduleCreate, ScheduleUpdate, ScheduleStats, SchedulerHealth,
+    DeviceAction, DeviceActionCreate, DeviceActionUpdate, DeviceActionStats, DeviceActionWithDevice
+)
 
-router = APIRouter()
+router = APIRouter(prefix="/schedules", tags=["schedules"])
 
-# Schedule endpoints
 @router.get("/", response_model=List[Schedule])
-def get_schedules(
+async def get_schedules(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     schedule_type: Optional[str] = Query(None),
     is_enabled: Optional[bool] = Query(None),
     device_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -29,12 +30,14 @@ def get_schedules(
     
     - **skip**: Number of records to skip for pagination
     - **limit**: Maximum number of records to return
-    - **schedule_type**: Filter by schedule type (one_off, recurring, interval, cron, static)
+    - **schedule_type**: Filter by schedule type (static, dynamic, etc.)
     - **is_enabled**: Filter by enabled status
-    - **device_id**: Filter schedules that target a specific device
+    - **device_id**: Filter schedules that include this device
     """
-    schedules = schedule_crud.get_multi(
-        db, skip=skip, limit=limit,
+    schedules = await schedule_crud.get_multi(
+        db=db,
+        skip=skip,
+        limit=limit,
         schedule_type=schedule_type,
         is_enabled=is_enabled,
         device_id=device_id
@@ -42,21 +45,21 @@ def get_schedules(
     return schedules
 
 @router.get("/stats", response_model=ScheduleStats)
-def get_schedule_stats(
-    db: Session = Depends(get_db),
+async def get_schedule_stats(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Get schedule statistics and next run times."""
-    return schedule_crud.get_stats(db)
+    """Get schedule statistics."""
+    return await schedule_crud.get_stats(db)
 
 @router.get("/{schedule_id}", response_model=Schedule)
-def get_schedule(
+async def get_schedule(
     schedule_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific schedule by ID."""
-    schedule = schedule_crud.get(db, schedule_id=schedule_id)
+    schedule = await schedule_crud.get(db, schedule_id=schedule_id)
     if not schedule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -65,74 +68,83 @@ def get_schedule(
     return schedule
 
 @router.post("/", response_model=Schedule, status_code=status.HTTP_201_CREATED)
-def create_schedule(
+async def create_schedule(
     schedule_in: ScheduleCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
     Create a new schedule.
     
-    The schedule will be validated and the next run time will be calculated automatically.
+    The schedule will be created with the specified configuration and can be
+    enabled/disabled as needed.
     """
-    # Check if schedule with same name already exists
-    existing_schedule = schedule_crud.get_by_name(db, name=schedule_in.name)
-    if existing_schedule:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Schedule with this name already exists"
-        )
+    # Validate that all referenced devices exist
+    if schedule_in.device_ids:
+        for device_id in schedule_in.device_ids:
+            device = await device_crud.get(db, device_id)
+            if not device:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Device with ID {device_id} not found"
+                )
     
-    schedule = schedule_crud.create(db, obj_in=schedule_in)
+    schedule = await schedule_crud.create(db, obj_in=schedule_in)
     return schedule
 
 @router.put("/{schedule_id}", response_model=Schedule)
-def update_schedule(
+async def update_schedule(
     schedule_id: int,
     schedule_in: ScheduleUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """
-    Update an existing schedule.
-    
-    The next run time will be recalculated if schedule parameters are changed.
-    """
-    schedule = schedule_crud.get(db, schedule_id=schedule_id)
+    """Update an existing schedule."""
+    schedule = await schedule_crud.get(db, schedule_id=schedule_id)
     if not schedule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Schedule not found"
         )
     
-    schedule = schedule_crud.update(db, db_obj=schedule, obj_in=schedule_in)
+    # Validate that all referenced devices exist if device_ids is being updated
+    if schedule_in.device_ids is not None:
+        for device_id in schedule_in.device_ids:
+            device = await device_crud.get(db, device_id)
+            if not device:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Device with ID {device_id} not found"
+                )
+    
+    schedule = await schedule_crud.update(db, db_obj=schedule, obj_in=schedule_in)
     return schedule
 
 @router.delete("/{schedule_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_schedule(
+async def delete_schedule(
     schedule_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Delete a schedule and all its associated device actions."""
-    schedule = schedule_crud.get(db, schedule_id=schedule_id)
+    """Delete a schedule."""
+    schedule = await schedule_crud.get(db, schedule_id=schedule_id)
     if not schedule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Schedule not found"
         )
     
-    schedule_crud.remove(db, schedule_id=schedule_id)
+    await schedule_crud.remove(db, schedule_id=schedule_id)
     return None
 
 @router.post("/{schedule_id}/enable", response_model=Schedule)
-def enable_schedule(
+async def enable_schedule(
     schedule_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Enable a schedule."""
-    schedule = schedule_crud.get(db, schedule_id=schedule_id)
+    schedule = await schedule_crud.get(db, schedule_id=schedule_id)
     if not schedule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -145,17 +157,18 @@ def enable_schedule(
             detail="Schedule is already enabled"
         )
     
-    schedule = schedule_crud.update(db, db_obj=schedule, obj_in=ScheduleUpdate(is_enabled=True))
+    schedule_update = ScheduleUpdate(is_enabled=True)
+    schedule = await schedule_crud.update(db, db_obj=schedule, obj_in=schedule_update)
     return schedule
 
 @router.post("/{schedule_id}/disable", response_model=Schedule)
-def disable_schedule(
+async def disable_schedule(
     schedule_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Disable a schedule."""
-    schedule = schedule_crud.get(db, schedule_id=schedule_id)
+    schedule = await schedule_crud.get(db, schedule_id=schedule_id)
     if not schedule:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -168,18 +181,19 @@ def disable_schedule(
             detail="Schedule is already disabled"
         )
     
-    schedule = schedule_crud.update(db, db_obj=schedule, obj_in=ScheduleUpdate(is_enabled=False))
+    schedule_update = ScheduleUpdate(is_enabled=False)
+    schedule = await schedule_crud.update(db, db_obj=schedule, obj_in=schedule_update)
     return schedule
 
-# Device Action endpoints
+# Device Actions endpoints
 @router.get("/device-actions/", response_model=List[DeviceActionWithDevice])
-def get_device_actions(
+async def get_device_actions(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     status: Optional[str] = Query(None),
     device_id: Optional[int] = Query(None),
     schedule_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -187,12 +201,14 @@ def get_device_actions(
     
     - **skip**: Number of records to skip for pagination
     - **limit**: Maximum number of records to return
-    - **status**: Filter by action status (pending, in_progress, success, failed)
-    - **device_id**: Filter actions for a specific device
-    - **schedule_id**: Filter actions for a specific schedule
+    - **status**: Filter by action status (pending, success, failed)
+    - **device_id**: Filter by device ID
+    - **schedule_id**: Filter by schedule ID
     """
-    actions = device_action_crud.get_with_device_info(
-        db, skip=skip, limit=limit,
+    actions = await device_action_crud.get_with_device_info(
+        db=db,
+        skip=skip,
+        limit=limit,
         status=status,
         device_id=device_id,
         schedule_id=schedule_id
@@ -200,21 +216,21 @@ def get_device_actions(
     return actions
 
 @router.get("/device-actions/stats", response_model=DeviceActionStats)
-def get_device_action_stats(
-    db: Session = Depends(get_db),
+async def get_device_action_stats(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get device action statistics."""
-    return device_action_crud.get_stats(db)
+    return await device_action_crud.get_stats(db)
 
 @router.get("/device-actions/{action_id}", response_model=DeviceActionWithDevice)
-def get_device_action(
+async def get_device_action(
     action_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Get a specific device action by ID with device information."""
-    action = device_action_crud.get(db, action_id=action_id)
+    action = await device_action_crud.get(db, action_id=action_id)
     if not action:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -222,7 +238,8 @@ def get_device_action(
         )
     
     # Get device information
-    device = db.query(Device).filter(Device.id == action.device_id).first()
+    result = await db.execute(select(Device).filter(Device.id == action.device_id))
+    device = result.scalar_one_or_none()
     if not device:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -238,11 +255,10 @@ def get_device_action(
         "parameters": action.parameters,
         "status": action.status,
         "scheduled_time": action.scheduled_time,
-        "executed_time": action.executed_time,
+        "executed_at": action.executed_at,
         "result": action.result,
         "error_message": action.error_message,
         "created_at": action.created_at,
-        "updated_at": action.updated_at,
         "device": {
             "id": device.id,
             "name": device.name,
@@ -254,9 +270,9 @@ def get_device_action(
     return action_dict
 
 @router.post("/device-actions/", response_model=DeviceAction, status_code=status.HTTP_201_CREATED)
-def create_device_action(
+async def create_device_action(
     action_in: DeviceActionCreate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -265,7 +281,8 @@ def create_device_action(
     This can be used to manually create device actions or for testing purposes.
     """
     # Validate that the device exists
-    device = db.query(Device).filter(Device.id == action_in.device_id).first()
+    result = await db.execute(select(Device).filter(Device.id == action_in.device_id))
+    device = result.scalar_one_or_none()
     if not device:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -274,55 +291,55 @@ def create_device_action(
     
     # Validate that the schedule exists if provided
     if action_in.schedule_id:
-        schedule = schedule_crud.get(db, schedule_id=action_in.schedule_id)
+        schedule = await schedule_crud.get(db, schedule_id=action_in.schedule_id)
         if not schedule:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Schedule not found"
             )
     
-    action = device_action_crud.create(db, obj_in=action_in)
+    action = await device_action_crud.create(db, obj_in=action_in)
     return action
 
 @router.put("/device-actions/{action_id}", response_model=DeviceAction)
-def update_device_action(
+async def update_device_action(
     action_id: int,
     action_in: DeviceActionUpdate,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Update an existing device action."""
-    action = device_action_crud.get(db, action_id=action_id)
+    action = await device_action_crud.get(db, action_id=action_id)
     if not action:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device action not found"
         )
     
-    action = device_action_crud.update(db, db_obj=action, obj_in=action_in)
+    action = await device_action_crud.update(db, db_obj=action, obj_in=action_in)
     return action
 
 @router.delete("/device-actions/{action_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_device_action(
+async def delete_device_action(
     action_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """Delete a device action."""
-    action = device_action_crud.get(db, action_id=action_id)
+    action = await device_action_crud.get(db, action_id=action_id)
     if not action:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Device action not found"
         )
     
-    device_action_crud.remove(db, action_id=action_id)
+    await device_action_crud.remove(db, action_id=action_id)
     return None
 
 @router.post("/device-actions/{action_id}/execute", response_model=DeviceAction)
-def execute_device_action(
+async def execute_device_action(
     action_id: int,
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -330,7 +347,7 @@ def execute_device_action(
     
     This will mark the action as executed immediately, regardless of its scheduled time.
     """
-    action = device_action_crud.get(db, action_id=action_id)
+    action = await device_action_crud.get(db, action_id=action_id)
     if not action:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -344,16 +361,16 @@ def execute_device_action(
         )
     
     # Mark as executed
-    action = device_action_crud.mark_executed(
+    action = await device_action_crud.mark_executed(
         db, action_id=action_id,
         result={"manual_execution": True, "executed_by": current_user.username}
     )
     return action
 
 @router.post("/device-actions/cleanup", status_code=status.HTTP_200_OK)
-def cleanup_old_device_actions(
+async def cleanup_old_device_actions(
     days: int = Query(30, ge=1, le=365),
-    db: Session = Depends(get_db),
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -362,13 +379,13 @@ def cleanup_old_device_actions(
     This will delete device actions older than the specified number of days.
     Only successful and failed actions are cleaned up; pending actions are preserved.
     """
-    deleted_count = device_action_crud.cleanup_old_actions(db, days=days)
+    deleted_count = await device_action_crud.cleanup_old_actions(db, days=days)
     return {"deleted_count": deleted_count, "days": days}
 
 # Scheduler health endpoint
 @router.get("/health", response_model=SchedulerHealth)
-def get_scheduler_health(
-    db: Session = Depends(get_db),
+async def get_scheduler_health(
+    db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -378,7 +395,7 @@ def get_scheduler_health(
     including uptime, schedule counts, and next evaluation time.
     """
     # Get schedule statistics
-    stats = schedule_crud.get_stats(db)
+    stats = await schedule_crud.get_stats(db)
     
     # Calculate next check time (assuming 30-second intervals)
     current_time = datetime.now(timezone.utc)
