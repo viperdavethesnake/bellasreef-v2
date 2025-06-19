@@ -76,7 +76,7 @@ class Alert(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
-    metric = Column(String, nullable=False, index=True)  # Metric name to monitor (e.g., "temperature", "ph", "salinity")
+    metric = Column(String, nullable=False)  # Removed index=True to avoid duplicate with explicit index
     operator = Column(String, nullable=False)  # Comparison operator (">", "<", "==", ">=", "<=", "!=")
     threshold_value = Column(Float, nullable=False)  # Threshold value for comparison
     is_enabled = Column(Boolean, default=True, index=True)  # Whether alert is active
@@ -105,7 +105,7 @@ class AlertEvent(Base):
     threshold_value = Column(Float, nullable=False)  # Threshold value at time of trigger
     operator = Column(String, nullable=False)  # Operator used for comparison
     metric = Column(String, nullable=False)  # Metric that was monitored
-    is_resolved = Column(Boolean, default=False, index=True)  # Whether alert has been resolved
+    is_resolved = Column(Boolean, default=False)  # Removed index=True to avoid duplicate with explicit index
     resolved_at = Column(DateTime(timezone=True), nullable=True)  # When alert was resolved
     resolution_value = Column(Float, nullable=True)  # Value when alert was resolved
     alert_metadata = Column(JSON, nullable=True)  # Additional context (trend data, etc.) - renamed from metadata
@@ -160,7 +160,7 @@ class DeviceAction(Base):
     action_type = Column(String, nullable=False)  # 'on', 'off', 'set_pwm', 'set_level', 'ramp', etc.
     parameters = Column(JSON, nullable=True)  # Action parameters (target, duration, etc.)
     status = Column(String, nullable=False, default='pending', index=True)  # 'pending', 'in_progress', 'success', 'failed'
-    scheduled_time = Column(DateTime(timezone=True), nullable=False, index=True)  # When action should be executed
+    scheduled_time = Column(DateTime(timezone=True), nullable=False)  # Removed index=True to avoid duplicate with explicit index
     executed_time = Column(DateTime(timezone=True), nullable=True)  # When action was actually executed
     result = Column(JSON, nullable=True)  # Execution result data
     error_message = Column(Text, nullable=True)  # Error message if failed
