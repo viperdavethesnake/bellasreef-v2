@@ -58,7 +58,7 @@ class History(Base):
     id = Column(Integer, primary_key=True, index=True)
     device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
     # All timestamps are stored and returned in UTC (ISO8601 format with 'Z' suffix)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())  # Removed index=True to avoid duplicate with explicit index
     value = Column(Float, nullable=True)  # Numeric value for simple readings
     json_value = Column(JSON, nullable=True)  # Complex data (multiple sensors, etc.)
     history_metadata = Column(JSON, nullable=True)  # Additional context (units, status, etc.) - renamed from metadata
@@ -100,7 +100,7 @@ class AlertEvent(Base):
     id = Column(Integer, primary_key=True, index=True)
     alert_id = Column(Integer, ForeignKey("alerts.id"), nullable=False, index=True)
     device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
-    triggered_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    triggered_at = Column(DateTime(timezone=True), server_default=func.now())  # Removed index=True to avoid duplicate with explicit index
     current_value = Column(Float, nullable=True)  # Value that triggered the alert
     threshold_value = Column(Float, nullable=False)  # Threshold value at time of trigger
     operator = Column(String, nullable=False)  # Operator used for comparison
