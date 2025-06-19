@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.crud.device import device as device_crud, history as history_crud
-from app.schemas.device import Device, DeviceCreate, DeviceUpdate, History, DeviceWithHistory
+from app.schemas.device import Device, DeviceCreate, DeviceUpdate, History, DeviceWithHistory, HistoryWithDevice, DeviceStats
 from app.services.poller import poller
 from app.hardware.device_factory import DeviceFactory
 
@@ -16,6 +16,7 @@ def get_devices(
     poll_enabled: Optional[bool] = None,
     device_type: Optional[str] = None,
     is_active: Optional[bool] = None,
+    unit: Optional[str] = None,
     db: Session = Depends(get_db),
     current_user = Depends(get_current_user)
 ):
@@ -26,7 +27,8 @@ def get_devices(
         limit=limit,
         poll_enabled=poll_enabled,
         device_type=device_type,
-        is_active=is_active
+        is_active=is_active,
+        unit=unit
     )
     return devices
 
@@ -34,6 +36,27 @@ def get_devices(
 def get_device_types(current_user = Depends(get_current_user)):
     """Get all available device types"""
     return DeviceFactory.get_available_device_types()
+
+@router.get("/units", response_model=List[str])
+def get_device_units(
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get all unique units used by devices"""
+    # Get all devices and extract unique units
+    devices = device_crud.get_multi(db, limit=1000)
+    units = list(set(device.unit for device in devices if device.unit))
+    return sorted(units)
+
+@router.get("/by-unit/{unit}", response_model=List[Device])
+def get_devices_by_unit(
+    unit: str,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get all devices with a specific unit of measurement"""
+    devices = device_crud.get_devices_by_unit(db, unit)
+    return devices
 
 @router.get("/{device_id}", response_model=Device)
 def get_device(
@@ -153,6 +176,33 @@ def get_device_history(
     )
     return history
 
+@router.get("/{device_id}/history-with-device")
+def get_device_history_with_device_info(
+    device_id: int,
+    skip: int = 0,
+    limit: int = 100,
+    hours: Optional[int] = None,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get history for a specific device with device metadata included"""
+    # Verify device exists
+    device = device_crud.get(db, device_id=device_id)
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Device not found"
+        )
+    
+    history_with_device = history_crud.get_by_device_with_device_info(
+        db, 
+        device_id=device_id, 
+        skip=skip, 
+        limit=limit,
+        hours=hours
+    )
+    return history_with_device
+
 @router.get("/{device_id}/latest", response_model=History)
 def get_device_latest(
     device_id: int,
@@ -177,7 +227,31 @@ def get_device_latest(
     
     return latest
 
-@router.get("/{device_id}/stats")
+@router.get("/{device_id}/latest-with-device")
+def get_device_latest_with_device_info(
+    device_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get the latest reading for a device with device metadata included"""
+    # Verify device exists
+    device = device_crud.get(db, device_id=device_id)
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Device not found"
+        )
+    
+    latest_with_device = history_crud.get_latest_by_device_with_device_info(db, device_id=device_id)
+    if not latest_with_device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No history data found for this device"
+        )
+    
+    return latest_with_device
+
+@router.get("/{device_id}/stats", response_model=DeviceStats)
 def get_device_stats(
     device_id: int,
     hours: int = 24,
@@ -194,12 +268,7 @@ def get_device_stats(
         )
     
     stats = history_crud.get_device_stats(db, device_id=device_id, hours=hours)
-    return {
-        "device_id": device_id,
-        "device_name": device.name,
-        "hours": hours,
-        "stats": stats
-    }
+    return stats
 
 @router.post("/{device_id}/test")
 def test_device_connection(
@@ -235,6 +304,7 @@ def test_device_connection(
     return {
         "device_id": device_id,
         "device_name": device.name,
+        "device_unit": device.unit,
         "test_result": "Test endpoint - implement actual device testing",
         "status": "pending"
     }

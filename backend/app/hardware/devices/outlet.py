@@ -1,6 +1,6 @@
 import asyncio
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import RPi.GPIO as GPIO
 from app.hardware.device_base import BaseDevice, PollResult
 
@@ -49,21 +49,23 @@ class Outlet(BaseDevice):
                 "pin": self.pin,
                 "active_high": self.active_high,
                 "gpio_state": gpio_state,
-                "unit": "boolean"
+                "unit": "state",
+                "measurement_type": "binary_state",
+                "state_description": "ON" if self.current_state else "OFF"
             }
             
             return PollResult(
                 success=True,
                 value=1.0 if self.current_state else 0.0,
                 metadata=metadata,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
             
         except Exception as e:
             return PollResult(
                 success=False,
                 error=f"Failed to read outlet state: {str(e)}",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
     
     async def set_state(self, state: bool) -> bool:

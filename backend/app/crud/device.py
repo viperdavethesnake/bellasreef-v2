@@ -1,7 +1,7 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from app.db.models import Device, History
 from app.schemas.device import DeviceCreate, DeviceUpdate, HistoryCreate
 
@@ -19,7 +19,8 @@ class DeviceCRUD:
         limit: int = 100,
         poll_enabled: Optional[bool] = None,
         device_type: Optional[str] = None,
-        is_active: Optional[bool] = None
+        is_active: Optional[bool] = None,
+        unit: Optional[str] = None
     ) -> List[Device]:
         query = db.query(Device)
         
@@ -29,6 +30,8 @@ class DeviceCRUD:
             query = query.filter(Device.device_type == device_type)
         if is_active is not None:
             query = query.filter(Device.is_active == is_active)
+        if unit is not None:
+            query = query.filter(Device.unit == unit)
         
         return query.offset(skip).limit(limit).all()
     
@@ -40,6 +43,10 @@ class DeviceCRUD:
                 Device.is_active == True
             )
         ).all()
+    
+    def get_devices_by_unit(self, db: Session, unit: str) -> List[Device]:
+        """Get all devices with a specific unit of measurement"""
+        return db.query(Device).filter(Device.unit == unit).all()
     
     def create(self, db: Session, obj_in: DeviceCreate) -> Device:
         db_obj = Device(**obj_in.model_dump())
@@ -58,7 +65,7 @@ class DeviceCRUD:
         for field, value in update_data.items():
             setattr(db_obj, field, value)
         
-        db_obj.updated_at = datetime.utcnow()
+        db_obj.updated_at = datetime.now(timezone.utc)
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
@@ -75,7 +82,7 @@ class DeviceCRUD:
         if device:
             device.last_polled = last_polled
             device.last_error = last_error
-            device.updated_at = datetime.utcnow()
+            device.updated_at = datetime.now(timezone.utc)
             db.add(device)
             db.commit()
             db.refresh(device)
@@ -103,15 +110,81 @@ class HistoryCRUD:
         query = db.query(History).filter(History.device_id == device_id)
         
         if hours:
-            cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
             query = query.filter(History.timestamp >= cutoff_time)
         
         return query.order_by(desc(History.timestamp)).offset(skip).limit(limit).all()
+    
+    def get_by_device_with_device_info(
+        self, 
+        db: Session, 
+        device_id: int, 
+        skip: int = 0, 
+        limit: int = 100,
+        hours: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """Get history records with device metadata included"""
+        query = db.query(History, Device).join(Device, History.device_id == Device.id).filter(History.device_id == device_id)
+        
+        if hours:
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+            query = query.filter(History.timestamp >= cutoff_time)
+        
+        results = query.order_by(desc(History.timestamp)).offset(skip).limit(limit).all()
+        
+        # Convert to dictionary format with device info
+        history_with_device = []
+        for history, device in results:
+            history_dict = {
+                "id": history.id,
+                "device_id": history.device_id,
+                "timestamp": history.timestamp,
+                "value": history.value,
+                "json_value": history.json_value,
+                "metadata": history.metadata,
+                "device": {
+                    "id": device.id,
+                    "name": device.name,
+                    "device_type": device.device_type,
+                    "unit": device.unit,
+                    "min_value": device.min_value,
+                    "max_value": device.max_value
+                }
+            }
+            history_with_device.append(history_dict)
+        
+        return history_with_device
     
     def get_latest_by_device(self, db: Session, device_id: int) -> Optional[History]:
         return db.query(History).filter(
             History.device_id == device_id
         ).order_by(desc(History.timestamp)).first()
+    
+    def get_latest_by_device_with_device_info(self, db: Session, device_id: int) -> Optional[Dict[str, Any]]:
+        """Get latest history record with device metadata included"""
+        result = db.query(History, Device).join(Device, History.device_id == Device.id).filter(
+            History.device_id == device_id
+        ).order_by(desc(History.timestamp)).first()
+        
+        if result:
+            history, device = result
+            return {
+                "id": history.id,
+                "device_id": history.device_id,
+                "timestamp": history.timestamp,
+                "value": history.value,
+                "json_value": history.json_value,
+                "metadata": history.metadata,
+                "device": {
+                    "id": device.id,
+                    "name": device.name,
+                    "device_type": device.device_type,
+                    "unit": device.unit,
+                    "min_value": device.min_value,
+                    "max_value": device.max_value
+                }
+            }
+        return None
     
     def create(self, db: Session, obj_in: HistoryCreate) -> History:
         db_obj = History(**obj_in.model_dump())
@@ -122,7 +195,7 @@ class HistoryCRUD:
     
     def cleanup_old_data(self, db: Session, days: int = 90) -> int:
         """Delete history data older than specified days"""
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
         result = db.query(History).filter(
             History.timestamp < cutoff_date
         ).delete()
@@ -136,7 +209,11 @@ class HistoryCRUD:
         hours: int = 24
     ) -> Dict[str, Any]:
         """Get basic statistics for a device over the specified time period"""
-        cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        
+        # Get device info for unit
+        device = device_crud.get(db, device_id)
+        unit = device.unit if device else None
         
         # Get all numeric values in the time period
         values = db.query(History.value).filter(
@@ -149,11 +226,17 @@ class HistoryCRUD:
         
         if not values:
             return {
-                "count": 0,
-                "min": None,
-                "max": None,
-                "avg": None,
-                "latest": None
+                "device_id": device_id,
+                "device_name": device.name if device else "Unknown",
+                "unit": unit,
+                "hours": hours,
+                "stats": {
+                    "count": 0,
+                    "min": None,
+                    "max": None,
+                    "avg": None,
+                    "latest": None
+                }
             }
         
         # Extract numeric values
@@ -161,19 +244,31 @@ class HistoryCRUD:
         
         if not numeric_values:
             return {
-                "count": 0,
-                "min": None,
-                "max": None,
-                "avg": None,
-                "latest": None
+                "device_id": device_id,
+                "device_name": device.name if device else "Unknown",
+                "unit": unit,
+                "hours": hours,
+                "stats": {
+                    "count": 0,
+                    "min": None,
+                    "max": None,
+                    "avg": None,
+                    "latest": None
+                }
             }
         
         return {
-            "count": len(numeric_values),
-            "min": min(numeric_values),
-            "max": max(numeric_values),
-            "avg": sum(numeric_values) / len(numeric_values),
-            "latest": numeric_values[0] if numeric_values else None
+            "device_id": device_id,
+            "device_name": device.name if device else "Unknown",
+            "unit": unit,
+            "hours": hours,
+            "stats": {
+                "count": len(numeric_values),
+                "min": min(numeric_values),
+                "max": max(numeric_values),
+                "avg": sum(numeric_values) / len(numeric_values),
+                "latest": numeric_values[0] if numeric_values else None
+            }
         }
 
 device = DeviceCRUD()

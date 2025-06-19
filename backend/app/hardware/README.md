@@ -7,8 +7,8 @@ A centralized, modular polling and history system for reef tank automation devic
 The device polling system consists of several key components:
 
 ### 1. Database Models
-- **Device**: Stores device configuration and polling settings
-- **History**: Stores time-series data from device polling
+- **Device**: Stores device configuration, polling settings, and unit information
+- **History**: Stores time-series data from device polling (all timestamps in UTC)
 
 ### 2. Device Plugin System
 - **BaseDevice**: Abstract base class for all device types
@@ -19,6 +19,7 @@ The device polling system consists of several key components:
 - **DevicePoller**: Manages all device polling with individual intervals
 - **Error Handling**: Graceful error handling and logging
 - **History Management**: Automatic data storage and cleanup
+- **UTC Time Handling**: All timestamps stored and returned in UTC (ISO8601 format)
 
 ## Database Schema
 
@@ -31,6 +32,9 @@ CREATE TABLE devices (
     address VARCHAR NOT NULL,      -- Device identifier (I2C address, GPIO pin, etc.)
     poll_enabled BOOLEAN DEFAULT TRUE,
     poll_interval INTEGER DEFAULT 60,  -- Polling interval in seconds
+    unit VARCHAR(20),              -- Unit of measurement (e.g., "C", "F", "ppt", "ms/cm", "pH", "W", "state")
+    min_value FLOAT,               -- Minimum expected value (for future alerting)
+    max_value FLOAT,               -- Maximum expected value (for future alerting)
     config JSON,                   -- Device-specific configuration
     is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
@@ -45,7 +49,7 @@ CREATE TABLE devices (
 CREATE TABLE history (
     id SERIAL PRIMARY KEY,
     device_id INTEGER REFERENCES devices(id),
-    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),  -- All timestamps in UTC
     value FLOAT,                   -- Numeric value for simple readings
     json_value JSON,               -- Complex data (multiple sensors, etc.)
     metadata JSON                  -- Additional context (units, status, etc.)
@@ -55,11 +59,11 @@ CREATE TABLE history (
 ## Supported Device Types
 
 ### Temperature Sensors
-- **DS18B20** (1-Wire): Uses sensor ID as address
-- **DHT22/DHT11** (Digital): Uses GPIO pin number as address
+- **DS18B20** (1-Wire): Uses sensor ID as address, unit: "C"
+- **DHT22/DHT11** (Digital): Uses GPIO pin number as address, units: "C" (temp), "%" (humidity)
 
 ### Outlets
-- **GPIO Relays**: Uses GPIO pin number as address
+- **GPIO Relays**: Uses GPIO pin number as address, unit: "state"
 - Supports active-high and active-low configurations
 
 ## Device Configuration Examples
@@ -71,6 +75,9 @@ CREATE TABLE history (
     "device_type": "temperature_sensor",
     "address": "28-0123456789ab",
     "poll_interval": 30,
+    "unit": "C",
+    "min_value": 20.0,
+    "max_value": 30.0,
     "config": {
         "sensor_type": "ds18b20"
     }
@@ -84,6 +91,9 @@ CREATE TABLE history (
     "device_type": "temperature_sensor",
     "address": "17",
     "poll_interval": 60,
+    "unit": "C",
+    "min_value": 18.0,
+    "max_value": 28.0,
     "config": {
         "sensor_type": "dht22"
     }
@@ -97,6 +107,7 @@ CREATE TABLE history (
     "device_type": "outlet",
     "address": "18",
     "poll_interval": 10,
+    "unit": "state",
     "config": {
         "active_high": true
     }
@@ -106,8 +117,10 @@ CREATE TABLE history (
 ## API Endpoints
 
 ### Device Management
-- `GET /api/v1/devices/` - List all devices
+- `GET /api/v1/devices/` - List all devices (supports unit filtering)
 - `GET /api/v1/devices/types` - Get available device types
+- `GET /api/v1/devices/units` - Get all unique units used by devices
+- `GET /api/v1/devices/by-unit/{unit}` - Get devices with specific unit
 - `GET /api/v1/devices/{device_id}` - Get specific device
 - `POST /api/v1/devices/` - Create new device
 - `PUT /api/v1/devices/{device_id}` - Update device
@@ -115,20 +128,68 @@ CREATE TABLE history (
 
 ### History & Data
 - `GET /api/v1/devices/{device_id}/history` - Get device history
+- `GET /api/v1/devices/{device_id}/history-with-device` - Get history with device metadata
 - `GET /api/v1/devices/{device_id}/latest` - Get latest reading
-- `GET /api/v1/devices/{device_id}/stats` - Get device statistics
+- `GET /api/v1/devices/{device_id}/latest-with-device` - Get latest reading with device metadata
+- `GET /api/v1/devices/{device_id}/stats` - Get device statistics (includes unit info)
 
 ### Poller Management
 - `GET /api/v1/devices/poller/status` - Get poller status
 - `POST /api/v1/devices/poller/start` - Start poller
 - `POST /api/v1/devices/poller/stop` - Stop poller
 
+## Time Handling
+
+### UTC Timestamps
+- **All timestamps are stored in UTC** using PostgreSQL's `TIMESTAMP WITH TIME ZONE`
+- **API responses include UTC timestamps** in ISO8601 format with 'Z' suffix
+- **No timezone conversion** - all times are consistently UTC throughout the system
+
+### Example API Response
+```json
+{
+    "id": 1,
+    "device_id": 1,
+    "timestamp": "2024-01-15T10:30:00.123456Z",
+    "value": 25.5,
+    "metadata": {
+        "unit": "C",
+        "measurement_type": "temperature"
+    },
+    "device": {
+        "id": 1,
+        "name": "Main Tank Temperature",
+        "device_type": "temperature_sensor",
+        "unit": "C",
+        "min_value": 20.0,
+        "max_value": 30.0
+    }
+}
+```
+
+## Unit Support
+
+### Supported Units
+- **Temperature**: "C" (Celsius), "F" (Fahrenheit)
+- **Salinity**: "ppt" (parts per thousand)
+- **Conductivity**: "ms/cm" (millisiemens per centimeter)
+- **pH**: "pH" (pH units)
+- **Power**: "W" (Watts)
+- **State**: "state" (binary on/off states)
+- **Humidity**: "%" (percentage)
+- **Custom**: Any string up to 20 characters
+
+### Unit Validation
+- Units are validated at the API level
+- Device implementations include unit information in metadata
+- Statistics and alerts can be unit-aware
+
 ## Creating Custom Device Types
 
 ### 1. Create Device Class
 ```python
 from app.hardware.device_base import BaseDevice, PollResult
-from datetime import datetime
+from datetime import datetime, timezone
 
 class MyCustomDevice(BaseDevice):
     def __init__(self, device_id: int, name: str, address: str, config: dict = None):
@@ -144,14 +205,17 @@ class MyCustomDevice(BaseDevice):
             return PollResult(
                 success=True,
                 value=value,
-                metadata={"unit": "custom_unit"},
-                timestamp=datetime.utcnow()
+                metadata={
+                    "unit": "custom_unit",
+                    "measurement_type": "custom_measurement"
+                },
+                timestamp=datetime.now(timezone.utc)  # Always use UTC
             )
         except Exception as e:
             return PollResult(
                 success=False,
                 error=str(e),
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
     
     async def test_connection(self) -> bool:
@@ -189,17 +253,19 @@ DeviceFactory.load_custom_device_plugin(
 - **Interval Management**: Each device polls at its own interval
 - **Error Recovery**: Continues polling other devices if one fails
 - **Configuration Updates**: Automatically detects device changes
+- **UTC Time Handling**: All timestamps consistently in UTC
 
 ### Data Management
 - **Automatic Storage**: All poll results stored in history table
 - **Data Cleanup**: Automatically removes data older than 90 days
-- **Statistics**: Provides min/max/average calculations
-- **Metadata Support**: Stores device-specific context
+- **Statistics**: Provides min/max/average calculations with unit information
+- **Metadata Support**: Stores device-specific context including units
 
 ### Monitoring
 - **Status Tracking**: Tracks last polled time and errors
 - **Health Monitoring**: Monitors device connectivity
 - **Logging**: Comprehensive logging of all operations
+- **Unit Awareness**: Logs include unit information for debugging
 
 ## Configuration
 
@@ -217,11 +283,26 @@ Each device can have device-specific configuration in the `config` JSON field:
 ```json
 {
     "sensor_type": "ds18b20",
-    "unit": "celsius",
+    "unit": "C",
     "calibration_offset": 0.5,
     "custom_setting": "value"
 }
 ```
+
+## Migration
+
+### Adding Unit Support to Existing Databases
+Run the migration script to add unit support to existing databases:
+
+```bash
+python scripts/migrate_device_units.py
+```
+
+This script will:
+- Add `unit`, `min_value`, and `max_value` columns to the devices table
+- Create appropriate indexes
+- Update existing devices with default units based on device type
+- Provide a summary of the migration
 
 ## Error Handling
 
@@ -238,9 +319,10 @@ Each device can have device-specific configuration in the `config` JSON field:
 ## Performance Considerations
 
 ### Database Optimization
-- Indexes on frequently queried fields
+- Indexes on frequently queried fields including unit
 - Automatic cleanup of old data
 - Efficient queries for history retrieval
+- UTC timestamp optimization
 
 ### Resource Management
 - Async/await for non-blocking operations
@@ -253,6 +335,7 @@ Each device can have device-specific configuration in the `config` JSON field:
 - All endpoints require authentication
 - Device configuration validation
 - Input sanitization and validation
+- Unit field validation
 
 ### Hardware Security
 - GPIO pin validation
@@ -278,22 +361,30 @@ Each device can have device-specific configuration in the `config` JSON field:
    - Check for device communication issues
    - Monitor database performance
 
+4. **Timezone Issues**
+   - All timestamps are in UTC
+   - Check client-side timezone handling
+   - Verify ISO8601 format parsing
+
 ### Debugging
 - Enable debug logging for detailed information
 - Use device test endpoints to verify connectivity
 - Check poller status endpoint for system health
+- Verify unit information in device metadata
 
 ## Future Enhancements
 
 ### Planned Features
 - **Device Groups**: Group devices for coordinated operations
-- **Alerts**: Configurable alerts based on device readings
+- **Alerts**: Configurable alerts based on device readings and min/max values
 - **Data Export**: Export history data in various formats
-- **Device Templates**: Pre-configured device templates
+- **Device Templates**: Pre-configured device templates with units
 - **WebSocket Updates**: Real-time device status updates
+- **Unit Conversion**: Automatic unit conversion for display
 
 ### Extensibility
 - **Plugin System**: Easy addition of new device types
 - **Custom Polling Logic**: Device-specific polling strategies
 - **Data Processing**: Custom data transformation pipelines
-- **Integration APIs**: Third-party system integration 
+- **Integration APIs**: Third-party system integration
+- **Unit Validation**: Custom unit validation rules 

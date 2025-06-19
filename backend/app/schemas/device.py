@@ -8,6 +8,9 @@ class DeviceBase(BaseModel):
     address: str = Field(..., min_length=1, max_length=100)
     poll_enabled: bool = Field(default=True)
     poll_interval: int = Field(default=60, ge=1, le=3600)  # 1 second to 1 hour
+    unit: Optional[str] = Field(None, max_length=20, description="Unit of measurement (e.g., 'C', 'F', 'ppt', 'ms/cm', 'pH', 'W', 'state')")
+    min_value: Optional[float] = Field(None, description="Minimum expected value for future alerting")
+    max_value: Optional[float] = Field(None, description="Maximum expected value for future alerting")
     config: Optional[Dict[str, Any]] = Field(default=None)
     is_active: bool = Field(default=True)
 
@@ -20,6 +23,9 @@ class DeviceUpdate(BaseModel):
     address: Optional[str] = Field(None, min_length=1, max_length=100)
     poll_enabled: Optional[bool] = None
     poll_interval: Optional[int] = Field(None, ge=1, le=3600)
+    unit: Optional[str] = Field(None, max_length=20)
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
     config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
 
@@ -45,7 +51,20 @@ class History(HistoryBase):
     model_config = ConfigDict(from_attributes=True)
     
     id: int
+    # All timestamps are returned in UTC (ISO8601 format with 'Z' suffix)
     timestamp: datetime
 
+class HistoryWithDevice(History):
+    """History record with device metadata included"""
+    device: Device
+
 class DeviceWithHistory(Device):
-    history: list[History] = Field(default_factory=list) 
+    history: list[History] = Field(default_factory=list)
+
+class DeviceStats(BaseModel):
+    """Device statistics with unit information"""
+    device_id: int
+    device_name: str
+    unit: Optional[str] = None
+    hours: int
+    stats: Dict[str, Any] 

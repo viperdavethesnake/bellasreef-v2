@@ -1,6 +1,6 @@
 import asyncio
 from typing import Dict, Any, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import board
 import adafruit_dht
 from w1thermsensor import W1ThermSensor
@@ -50,7 +50,7 @@ class TemperatureSensor(BaseDevice):
             return PollResult(
                 success=False,
                 error="Sensor not initialized",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
         
         try:
@@ -59,7 +59,8 @@ class TemperatureSensor(BaseDevice):
                 metadata = {
                     "sensor_type": "ds18b20",
                     "sensor_id": self.address,
-                    "unit": "celsius"
+                    "unit": "C",
+                    "measurement_type": "temperature"
                 }
                 
             elif self.sensor_type in ["dht22", "dht11"]:
@@ -70,9 +71,9 @@ class TemperatureSensor(BaseDevice):
                 metadata = {
                     "sensor_type": self.sensor_type,
                     "pin": self.address,
-                    "unit": "celsius",
-                    "humidity": humidity,
-                    "humidity_unit": "percent"
+                    "temperature_unit": "C",
+                    "humidity_unit": "%",
+                    "measurement_type": "temperature_and_humidity"
                 }
                 
                 # Return both values as JSON
@@ -83,21 +84,21 @@ class TemperatureSensor(BaseDevice):
                         "humidity": humidity
                     },
                     metadata=metadata,
-                    timestamp=datetime.utcnow()
+                    timestamp=datetime.now(timezone.utc)
                 )
             
             return PollResult(
                 success=True,
                 value=temperature,
                 metadata=metadata,
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
             
         except Exception as e:
             return PollResult(
                 success=False,
                 error=f"Failed to read temperature: {str(e)}",
-                timestamp=datetime.utcnow()
+                timestamp=datetime.now(timezone.utc)
             )
     
     async def test_connection(self) -> bool:

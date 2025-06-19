@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from typing import Dict, List, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 from app.db.database import get_db
 from app.crud.device import device as device_crud, history as history_crud
@@ -14,6 +14,7 @@ class DevicePoller:
     """
     Central device polling service.
     Manages polling of all enabled devices at their specified intervals.
+    All timestamps are stored and handled in UTC.
     """
     
     def __init__(self):
@@ -86,7 +87,7 @@ class DevicePoller:
             
             if device:
                 self.devices[db_device.id] = device
-                self.logger.info(f"Added device to poller: {db_device.name}")
+                self.logger.info(f"Added device to poller: {db_device.name} (unit: {db_device.unit or 'N/A'})")
                 
                 # Start polling task if poller is running
                 if self.running:
@@ -200,7 +201,7 @@ class DevicePoller:
             device_crud.update_poll_status(
                 db=db,
                 device_id=device_id,
-                last_polled=datetime.utcnow(),
+                last_polled=datetime.now(timezone.utc),
                 last_error=last_error
             )
             
@@ -267,7 +268,8 @@ class DevicePoller:
                     "id": device_id,
                     "name": device.name,
                     "type": device.__class__.__name__,
-                    "address": device.address
+                    "address": device.address,
+                    "unit": getattr(device, 'unit', None)
                 }
                 for device_id, device in self.devices.items()
             ]
