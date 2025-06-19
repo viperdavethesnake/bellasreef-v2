@@ -85,9 +85,37 @@ class Alert(Base):
 
     # Relationships
     device = relationship("Device", back_populates="alerts")
+    events = relationship("AlertEvent", back_populates="alert", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index('ix_alerts_device_enabled', 'device_id', 'is_enabled'),
         Index('ix_alerts_metric', 'metric'),
         Index('ix_alerts_trend_enabled', 'trend_enabled'),
+    )
+
+class AlertEvent(Base):
+    __tablename__ = "alert_events"
+
+    id = Column(Integer, primary_key=True, index=True)
+    alert_id = Column(Integer, ForeignKey("alerts.id"), nullable=False, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
+    triggered_at = Column(DateTime(timezone=True), server_default=func.now(), index=True)
+    current_value = Column(Float, nullable=True)  # Value that triggered the alert
+    threshold_value = Column(Float, nullable=False)  # Threshold value at time of trigger
+    operator = Column(String, nullable=False)  # Operator used for comparison
+    metric = Column(String, nullable=False)  # Metric that was monitored
+    is_resolved = Column(Boolean, default=False, index=True)  # Whether alert has been resolved
+    resolved_at = Column(DateTime(timezone=True), nullable=True)  # When alert was resolved
+    resolution_value = Column(Float, nullable=True)  # Value when alert was resolved
+    metadata = Column(JSON, nullable=True)  # Additional context (trend data, etc.)
+
+    # Relationships
+    alert = relationship("Alert", back_populates="events")
+    device = relationship("Device")
+
+    __table_args__ = (
+        Index('ix_alert_events_alert_triggered', 'alert_id', 'triggered_at'),
+        Index('ix_alert_events_device_triggered', 'device_id', 'triggered_at'),
+        Index('ix_alert_events_resolved', 'is_resolved'),
+        Index('ix_alert_events_triggered_at', 'triggered_at'),  # For cleanup queries
     ) 

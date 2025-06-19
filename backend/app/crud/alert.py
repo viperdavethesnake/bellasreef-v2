@@ -1,9 +1,9 @@
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
-from datetime import datetime, timezone
-from app.db.models import Alert, Device
-from app.schemas.alert import AlertCreate, AlertUpdate
+from datetime import datetime, timezone, timedelta
+from app.db.models import Alert, Device, AlertEvent
+from app.schemas.alert import AlertCreate, AlertUpdate, AlertEventCreate, AlertEventUpdate
 
 class AlertCRUD:
     def get(self, db: Session, alert_id: int) -> Optional[Alert]:
@@ -150,5 +150,84 @@ class AlertCRUD:
             "alerts_by_device": alerts_by_device
         }
 
-# Create instance
-alert = AlertCRUD() 
+class AlertEventCRUD:
+    def get(self, db: Session, event_id: int) -> Optional[AlertEvent]:
+        return db.query(AlertEvent).filter(AlertEvent.id == event_id).first()
+    
+    def get_by_alert(self, db: Session, alert_id: int) -> List[AlertEvent]:
+        """Get all events for a specific alert"""
+        return db.query(AlertEvent).filter(AlertEvent.alert_id == alert_id).all()
+    
+    def get_by_device(self, db: Session, device_id: int) -> List[AlertEvent]:
+        """Get all events for a specific device"""
+        return db.query(AlertEvent).filter(AlertEvent.device_id == device_id).all()
+    
+    def get_unresolved_events(self, db: Session) -> List[AlertEvent]:
+        """Get all unresolved alert events"""
+        return db.query(AlertEvent).filter(AlertEvent.is_resolved == False).all()
+    
+    def get_multi(
+        self, 
+        db: Session, 
+        skip: int = 0, 
+        limit: int = 100,
+        alert_id: Optional[int] = None,
+        device_id: Optional[int] = None,
+        is_resolved: Optional[bool] = None
+    ) -> List[AlertEvent]:
+        query = db.query(AlertEvent)
+        
+        if alert_id is not None:
+            query = query.filter(AlertEvent.alert_id == alert_id)
+        if device_id is not None:
+            query = query.filter(AlertEvent.device_id == device_id)
+        if is_resolved is not None:
+            query = query.filter(AlertEvent.is_resolved == is_resolved)
+        
+        return query.order_by(desc(AlertEvent.triggered_at)).offset(skip).limit(limit).all()
+    
+    def create(self, db: Session, obj_in: AlertEventCreate) -> AlertEvent:
+        db_obj = AlertEvent(**obj_in.model_dump())
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+    
+    def update(
+        self, 
+        db: Session, 
+        db_obj: AlertEvent, 
+        obj_in: AlertEventUpdate
+    ) -> AlertEvent:
+        update_data = obj_in.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            setattr(db_obj, field, value)
+        
+        # Set resolved_at timestamp when marking as resolved
+        if update_data.get('is_resolved') and not db_obj.resolved_at:
+            db_obj.resolved_at = datetime.now(timezone.utc)
+        
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+    
+    def remove(self, db: Session, event_id: int) -> Optional[AlertEvent]:
+        obj = db.query(AlertEvent).get(event_id)
+        if obj:
+            db.delete(obj)
+            db.commit()
+        return obj
+    
+    def cleanup_old_events(self, db: Session, days: int = 90) -> int:
+        """Delete alert events older than specified days"""
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=days)
+        result = db.query(AlertEvent).filter(
+            AlertEvent.triggered_at < cutoff_date
+        ).delete()
+        db.commit()
+        return result
+
+# Create instances
+alert = AlertCRUD()
+alert_event = AlertEventCRUD() 

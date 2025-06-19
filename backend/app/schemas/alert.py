@@ -47,4 +47,38 @@ class AlertStats(BaseModel):
     total_alerts: int
     enabled_alerts: int
     trend_alerts: int
-    alerts_by_device: dict[str, int] = Field(..., description="Alert count by device name") 
+    alerts_by_device: dict[str, int] = Field(..., description="Alert count by device name")
+
+class AlertEventBase(BaseModel):
+    alert_id: int = Field(..., description="ID of the alert that was triggered")
+    device_id: int = Field(..., description="ID of the device that triggered the alert")
+    current_value: Optional[float] = Field(None, description="Value that triggered the alert")
+    threshold_value: float = Field(..., description="Threshold value at time of trigger")
+    operator: str = Field(..., description="Operator used for comparison")
+    metric: str = Field(..., description="Metric that was monitored")
+    is_resolved: bool = Field(default=False, description="Whether alert has been resolved")
+    resolution_value: Optional[float] = Field(None, description="Value when alert was resolved")
+    metadata: Optional[dict] = Field(None, description="Additional context (trend data, etc.)")
+
+class AlertEventCreate(AlertEventBase):
+    pass
+
+class AlertEventUpdate(BaseModel):
+    is_resolved: Optional[bool] = None
+    resolution_value: Optional[float] = None
+    metadata: Optional[dict] = None
+
+class AlertEvent(AlertEventBase):
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: int
+    triggered_at: datetime
+    resolved_at: Optional[datetime] = None
+
+class AlertEventWithAlert(AlertEvent):
+    """Alert event with alert metadata included"""
+    alert: Alert = Field(..., description="Alert information")
+
+class AlertEventWithDevice(AlertEvent):
+    """Alert event with device metadata included"""
+    device: dict = Field(..., description="Device information") 
