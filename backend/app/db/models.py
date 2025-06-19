@@ -43,6 +43,7 @@ class Device(Base):
 
     # Relationships
     history = relationship("History", back_populates="device", cascade="all, delete-orphan")
+    alerts = relationship("Alert", back_populates="device", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index('ix_devices_poll_enabled_active', 'poll_enabled', 'is_active'),
@@ -67,4 +68,26 @@ class History(Base):
     __table_args__ = (
         Index('ix_history_device_timestamp', 'device_id', 'timestamp'),
         Index('ix_history_timestamp', 'timestamp'),  # For cleanup queries
+    )
+
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
+    metric = Column(String, nullable=False, index=True)  # Metric name to monitor (e.g., "temperature", "ph", "salinity")
+    operator = Column(String, nullable=False)  # Comparison operator (">", "<", "==", ">=", "<=", "!=")
+    threshold_value = Column(Float, nullable=False)  # Threshold value for comparison
+    is_enabled = Column(Boolean, default=True, index=True)  # Whether alert is active
+    trend_enabled = Column(Boolean, default=False)  # Whether to monitor trend (requires polling device)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    device = relationship("Device", back_populates="alerts")
+
+    __table_args__ = (
+        Index('ix_alerts_device_enabled', 'device_id', 'is_enabled'),
+        Index('ix_alerts_metric', 'metric'),
+        Index('ix_alerts_trend_enabled', 'trend_enabled'),
     ) 
