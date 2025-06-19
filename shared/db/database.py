@@ -5,7 +5,6 @@ This module provides:
 - Async engine creation with asyncpg
 - Async session factory using async_sessionmaker
 - FastAPI dependency for database sessions
-- Environment-aware connection pooling
 """
 
 from typing import AsyncGenerator
@@ -16,25 +15,16 @@ from shared.core.config import settings
 # Database URL with asyncpg driver
 DATABASE_URL = str(settings.DATABASE_URL).replace("postgresql://", "postgresql+asyncpg://")
 
-# Engine configuration based on environment
-if settings.ENV == "development":
-    # Development: Simple configuration with NullPool for easier debugging
-    engine = create_async_engine(
-        DATABASE_URL,
-        echo=settings.DEBUG,
-        poolclass=NullPool,
-    )
-else:
-    # Production: Full connection pooling for performance and reliability
-    engine = create_async_engine(
-        DATABASE_URL,
-        echo=settings.DEBUG,
-        pool_size=10,
-        max_overflow=20,
-        pool_pre_ping=True,
-        pool_recycle=3600,
-        pool_timeout=30,
-    )
+# Engine configuration (single, production-safe)
+engine = create_async_engine(
+    DATABASE_URL,
+    # TODO: If you need SQL echo for debugging, set echo=True here manually
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    pool_recycle=3600,
+    pool_timeout=30,
+)
 
 # Async session factory
 async_session = async_sessionmaker(
