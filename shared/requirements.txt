@@ -1,0 +1,106 @@
+# =============================================================================
+# Bella's Reef - Backend Requirements
+# =============================================================================
+# Python 3.11+ compatible requirements for Raspberry Pi (arm64)
+# Target: FastAPI + Pydantic v2 + Async SQLAlchemy + Modern Hardware Control
+#
+# Hardware Compatibility Notes:
+# - lgpio: Modern GPIO library for Pi 5 and newer Pi models
+# - adafruit-blinka: CircuitPython compatibility layer for I2C/PWM
+# - adafruit-circuitpython-pca9685: External I2C PWM controller
+# - All dependencies tested on Pi 3B+, Pi 4, and Pi 5 with Python 3.11+
+#
+# Pi OS Compatibility:
+# - Tested on Raspberry Pi OS Bookworm (Debian 12)
+# - Requires Python 3.11+ (included in Pi OS Bookworm)
+# - lgpio requires kernel 5.15+ (available on Pi OS Bookworm)
+
+# === Core Backend Framework ===
+fastapi==0.104.1
+uvicorn[standard]==0.24.0  # Standard extras for production server
+
+# === Database & Async Support ===
+sqlalchemy==2.0.23
+asyncpg==0.29.0  # Async PostgreSQL driver
+psycopg2-binary==2.9.9  # ⚠️ Consider psycopg3 for Python 3.13+
+
+# === Pydantic v2 & Configuration ===
+pydantic[email]==2.4.2  # EmailStr support
+pydantic-settings==2.0.3
+python-dotenv==1.0.0
+
+# === Authentication & Security ===
+python-jose[cryptography]==3.3.0  # JWT handling
+passlib[bcrypt]==1.7.4  # Password hashing (keep current version for stability)
+bcrypt==3.2.2  # Explicit bcrypt version compatible with passlib 1.7.4
+python-multipart==0.0.6  # Form data parsing for FastAPI
+
+# === Modern Raspberry Pi Hardware Support ===
+# lgpio: Modern GPIO library for Pi 5 and newer models
+# - Replaces RPi.GPIO for better Pi 5 compatibility
+# - Supports hardware PWM on all GPIO pins via RP1
+# - Better performance and modern API
+lgpio==0.2.2.0  # Modern GPIO library (Pi 5 compatible) - CORRECTED VERSION
+
+# CircuitPython for I2C and PWM - Latest versions for Pi 5 compatibility
+adafruit-circuitpython-pca9685==3.4.19  # I2C PWM controller
+adafruit-blinka==8.56.0  # CircuitPython compatibility layer
+
+# === Temperature Sensors ===
+w1thermsensor==2.3.0  # DS18B20 1-Wire temperature sensors
+adafruit-circuitpython-dht==4.0.9  # DHT22/DHT11 humidity/temperature sensors
+
+# === Async HTTP Client ===
+aiohttp==3.8.6  # Used in outlets.py for HTTP requests
+
+# =============================================================================
+# Optional Development Tools (uncomment as needed)
+# =============================================================================
+
+# === Testing ===
+# pytest==7.4.3  # Testing framework
+# pytest-asyncio==0.21.1  # Async testing support
+# httpx==0.25.1  # Async HTTP client for testing
+
+# === Code Quality & Linting ===
+# ruff==0.1.6  # Fast Python linter and formatter
+# black==23.11.0  # Code formatting
+# isort==5.12.0  # Import sorting
+
+# === Type Checking ===
+# mypy==1.7.1  # Static type checker
+# types-psycopg2==2.9.21.14  # Type stubs for psycopg2
+
+# === Development Server ===
+# watchfiles==0.21.0  # Auto-reload for development
+
+# === Documentation ===
+# mkdocs==1.5.3  # Documentation generator
+# mkdocs-material==9.4.8  # Material theme for MkDocs
+
+# === Monitoring & Debugging ===
+# structlog==23.2.0  # Structured logging
+# sentry-sdk[fastapi]==1.38.0  # Error tracking
+
+# =============================================================================
+# Version Compatibility Notes
+# =============================================================================
+# - Python: 3.11+ (tested on 3.11, 3.12)
+# - Target: Raspberry Pi (arm64) with Python 3.11+
+# - FastAPI: 0.104.1 (latest stable)
+# - Pydantic: 2.4.2 (v2 with email extras)
+# - SQLAlchemy: 2.0.23 (async support)
+# - Hardware: lgpio (modern) + CircuitPython for I2C/PWM
+# - Sensors: DS18B20 (1-Wire), DHT22/DHT11 (Digital)
+#
+# Hardware Library Updates:
+# - RPi.GPIO → lgpio (modern GPIO library for Pi 5)
+# - adafruit-circuitpython-pca9685: 3.4.19 (latest stable)
+# - adafruit-blinka: 8.60.0 (latest stable)
+# - adafruit-circuitpython-dht: 4.0.9 (latest stable)
+#
+# Installation Notes:
+# - Use PiWheels for faster binary wheel installation: pip install -i https://www.piwheels.org/simple/ package_name
+# - For development: pip install -r requirements.txt
+# - For production: pip install -r requirements.txt --no-cache-dir
+# - lgpio requires kernel 5.15+ (available on Pi OS Bookworm)

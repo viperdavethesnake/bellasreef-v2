@@ -1,28 +1,127 @@
 # Bella's Reef - Reef Tank Management System
 
+**✅ MODULAR SERVICE ARCHITECTURE: This project uses a modular service-based architecture with no Alembic migrations. All database initialization is handled through `/scripts/init_db.py`.**
+
 A comprehensive reef tank management system for tracking and maintaining your aquarium's health and parameters, built with modern async Python technologies.
 
-## Project Structure
+## 🏗️ Modular Service Architecture
+
+This project is organized into isolated service modules that can be developed, tested, and deployed independently:
 
 ```
 bellasreef-v2/
-├── backend/                    # Backend API server (Python/FastAPI)
-│   ├── app/
-│   │   ├── api/               # FastAPI route handlers
-│   │   ├── core/              # Configuration and security
-│   │   ├── crud/              # Database CRUD operations
-│   │   ├── db/                # Database models and connection
-│   │   ├── hardware/          # Device polling and control
-│   │   ├── schemas/           # Pydantic data models
-│   │   ├── services/          # Business logic services
-│   │   ├── utils/             # Utility functions
-│   │   └── worker/            # Background worker processes
-│   ├── scripts/               # Database and deployment scripts
-│   ├── tests/                 # Backend tests
-│   └── requirements.txt       # Python dependencies
-├── project_docs/              # Project documentation
-└── readme.md                  # This file
+├── core/                      # User authentication, session management, system health APIs (port 8000)
+├── scheduler/                 # Job scheduling and automation management (port 8001)
+├── poller/                    # Device polling, sensor data collection, alerts (port 8002)
+├── control/                   # Hardware control - PWM, GPIO, relays (port 8003)
+├── shared/                    # Common code - models, schemas, config, utils
+├── test/                      # All tests organized by service
+├── scripts/                   # Deployment, setup, and utility scripts
+├── services.yaml             # Service manifest and documentation
+└── project_docs/             # Project documentation
 ```
+
+**📋 See `services.yaml` for detailed service documentation and dependencies.**
+
+## 🚀 Quick Start
+
+### Minimum Required Services
+New users must set up these services at minimum:
+- **`/core`** - User authentication and system health
+- **`/shared`** - Common code and database models  
+- **`/scripts`** - Setup and database initialization
+
+### Setup Instructions
+
+1. **Clone and navigate to project:**
+   ```bash
+   cd bellasreef-v2
+   ```
+
+2. **Run the main setup script:**
+   ```bash
+   ./scripts/setup.sh
+   ```
+
+3. **Initialize database:**
+   ```bash
+   python scripts/init_db.py
+   ```
+
+4. **Start core service:**
+   ```bash
+   cd core
+   ./start.sh
+   ```
+
+### All Setup/Start Scripts Location
+All operational scripts are located in `/scripts/`:
+- `scripts/setup.sh` - Main setup script
+- `scripts/init_db.py` - Database initialization
+- `scripts/start.sh` - Start all services
+- `scripts/deploy.sh` - Deployment script
+- `scripts/migrate_device_units.py` - Data migration
+- `scripts/test_pwm_config.py` - PWM configuration test
+- `scripts/validate_pwm_config.py` - PWM configuration validation
+
+### Service-Specific Scripts
+Each service folder contains only service-specific scripts:
+- `core/start.sh` - Start core service
+- `scheduler/start.sh` - Start scheduler service
+- `poller/start.sh` - Start poller service
+- `control/start.sh` - Start control service
+
+## 🗄️ Database Management
+
+**No Alembic Migrations**: This project uses a clean slate approach with no migration complexity.
+
+**Database Initialization**: All database setup is handled through `/scripts/init_db.py`:
+- Creates all tables from scratch
+- Optional superuser creation
+- Schema validation
+- No migration scripts required
+
+**Usage:**
+```bash
+# Normal initialization
+python scripts/init_db.py
+
+# With superuser creation
+python scripts/init_db.py --create-superuser
+
+# Dry run (validate config only)
+python scripts/init_db.py --dry-run
+```
+
+## 📁 Service Structure Summary
+
+### Core Service (`/core`)
+- **Purpose**: User authentication, session management, system health
+- **Port**: 8000
+- **Files**: `main.py`, `start.sh`, `env.example`, `api/`, `services/`
+
+### Scheduler Service (`/scheduler`) 
+- **Purpose**: Job scheduling and automation management
+- **Port**: 8001
+- **Files**: `main.py`, `start.sh`, `env.example`, `api/`, `services/`, `worker/`
+
+### Poller Service (`/poller`)
+- **Purpose**: Device polling, sensor data collection, alert management
+- **Port**: 8002
+- **Files**: `main.py`, `start.sh`, `env.example`, `api/`, `services/`, `worker/`
+
+### Control Service (`/control`)
+- **Purpose**: Hardware control - PWM, GPIO, relays
+- **Port**: 8003
+- **Files**: `main.py`, `start.sh`, `env.example`, `hardware/`
+
+### Shared Module (`/shared`)
+- **Purpose**: Common code used across all services
+- **Files**: `db/`, `schemas/`, `core/`, `crud/`, `utils/`, `requirements.txt`
+
+### Test Module (`/test`)
+- **Purpose**: All tests organized by service
+- **Files**: `test_system.py`, `test_scheduler.py`, `test_poller.py`, `test_history.py`
 
 ## Tech Stack
 
@@ -45,46 +144,20 @@ bellasreef-v2/
 
 **⚠️ IMPORTANT: This codebase is 100% async-only. All database operations MUST use async patterns.**
 
-### Database Configuration
-
-Our database setup uses SQLAlchemy 2.x with async patterns:
-
-```python
-# backend/app/db/database.py
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import sessionmaker
-
-# Async engine with PostgreSQL
-engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
-    autoflush=False,  # Explicit flush required
-    pool_pre_ping=True
-)
-
-# Async session factory
-async_session = sessionmaker(
-    engine, 
-    class_=AsyncSession, 
-    expire_on_commit=False,
-    autoflush=False
-)
-```
-
 ### Import Patterns
 
 **Correct async imports:**
 ```python
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.database import async_session
-from app.crud import user as crud_user
+from shared.db.database import async_session
+from shared.crud import user as crud_user
 ```
 
 **❌ NEVER use these sync patterns:**
 ```python
 # WRONG - Don't use sync SQLAlchemy
 from sqlalchemy.orm import Session, sessionmaker
-from app.db.database import SessionLocal  # Old sync pattern
+from shared.db.database import SessionLocal  # Old sync pattern
 ```
 
 ### Database Session Usage
@@ -113,9 +186,9 @@ def get_user_by_id(user_id: int) -> Optional[User]:
 ```python
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.db.database import async_session
-from app.crud import user as crud_user
-from app.schemas.user import UserCreate, User
+from shared.db.database import async_session
+from shared.crud import user as crud_user
+from shared.schemas.user import UserCreate, User
 
 router = APIRouter()
 
@@ -136,7 +209,7 @@ async def create_user(
 ```python
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.models.user import User
+from shared.db.models import User
 
 async def get_user(db: AsyncSession, user_id: int) -> Optional[User]:
     result = await db.execute(select(User).filter(User.id == user_id))

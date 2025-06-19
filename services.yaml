@@ -1,0 +1,97 @@
+# Bella's Reef Services Manifest
+# This file documents each service's purpose, port, and configuration
+
+services:
+  core:
+    description: User authentication, session management, and system health APIs
+    port: 8000
+    env: core/env.example
+    dependencies:
+      - shared
+    endpoints:
+      - /api/auth - Authentication endpoints
+      - /api/users - User management
+      - /api/health - System health check
+
+  scheduler:
+    description: Job scheduling and automation management
+    port: 8001
+    env: scheduler/env.example
+    dependencies:
+      - shared
+      - core (for user authentication)
+    endpoints:
+      - /api/schedules - Schedule management
+      - /api/schedules/device-actions - Device action management
+      - /api/schedules/health - Scheduler health check
+
+  poller:
+    description: Device polling, sensor data collection, and alert management
+    port: 8002
+    env: poller/env.example
+    dependencies:
+      - shared
+      - core (for user authentication)
+    endpoints:
+      - /api/devices - Device management and polling
+      - /api/alerts - Alert management
+      - /api/history - Historical data
+
+  control:
+    description: PWM, relay, and GPIO hardware control
+    port: 8003
+    env: control/env.example
+    dependencies:
+      - shared
+      - core (for user authentication)
+    endpoints:
+      - /api/hardware - Hardware control endpoints
+      - /api/pwm - PWM control
+      - /api/gpio - GPIO control
+
+  shared:
+    description: Common code (models, schemas, config, utils)
+    port: null
+    env: null
+    dependencies: []
+    components:
+      - db/ - Database models and configuration
+      - schemas/ - Pydantic schemas
+      - core/ - Core configuration and security
+      - crud/ - Database CRUD operations
+      - utils/ - Utility functions
+
+  test:
+    description: All test scripts organized by service
+    port: null
+    env: null
+    dependencies:
+      - shared
+      - core
+      - scheduler
+      - poller
+      - control
+    test_suites:
+      - test_system.py - System integration tests
+      - test_scheduler.py - Scheduler tests
+      - test_poller.py - Poller tests
+      - test_history.py - History tests
+
+# Service Communication
+inter_service_auth:
+  method: SERVICE_TOKEN
+  description: All services use a shared SERVICE_TOKEN for inter-service API calls
+  security: Each service validates the token in request headers
+
+# Database
+database:
+  type: PostgreSQL
+  shared: true
+  connection: All services connect to the same database instance
+
+# Deployment Notes
+deployment:
+  - Each service can be deployed independently
+  - Services can run on separate machines/containers
+  - Shared database must be accessible to all services
+  - SERVICE_TOKEN must be consistent across all services 
