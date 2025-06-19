@@ -1,148 +1,52 @@
 # Bella's Reef - Scripts Directory
 
-This directory contains all operational scripts for the Bella's Reef project. All scripts are designed to be runnable from anywhere using absolute paths.
+This directory contains all operational scripts for the Bella's Reef project. All scripts are robust, user-friendly, secure, and can be run from any directory.
 
-## 📋 Script Categories
+## 🚀 Service Setup Scripts
 
-### 🚀 Setup Scripts
-- **`setup.sh`** - Main setup script for the entire project
-- **`setup_core.sh`** - Setup core service (auth, health, users)
-- **`setup_scheduler.sh`** - Setup scheduler service (job scheduling)
-- **`setup_poller.sh`** - Setup poller service (device polling, alerts)
-- **`setup_control.sh`** - Setup control service (hardware control)
+- **setup_core.sh**: Setup for the core service (auth, health, users)
+- **setup_scheduler.sh**: Setup for the scheduler service (job scheduling)
+- **setup_poller.sh**: Setup for the poller service (device polling, alerts)
+- **setup_control.sh**: Setup for the control service (hardware control)
 
-### ▶️ Start Scripts
-- **`start_core.sh`** - Start core service on port 8000
-- **`start_scheduler.sh`** - Start scheduler service on port 8001
-- **`start_poller.sh`** - Start poller service on port 8002
-- **`start_control.sh`** - Start control service on port 8003
-
-### 🗄️ Database Scripts
-- **`init_db.py`** - Initialize database schema and create admin user
-- **`migrate_device_units.py`** - Migrate device unit data
-
-### 🔧 Hardware Scripts
-- **`test_pwm_config.py`** - Test PWM configuration
-- **`validate_pwm_config.py`** - Validate PWM configuration
-
-### 🧪 Testing Scripts
-- **`test_core_setup.py`** - Verify core service setup
-
-### 🚀 Deployment Scripts
-- **`deploy.sh`** - Deploy all services
-- **`audit_migrations.sh`** - Audit for migration artifacts
-
-## 🎯 Quick Start
-
-### Core Service Only (Recommended for testing)
+**Usage Example:**
 ```bash
-# 1. Main setup
-./scripts/setup.sh
-
-# 2. Setup core service
-./scripts/setup_core.sh
-
-# 3. Configure environment
-cp core/env.example core/.env
-# Edit core/.env with your settings
-
-# 4. Initialize database
-python3 scripts/init_db.py
-
-# 5. Start core service
-./scripts/start_core.sh
-```
-
-### All Services
-```bash
-# 1. Main setup
-./scripts/setup.sh
-
-# 2. Setup all services
 ./scripts/setup_core.sh
 ./scripts/setup_scheduler.sh
 ./scripts/setup_poller.sh
 ./scripts/setup_control.sh
+```
+- Checks for Python 3.11+, creates venv if missing, installs dependencies from /shared/requirements.txt
+- Checks for .env, copies from env.example if missing, warns on unsafe secrets
+- Color-coded output and clear next steps
 
-# 3. Configure environments
-cp core/env.example core/.env
-cp scheduler/env.example scheduler/.env
-cp poller/env.example poller/.env
-cp control/env.example control/.env
-# Edit each .env file with your settings
+## ▶️ Service Start Scripts
 
-# 4. Initialize database
-python3 scripts/init_db.py
+- **start_core.sh**: Start the core service (port 8000)
+- **start_scheduler.sh**: Start the scheduler service (port 8001)
+- **start_poller.sh**: Start the poller service (port 8002)
+- **start_control.sh**: Start the control service (port 8003)
 
-# 5. Start all services
+**Usage Example:**
+```bash
 ./scripts/start_core.sh
 ./scripts/start_scheduler.sh
 ./scripts/start_poller.sh
 ./scripts/start_control.sh
 ```
+- Activates venv, checks for .env, checks DB connectivity and initialization
+- Fails with clear, color-coded errors if DB is not ready or .env is missing
+- Starts the service with clear output
 
-## 📁 Script Features
+## 🗄️ Database & Utility Scripts
 
-### ✅ Self-Contained
-All scripts use absolute paths and can be run from anywhere:
-```bash
-# These all work from any directory
-/path/to/bellasreef-v2/scripts/start_core.sh
-cd /some/other/dir && /path/to/bellasreef-v2/scripts/start_core.sh
-```
-
-### ✅ Error Handling
-All scripts include comprehensive error handling:
-- Check for required dependencies
-- Validate environment files
-- Provide clear error messages
-- Exit with appropriate codes
-
-### ✅ Virtual Environments
-Each service gets its own virtual environment:
-- `core/venv/` - Core service dependencies
-- `scheduler/venv/` - Scheduler service dependencies
-- `poller/venv/` - Poller service dependencies
-- `control/venv/` - Control service dependencies
-
-### ✅ Shared Dependencies
-All services use the same requirements file:
-- `shared/requirements.txt` - Single source of truth for dependencies
-
-## 🔧 Script Usage Examples
-
-### Database Management
-```bash
-# Initialize database (required before starting services)
-python3 scripts/init_db.py
-
-# Check database configuration only
-python3 scripts/init_db.py --check
-
-# Dry run (validate config without making changes)
-python3 scripts/init_db.py --dry-run
-```
-
-### Hardware Testing
-```bash
-# Test PWM configuration
-python3 scripts/test_pwm_config.py
-
-# Validate PWM configuration
-python3 scripts/validate_pwm_config.py
-```
-
-### Service Management
-```bash
-# Start specific service
-./scripts/start_core.sh
-
-# Setup specific service
-./scripts/setup_scheduler.sh
-
-# Deploy all services
-./scripts/deploy.sh
-```
+- **init_db.py**: Initialize database schema and create admin user
+- **migrate_device_units.py**: Migrate device unit data
+- **test_pwm_config.py**: Test PWM configuration
+- **validate_pwm_config.py**: Validate PWM configuration
+- **deploy.sh**: Deploy all services
+- **audit_migrations.sh**: Audit for migration artifacts
+- **test_core_setup.py**: Verify core service setup
 
 ## 📝 Environment Files
 
@@ -152,33 +56,12 @@ Each service has its own environment configuration:
 - `poller/env.example` - Poller service configuration
 - `control/env.example` - Control service configuration
 
-**Important**: Copy `env.example` to `.env` and configure before starting services.
+**Important:** Copy `env.example` to `.env` and configure before starting services. Setup scripts will do this for you if needed.
 
-## 🚨 Troubleshooting
-
-### Common Issues
-
-1. **"No module named 'pydantic'"**
-   - Run the appropriate setup script: `./scripts/setup_core.sh`
-
-2. **"Database not initialized"**
-   - Run: `python3 scripts/init_db.py`
-
-3. **"No .env file found"**
-   - Copy env.example to .env: `cp core/env.example core/.env`
-
-4. **"Permission denied"**
-   - Make scripts executable: `chmod +x scripts/*.sh`
-
-### Script Permissions
-```bash
-# Make all scripts executable
-chmod +x scripts/*.sh
-chmod +x scripts/*.py
-```
+## ⚠️ Security Warnings
+- If you see a yellow warning about `SERVICE_TOKEN` or `SECRET_KEY`, update your `.env` before deploying to production!
 
 ## 📚 Related Documentation
-
 - [Main README](../readme.md) - Project overview and architecture
 - [Services Manifest](../services.yaml) - Service documentation
 - [Project Docs](../project_docs/) - Detailed documentation
