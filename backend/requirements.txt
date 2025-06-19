@@ -44,7 +44,7 @@ lgpio==0.2.2.0  # Modern GPIO library (Pi 5 compatible) - CORRECTED VERSION
 
 # CircuitPython for I2C and PWM - Latest versions for Pi 5 compatibility
 adafruit-circuitpython-pca9685==3.4.19  # I2C PWM controller
-adafruit-blinka==8.60.0  # CircuitPython compatibility layer
+adafruit-blinka==8.56.0  # CircuitPython compatibility layer
 
 # === Temperature Sensors ===
 w1thermsensor==2.3.0  # DS18B20 1-Wire temperature sensors
