@@ -25,6 +25,14 @@ bellasreef-v2/
 
 ## 🚀 Quick Start
 
+### ⚠️ IMPORTANT: Database Initialization Required
+**Before starting any service, you MUST initialize the database:**
+```bash
+python scripts/init_db.py
+```
+
+Services will fail to start with a clear error if the database is not initialized.
+
 ### Minimum Required Services
 New users must set up these services at minimum:
 - **`/core`** - User authentication and system health
@@ -43,10 +51,11 @@ New users must set up these services at minimum:
    ./scripts/setup.sh
    ```
 
-3. **Initialize database:**
+3. **⚠️ Initialize database (REQUIRED):**
    ```bash
    python scripts/init_db.py
    ```
+   **This step is mandatory before starting any service.**
 
 4. **Start core service:**
    ```bash
@@ -57,7 +66,7 @@ New users must set up these services at minimum:
 ### All Setup/Start Scripts Location
 All operational scripts are located in `/scripts/`:
 - `scripts/setup.sh` - Main setup script
-- `scripts/init_db.py` - Database initialization
+- `scripts/init_db.py` - Database initialization (REQUIRED)
 - `scripts/start.sh` - Start all services
 - `scripts/deploy.sh` - Deployment script
 - `scripts/migrate_device_units.py` - Data migration
@@ -75,15 +84,16 @@ Each service folder contains only service-specific scripts:
 
 **No Alembic Migrations**: This project uses a clean slate approach with no migration complexity.
 
-**Database Initialization**: All database setup is handled through `/scripts/init_db.py`:
+**⚠️ Database Initialization Required**: All database setup is handled through `/scripts/init_db.py`:
 - Creates all tables from scratch
 - Optional superuser creation
 - Schema validation
 - No migration scripts required
+- **Services will fail if database is not initialized**
 
 **Usage:**
 ```bash
-# Normal initialization
+# Normal initialization (REQUIRED before starting services)
 python scripts/init_db.py
 
 # With superuser creation
@@ -92,6 +102,12 @@ python scripts/init_db.py --create-superuser
 # Dry run (validate config only)
 python scripts/init_db.py --dry-run
 ```
+
+**Service Behavior:**
+- Services verify database connectivity on startup
+- Services check for required tables (users, devices, schedules, etc.)
+- Services fail with clear error message if tables are missing
+- Error message directs users to run `python scripts/init_db.py`
 
 ## 📁 Service Structure Summary
 

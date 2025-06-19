@@ -34,6 +34,42 @@ if [ ! -f ".env" ]; then
     exit 1
 fi
 
+# Check if database is initialized
+echo -e "${YELLOW}Checking database initialization...${NC}"
+if ! python -c "
+import sys
+sys.path.insert(0, '../shared')
+from shared.db.database import engine
+from sqlalchemy import text
+import asyncio
+
+async def check_db():
+    try:
+        async with engine.begin() as conn:
+            await conn.execute(text('SELECT 1'))
+            result = await conn.execute(text(\"\"\"
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'users'
+                )
+            \"\"\"))
+            if not result.scalar():
+                print('Database tables not found')
+                sys.exit(1)
+    except Exception as e:
+        print(f'Database connection failed: {e}')
+        sys.exit(1)
+
+asyncio.run(check_db())
+" 2>/dev/null; then
+    echo -e "${RED}❌ Database not initialized!${NC}"
+    echo -e "${YELLOW}Please run: python ../scripts/init_db.py${NC}"
+    exit 1
+fi
+
+echo -e "${GREEN}✅ Database connectivity verified${NC}"
+
 # Start the service
 echo -e "${GREEN}Starting Core Service on port 8000...${NC}"
 python main.py 

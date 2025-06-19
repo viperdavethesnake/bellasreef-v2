@@ -18,9 +18,10 @@ from pathlib import Path
 shared_path = Path(__file__).parent.parent / "shared"
 sys.path.insert(0, str(shared_path))
 
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from sqlalchemy import text
 
 from shared.core.config import settings
 from shared.db.database import engine, Base
@@ -38,8 +39,36 @@ async def lifespan(app: FastAPI):
     # Startup
     print("🚀 Starting Bella's Reef Control Service...")
     
-    # Create database tables
-    Base.metadata.create_all(bind=engine)
+    # Verify database connectivity and table existence
+    try:
+        async with engine.begin() as conn:
+            # Test database connection
+            await conn.execute(text("SELECT 1"))
+            
+            # Check if devices table exists
+            result = await conn.execute(text("""
+                SELECT EXISTS (
+                    SELECT FROM information_schema.tables 
+                    WHERE table_schema = 'public' 
+                    AND table_name = 'devices'
+                )
+            """))
+            table_exists = result.scalar()
+            
+            if not table_exists:
+                raise HTTPException(
+                    status_code=500,
+                    detail="Database tables not found. Please run 'python scripts/init_db.py' to initialize the database."
+                )
+        
+        print("✅ Database connectivity verified")
+        
+    except Exception as e:
+        print(f"❌ Database connection failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Database connection failed: {str(e)}. Please ensure the database is running and initialized."
+        )
     
     # Initialize hardware factory
     device_factory = DeviceFactory()
