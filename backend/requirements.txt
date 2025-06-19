@@ -32,6 +32,10 @@ RPi.GPIO==0.7.1  # Low-level GPIO control
 adafruit-circuitpython-pca9685==3.4.1  # I2C PWM controller
 adafruit-blinka==8.32.0  # CircuitPython compatibility layer
 
+# === Temperature Sensors ===
+w1thermsensor==2.1.0  # DS18B20 1-Wire temperature sensors
+adafruit-circuitpython-dht==3.7.8  # DHT22/DHT11 humidity/temperature sensors
+
 # === Async HTTP Client ===
 aiohttp==3.8.6  # Used in outlets.py for HTTP requests
 
@@ -73,3 +77,4 @@ aiohttp==3.8.6  # Used in outlets.py for HTTP requests
 # - Pydantic: 2.4.2 (v2 with email extras)
 # - SQLAlchemy: 2.0.23 (async support)
 # - Hardware: RPi.GPIO + CircuitPython for I2C/PWM
+# - Sensors: DS18B20 (1-Wire), DHT22/DHT11 (Digital)
