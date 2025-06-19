@@ -53,6 +53,7 @@ def validate_required_settings() -> bool:
     required_settings = {
         "SECRET_KEY": settings.SECRET_KEY,
         "DATABASE_URL": settings.DATABASE_URL,
+        "SERVICE_TOKEN": settings.SERVICE_TOKEN,
         "ADMIN_USERNAME": settings.ADMIN_USERNAME,
         "ADMIN_PASSWORD": settings.ADMIN_PASSWORD,
         "ADMIN_EMAIL": settings.ADMIN_EMAIL,
@@ -79,6 +80,8 @@ def print_config_summary():
     print(f"   Database URL: {settings.DATABASE_URL}")
     print(f"   Admin User: {settings.ADMIN_USERNAME} ({settings.ADMIN_EMAIL})")
     print(f"   Service Token: {settings.SERVICE_TOKEN[:10]}...")
+    print(f"   Service Port: {settings.SERVICE_PORT}")
+    print(f"   Token Expiry: {settings.ACCESS_TOKEN_EXPIRE_MINUTES} minutes")
 
 async def reset_db():
     """
@@ -136,7 +139,7 @@ async def create_admin_user():
             admin = User(
                 username=settings.ADMIN_USERNAME,
                 email=settings.ADMIN_EMAIL,
-                phone_number=settings.ADMIN_PHONE,
+                phone_number="",  # Optional field, leave empty
                 hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
                 is_active=True,
                 is_admin=True
@@ -190,21 +193,12 @@ async def main():
     print(f"   - All existing data will be PERMANENTLY LOST")
     print(f"")
     print(f"   Database: {settings.DATABASE_URL}")
-    print(f"   Environment: {settings.ENV}")
     print(f"")
     
-    if settings.ENV == "production":
-        print("🚨 PRODUCTION ENVIRONMENT DETECTED!")
-        print("   This operation will destroy all production data.")
-        response = input("   Type 'DESTROY-PRODUCTION' to continue: ").strip()
-        if response != "DESTROY-PRODUCTION":
-            print("❌ Database initialization cancelled.")
-            sys.exit(0)
-    else:
-        response = input("   Continue with schema reset? (y/N): ").strip().lower()
-        if response not in ['y', 'yes']:
-            print("❌ Database initialization cancelled.")
-            sys.exit(0)
+    response = input("   Continue with schema reset? (y/N): ").strip().lower()
+    if response not in ['y', 'yes']:
+        print("❌ Database initialization cancelled.")
+        sys.exit(0)
     
     try:
         print("\n🔄 Starting complete database schema reset...")
