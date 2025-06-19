@@ -52,7 +52,7 @@ CREATE TABLE history (
     timestamp TIMESTAMP WITH TIME ZONE DEFAULT NOW(),  -- All timestamps in UTC
     value FLOAT,                   -- Numeric value for simple readings
     json_value JSON,               -- Complex data (multiple sensors, etc.)
-    metadata JSON                  -- Additional context (units, status, etc.)
+    history_metadata JSON          -- Additional context (units, status, etc.) - renamed from metadata
 );
 ```
 
@@ -152,7 +152,7 @@ CREATE TABLE history (
     "device_id": 1,
     "timestamp": "2024-01-15T10:30:00.123456Z",
     "value": 25.5,
-    "metadata": {
+    "history_metadata": {
         "unit": "C",
         "measurement_type": "temperature"
     },

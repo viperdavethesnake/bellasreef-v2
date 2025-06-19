@@ -61,7 +61,7 @@ class History(Base):
     timestamp = Column(DateTime(timezone=True), server_default=func.now(), index=True)
     value = Column(Float, nullable=True)  # Numeric value for simple readings
     json_value = Column(JSON, nullable=True)  # Complex data (multiple sensors, etc.)
-    metadata = Column(JSON, nullable=True)  # Additional context (units, status, etc.)
+    history_metadata = Column(JSON, nullable=True)  # Additional context (units, status, etc.) - renamed from metadata
 
     # Relationships
     device = relationship("Device", back_populates="history")
@@ -108,7 +108,7 @@ class AlertEvent(Base):
     is_resolved = Column(Boolean, default=False, index=True)  # Whether alert has been resolved
     resolved_at = Column(DateTime(timezone=True), nullable=True)  # When alert was resolved
     resolution_value = Column(Float, nullable=True)  # Value when alert was resolved
-    metadata = Column(JSON, nullable=True)  # Additional context (trend data, etc.)
+    alert_metadata = Column(JSON, nullable=True)  # Additional context (trend data, etc.) - renamed from metadata
 
     # Relationships
     alert = relationship("Alert", back_populates="events")

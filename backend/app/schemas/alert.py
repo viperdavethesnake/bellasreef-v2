@@ -58,7 +58,7 @@ class AlertEventBase(BaseModel):
     metric: str = Field(..., description="Metric that was monitored")
     is_resolved: bool = Field(default=False, description="Whether alert has been resolved")
     resolution_value: Optional[float] = Field(None, description="Value when alert was resolved")
-    metadata: Optional[dict] = Field(None, description="Additional context (trend data, etc.)")
+    alert_metadata: Optional[dict] = Field(None, description="Additional context (trend data, etc.)")
 
 class AlertEventCreate(AlertEventBase):
     pass
@@ -66,7 +66,7 @@ class AlertEventCreate(AlertEventBase):
 class AlertEventUpdate(BaseModel):
     is_resolved: Optional[bool] = None
     resolution_value: Optional[float] = None
-    metadata: Optional[dict] = None
+    alert_metadata: Optional[dict] = None
 
 class AlertEvent(AlertEventBase):
     model_config = ConfigDict(from_attributes=True)

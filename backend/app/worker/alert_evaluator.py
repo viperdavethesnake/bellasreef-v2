@@ -193,10 +193,10 @@ class AlertEvaluator:
                     except ValueError:
                         pass
         
-        # Check metadata for additional context
-        if reading.metadata and isinstance(reading.metadata, dict):
-            if metric in reading.metadata:
-                value = reading.metadata[metric]
+        # Check history_metadata for additional context
+        if reading.history_metadata and isinstance(reading.history_metadata, dict):
+            if metric in reading.history_metadata:
+                value = reading.history_metadata[metric]
                 if isinstance(value, (int, float)):
                     return float(value)
         
@@ -264,7 +264,7 @@ class AlertEvaluator:
             "threshold_value": alert.threshold_value,
             "operator": alert.operator,
             "metric": alert.metric,
-            "metadata": {
+            "alert_metadata": {
                 "reading_id": reading.id,
                 "reading_timestamp": reading.timestamp.isoformat(),
                 "device_name": device.name,

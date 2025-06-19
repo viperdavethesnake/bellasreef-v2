@@ -181,7 +181,7 @@ class DevicePoller:
                 "device_id": device_id,
                 "value": result.value,
                 "json_value": result.json_value,
-                "metadata": result.metadata
+                "history_metadata": result.metadata
             }
             
             history_crud.create(db, history_data)

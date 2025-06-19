@@ -52,7 +52,7 @@ def create_test_data():
             history_data = HistoryCreate(
                 device_id=device.id,
                 value=reading_data["value"],
-                metadata={"description": reading_data["description"]}
+                history_metadata={"description": reading_data["description"]}
             )
             history = history_crud.create(db, history_data)
             print(f"✅ Created reading {i+1}: {reading_data['value']}°C - {reading_data['description']}")

@@ -24,7 +24,7 @@ class AlertEvent(Base):
     is_resolved = Column(Boolean, default=False, index=True)
     resolved_at = Column(DateTime(timezone=True), nullable=True)
     resolution_value = Column(Float, nullable=True)
-    metadata = Column(JSON, nullable=True)
+    alert_metadata = Column(JSON, nullable=True)
 ```
 
 **Key Features:**
@@ -64,8 +64,8 @@ if reading.json_value and metric in reading.json_value:
     return reading.json_value[metric]
 
 # Metadata readings
-if reading.metadata and metric in reading.metadata:
-    return reading.metadata[metric]
+if reading.history_metadata and metric in reading.history_metadata:
+    return reading.history_metadata[metric]
 ```
 
 ### 3. Standalone Worker (`backend/app/worker/alert_worker.py`)

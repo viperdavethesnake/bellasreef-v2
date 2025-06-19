@@ -42,7 +42,7 @@ class HistoryBase(BaseModel):
     device_id: int
     value: Optional[float] = None
     json_value: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
+    history_metadata: Optional[Dict[str, Any]] = None
 
 class HistoryCreate(HistoryBase):
     pass

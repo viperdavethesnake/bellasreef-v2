@@ -141,7 +141,7 @@ class HistoryCRUD:
                 "timestamp": history.timestamp,
                 "value": history.value,
                 "json_value": history.json_value,
-                "metadata": history.metadata,
+                "history_metadata": history.history_metadata,
                 "device": {
                     "id": device.id,
                     "name": device.name,
@@ -174,7 +174,7 @@ class HistoryCRUD:
                 "timestamp": history.timestamp,
                 "value": history.value,
                 "json_value": history.json_value,
-                "metadata": history.metadata,
+                "history_metadata": history.history_metadata,
                 "device": {
                     "id": device.id,
                     "name": device.name,
