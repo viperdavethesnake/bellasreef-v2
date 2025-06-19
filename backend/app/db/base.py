@@ -1,26 +1,16 @@
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
-from sqlalchemy.orm import declarative_base, sessionmaker
-from app.core.config import settings
+"""
+Base configuration for SQLAlchemy models.
 
-# Create async engine
-engine = create_async_engine(
-    str(settings.DATABASE_URL).replace("postgresql://", "postgresql+asyncpg://"),
-    echo=True,
-    future=True
-)
+This module provides the declarative base for all models.
+The actual database engine and session management is handled in database.py.
+"""
 
-# Create async session factory
-AsyncSessionLocal = sessionmaker(
-    engine, class_=AsyncSession, expire_on_commit=False
-)
+from sqlalchemy.orm import declarative_base
 
-# Create declarative base
+# Create declarative base for all models
 Base = declarative_base()
 
-# Dependency to get DB session
-async def get_db():
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-        finally:
-            await session.close() 
+# Import database components for convenience
+from app.db.database import engine, AsyncSessionLocal, get_db
+
+__all__ = ["Base", "engine", "AsyncSessionLocal", "get_db"] 
