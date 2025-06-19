@@ -1,42 +1,55 @@
 #!/bin/bash
-# Bella's Reef - Core Service Robust Setup Script
+# Bella's Reef - Core Service Setup Script
+# Sets up the core service environment and dependencies
+
 set -e
+
+# Get the project root directory (absolute path)
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CORE_DIR="$PROJECT_ROOT/core"
 SHARED_DIR="$PROJECT_ROOT/shared"
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
-echo -e "${GREEN}[Bella's Reef] Setting up Core Service...${NC}"
-# Python & venv check
-if ! command -v python3 &> /dev/null; then
-    echo -e "${RED}Python 3 is required. Please install it!${NC}"; exit 1
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
+
+echo -e "${GREEN}Setting up Bella's Reef Core Service...${NC}"
+
+cd "$CORE_DIR"
+
+# Check if virtual environment exists
+if [ ! -d "venv" ]; then
+    echo -e "${YELLOW}Creating virtual environment...${NC}"
+    python3 -m venv venv
 fi
-PYV=$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
-if python3 -c 'import sys; exit(0 if sys.version_info >= (3,11) else 1)'; then :; else
-    echo -e "${RED}Python 3.11+ is required. Found $PYV.${NC}"; exit 1
-fi
-if [ ! -d "$CORE_DIR/venv" ]; then
-    echo -e "${YELLOW}Creating venv...${NC}"
-    python3 -m venv "$CORE_DIR/venv"
-fi
-source "$CORE_DIR/venv/bin/activate"
+
+# Activate virtual environment
+echo -e "${GREEN}Activating virtual environment...${NC}"
+source venv/bin/activate
+
 # Install dependencies
-if [ ! -f "$SHARED_DIR/requirements.txt" ]; then
-    echo -e "${RED}Missing requirements.txt in shared!${NC}"; exit 1
-fi
+echo -e "${GREEN}Installing dependencies...${NC}"
 pip install --upgrade pip
 pip install -r "$SHARED_DIR/requirements.txt"
-# .env check and reminder
-if [ ! -f "$CORE_DIR/.env" ]; then
-    cp "$CORE_DIR/env.example" "$CORE_DIR/.env"
-    echo -e "${YELLOW}Created .env from example. Edit this file before starting the service!${NC}"
+
+# Check if .env file exists
+if [ ! -f ".env" ]; then
+    echo -e "${YELLOW}Creating .env file from example...${NC}"
+    cp env.example .env
+    echo -e "${YELLOW}Please edit .env file with your configuration before starting the service.${NC}"
+else
+    echo -e "${GREEN}.env file already exists${NC}"
 fi
-# Warn if using unsafe defaults
-grep -q "changeme" "$CORE_DIR/.env" && \
-    echo -e "${YELLOW}WARNING: You are using a default SERVICE_TOKEN! Change it before production.${NC}"
-grep -q "your_super_secret_key_here" "$CORE_DIR/.env" && \
-    echo -e "${YELLOW}WARNING: You are using a default SECRET_KEY! Change it before production.${NC}"
-echo -e "${GREEN}✅ Setup complete. Next:${NC}"
-echo -e "   1. Edit $CORE_DIR/.env with your secure settings."
+
+# Requirements check (calls Python script)
+echo -e "${GREEN}Verifying installed Python modules...${NC}"
+python3 "$SCRIPT_DIR/check_requirements.py" "$SHARED_DIR/requirements.txt"
+
+echo -e "${GREEN}✅ Core service setup complete!${NC}"
+echo -e "${YELLOW}Next steps:${NC}"
+echo -e "   1. Edit $CORE_DIR/.env with your configuration"
 echo -e "   2. Run: python3 $SCRIPT_DIR/init_db.py"
-echo -e "   3. Start: $SCRIPT_DIR/start_core.sh" 
+echo -e "   3. Start: $SCRIPT_DIR/start_core.sh"
