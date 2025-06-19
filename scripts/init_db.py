@@ -42,6 +42,7 @@ def check_env_file() -> bool:
         print("❌ Error: core/.env file not found!")
         print(f"   Expected location: {env_path}")
         print("   Please copy core/env.example to core/.env and configure your settings.")
+        print("   Then run: python3 $SCRIPT_DIR/init_db.py")
         return False
     
     print(f"✅ Found core/.env file: {env_path}")

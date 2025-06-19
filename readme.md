@@ -13,28 +13,33 @@ A comprehensive reef tank management system for tracking and maintaining your aq
    cd bellasreef-v2
    ```
 
-2. **Run setup script:**
+2. **Run main setup script:**
    ```bash
    ./scripts/setup.sh
    ```
 
-3. **Copy and configure core environment:**
+3. **Setup core service:**
+   ```bash
+   ./scripts/setup_core.sh
+   ```
+
+4. **Copy and configure core environment:**
    ```bash
    cp core/env.example core/.env
    # Edit core/.env with your database and security settings
    ```
 
-4. **Initialize database (REQUIRED):**
+5. **Initialize database (REQUIRED):**
    ```bash
-   python scripts/init_db.py
+   python3 scripts/init_db.py
    ```
 
-5. **Start core service:**
+6. **Start core service:**
    ```bash
-   ./core/start.sh
+   ./scripts/start_core.sh
    ```
 
-6. **Test system endpoints:**
+7. **Test system endpoints:**
    - Health check: `http://localhost:8000/health`
    - API docs: `http://localhost:8000/docs`
    - Auth endpoints: `http://localhost:8000/api/v1/auth/`
@@ -88,34 +93,44 @@ New users must set up these services at minimum:
    ./scripts/setup.sh
    ```
 
-3. **⚠️ Initialize database (REQUIRED):**
+3. **Setup individual services:**
    ```bash
-   python scripts/init_db.py
+   ./scripts/setup_core.sh
+   ./scripts/setup_scheduler.sh
+   ./scripts/setup_poller.sh
+   ./scripts/setup_control.sh
+   ```
+
+4. **⚠️ Initialize database (REQUIRED):**
+   ```bash
+   python3 scripts/init_db.py
    ```
    **This step is mandatory before starting any service.**
 
-4. **Start core service:**
+5. **Start services:**
    ```bash
-   cd core
-   ./start.sh
+   ./scripts/start_core.sh
+   ./scripts/start_scheduler.sh
+   ./scripts/start_poller.sh
+   ./scripts/start_control.sh
    ```
 
 ### All Setup/Start Scripts Location
 All operational scripts are located in `/scripts/`:
 - `scripts/setup.sh` - Main setup script
+- `scripts/setup_core.sh` - Core service setup
+- `scripts/setup_scheduler.sh` - Scheduler service setup
+- `scripts/setup_poller.sh` - Poller service setup
+- `scripts/setup_control.sh` - Control service setup
+- `scripts/start_core.sh` - Start core service
+- `scripts/start_scheduler.sh` - Start scheduler service
+- `scripts/start_poller.sh` - Start poller service
+- `scripts/start_control.sh` - Start control service
 - `scripts/init_db.py` - Database initialization (REQUIRED)
-- `scripts/start.sh` - Start all services
 - `scripts/deploy.sh` - Deployment script
 - `scripts/migrate_device_units.py` - Data migration
 - `scripts/test_pwm_config.py` - PWM configuration test
 - `scripts/validate_pwm_config.py` - PWM configuration validation
-
-### Service-Specific Scripts
-Each service folder contains only service-specific scripts:
-- `core/start.sh` - Start core service
-- `scheduler/start.sh` - Start scheduler service
-- `poller/start.sh` - Start poller service
-- `control/start.sh` - Start control service
 
 ## 🗄️ Database Management
 

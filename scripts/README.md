@@ -1,337 +1,184 @@
-# Bella's Reef - Management Scripts
+# Bella's Reef - Scripts Directory
 
-This directory contains enhanced management scripts for the Bella's Reef backend system. All scripts feature robust CLI interfaces, comprehensive error handling, and clear user feedback.
+This directory contains all operational scripts for the Bella's Reef project. All scripts are designed to be runnable from anywhere using absolute paths.
 
-## 🚀 Scripts Overview
+## 📋 Script Categories
 
-### Core Management Scripts
+### 🚀 Setup Scripts
+- **`setup.sh`** - Main setup script for the entire project
+- **`setup_core.sh`** - Setup core service (auth, health, users)
+- **`setup_scheduler.sh`** - Setup scheduler service (job scheduling)
+- **`setup_poller.sh`** - Setup poller service (device polling, alerts)
+- **`setup_control.sh`** - Setup control service (hardware control)
 
-| Script | Purpose | Key Features |
-|--------|---------|--------------|
-| `setup.sh` | Environment setup and validation | Python 3.11+ setup, virtual environment, dependencies |
-| `start.sh` | Application startup | Development/production modes, health checks, validation |
-| `deploy.sh` | Full deployment pipeline | End-to-end deployment with validation |
-| `init_db.py` | Database initialization | Schema creation, admin user seeding, validation |
+### ▶️ Start Scripts
+- **`start_core.sh`** - Start core service on port 8000
+- **`start_scheduler.sh`** - Start scheduler service on port 8001
+- **`start_poller.sh`** - Start poller service on port 8002
+- **`start_control.sh`** - Start control service on port 8003
 
-## 📋 Important Usage Note
+### 🗄️ Database Scripts
+- **`init_db.py`** - Initialize database schema and create admin user
+- **`migrate_device_units.py`** - Migrate device unit data
 
-**All scripts must be run from the PROJECT ROOT directory:**
+### 🔧 Hardware Scripts
+- **`test_pwm_config.py`** - Test PWM configuration
+- **`validate_pwm_config.py`** - Validate PWM configuration
+
+### 🧪 Testing Scripts
+- **`test_core_setup.py`** - Verify core service setup
+
+### 🚀 Deployment Scripts
+- **`deploy.sh`** - Deploy all services
+- **`audit_migrations.sh`** - Audit for migration artifacts
+
+## 🎯 Quick Start
+
+### Core Service Only (Recommended for testing)
 ```bash
-# ✅ Correct - Run from project root
-cd /path/to/bellasreef-v2/
-./backend/scripts/start.sh
+# 1. Main setup
+./scripts/setup.sh
 
-# ❌ Incorrect - Don't run from scripts directory
-cd /path/to/bellasreef-v2/backend/scripts/
-./start.sh
+# 2. Setup core service
+./scripts/setup_core.sh
+
+# 3. Configure environment
+cp core/env.example core/.env
+# Edit core/.env with your settings
+
+# 4. Initialize database
+python3 scripts/init_db.py
+
+# 5. Start core service
+./scripts/start_core.sh
 ```
 
-## 📋 Script Details
-
-### setup.sh - Environment Setup
-
-**Purpose**: Sets up the complete development environment for Bella's Reef.
-
-**Features**:
-- ✅ Python 3.11+ environment validation
-- ✅ Virtual environment creation and management
-- ✅ Dependencies installation from requirements.txt
-- ✅ Configuration validation and .env file management
-- ✅ Interactive confirmations for system changes
-- ✅ Comprehensive error handling and exit codes
-
-**Usage**:
+### All Services
 ```bash
-# Normal setup with confirmation
-./backend/scripts/setup.sh
+# 1. Main setup
+./scripts/setup.sh
 
-# Validate environment only (no changes)
-./backend/scripts/setup.sh --check
+# 2. Setup all services
+./scripts/setup_core.sh
+./scripts/setup_scheduler.sh
+./scripts/setup_poller.sh
+./scripts/setup_control.sh
 
-# Skip confirmations (automated setup)
-./backend/scripts/setup.sh --force
+# 3. Configure environments
+cp core/env.example core/.env
+cp scheduler/env.example scheduler/.env
+cp poller/env.example poller/.env
+cp control/env.example control/.env
+# Edit each .env file with your settings
 
-# Show help
-./backend/scripts/setup.sh --help
+# 4. Initialize database
+python3 scripts/init_db.py
+
+# 5. Start all services
+./scripts/start_core.sh
+./scripts/start_scheduler.sh
+./scripts/start_poller.sh
+./scripts/start_control.sh
 ```
 
-**Example Output**:
-```
-🚀 Bella's Reef Environment Setup
-==================================
+## 📁 Script Features
 
-ℹ️  Checking environment...
-✅ Python 3.11.5 found (✅ 3.11+ compatible)
-✅ Found .env file: /path/to/.env
-ℹ️  Setting up system environment...
-✅ python3-venv already installed
-✅ Virtual environment already exists: /home/user/.venvs/bellasreef
-ℹ️  Activating virtual environment...
-ℹ️  Upgrading pip...
-ℹ️  Installing requirements...
-✅ Dependencies installed successfully
-ℹ️  Validating configuration...
-✅ Configuration validation passed
-
-🎉 Bella's Reef environment setup complete!
-
-📋 Next steps:
-   1. Edit .env file with your configuration (if needed)
-   2. Initialize database: python backend/scripts/init_db.py
-   3. Start the application: ./backend/scripts/start.sh
-   4. Visit your API at: http://localhost:8000
-   5. API documentation at: http://localhost:8000/docs
-```
-
-### start.sh - Application Startup
-
-**Purpose**: Starts the Bella's Reef FastAPI application with comprehensive validation.
-
-**Features**:
-- ✅ Environment and configuration validation
-- ✅ Development, production, and debug modes
-- ✅ Database connection testing
-- ✅ Security warnings and configuration checks
-- ✅ Interactive production mode confirmation
-- ✅ Health checks and status monitoring
-- ✅ Proper module path resolution
-
-**Usage**:
+### ✅ Self-Contained
+All scripts use absolute paths and can be run from anywhere:
 ```bash
-# Normal startup with validation
-./backend/scripts/start.sh
-
-# Validate environment only
-./backend/scripts/start.sh --check
-
-# Production mode (no reload, reduced logging)
-./backend/scripts/start.sh --prod
-
-# Debug mode (extra logging)
-./backend/scripts/start.sh --debug
-
-# Show help
-./backend/scripts/start.sh --help
+# These all work from any directory
+/path/to/bellasreef-v2/scripts/start_core.sh
+cd /some/other/dir && /path/to/bellasreef-v2/scripts/start_core.sh
 ```
 
-**Example Output**:
-```
-🚀 Bella's Reef Application Startup
-===================================
+### ✅ Error Handling
+All scripts include comprehensive error handling:
+- Check for required dependencies
+- Validate environment files
+- Provide clear error messages
+- Exit with appropriate codes
 
-ℹ️  Checking environment...
-✅ Environment check passed
-ℹ️  Validating configuration...
-✅ Configuration loaded successfully
-   Environment: development
-   Debug Mode: True
-   Database: localhost:5432/bellasreef
-   CORS Origins: ['http://localhost:3000']
-   Hardware Platform: noop
-✅ Configuration validation passed
-ℹ️  Checking database connection...
-✅ Database connection test passed
-ℹ️  Setting up development mode...
+### ✅ Virtual Environments
+Each service gets its own virtual environment:
+- `core/venv/` - Core service dependencies
+- `scheduler/venv/` - Scheduler service dependencies
+- `poller/venv/` - Poller service dependencies
+- `control/venv/` - Control service dependencies
 
-🎉 Bella's Reef application starting!
+### ✅ Shared Dependencies
+All services use the same requirements file:
+- `shared/requirements.txt` - Single source of truth for dependencies
 
-📋 Access Information:
-   🌐 API: http://localhost:8000
-   📚 Documentation: http://localhost:8000/docs
-   🔧 Interactive API: http://localhost:8000/redoc
-   🏥 Health Check: http://localhost:8000/health
-```
+## 🔧 Script Usage Examples
 
-### deploy.sh - Full Deployment
-
-**Purpose**: Complete deployment pipeline from environment setup to application startup.
-
-**Features**:
-- ✅ End-to-end deployment process
-- ✅ Environment validation and setup
-- ✅ Database initialization
-- ✅ Application startup and health checks
-- ✅ Production deployment confirmation
-- ✅ Comprehensive status reporting
-
-**Usage**:
+### Database Management
 ```bash
-# Normal deployment with validation
-./backend/scripts/deploy.sh
+# Initialize database (required before starting services)
+python3 scripts/init_db.py
 
-# Validate environment only
-./backend/scripts/deploy.sh --check
+# Check database configuration only
+python3 scripts/init_db.py --check
 
-# Production deployment
-./backend/scripts/deploy.sh --prod
-
-# Skip confirmations (automated deployment)
-./backend/scripts/deploy.sh --force
-
-# Show help
-./backend/scripts/deploy.sh --help
+# Dry run (validate config without making changes)
+python3 scripts/init_db.py --dry-run
 ```
 
-**Example Output**:
-```
-🚀 Bella's Reef Deployment
-==========================
-
-ℹ️  Checking deployment prerequisites...
-✅ Prerequisites check passed
-ℹ️  Starting deployment process...
-ℹ️  Running environment setup...
-✅ Environment setup completed
-ℹ️  Initializing database...
-✅ Database initialization completed
-ℹ️  Starting application...
-✅ Application started successfully
-ℹ️  Checking application health...
-✅ Application health check passed
-
-🎉 Bella's Reef deployment complete!
-
-📋 Deployment Summary:
-   ✅ Environment: Setup complete
-   ✅ Database: Initialized
-   ✅ Application: Started
-   ✅ Health: Checked
-
-🌐 Access Information:
-   API: http://localhost:8000
-   Documentation: http://localhost:8000/docs
-   Interactive API: http://localhost:8000/redoc
-   Health Check: http://localhost:8000/health
-```
-
-### init_db.py - Database Initialization
-
-**Purpose**: Initializes the database schema and seeds initial data.
-
-**Features**:
-- ✅ Schema creation and validation
-- ✅ Admin user seeding with environment variables
-- ✅ Dry-run mode for safe validation
-- ✅ Configuration validation
-- ✅ Comprehensive error handling
-- ✅ Clear user feedback with status icons
-
-**Usage**:
+### Hardware Testing
 ```bash
-# Normal database initialization
-python backend/scripts/init_db.py
+# Test PWM configuration
+python3 scripts/test_pwm_config.py
 
-# Validate configuration only (dry run)
-python backend/scripts/init_db.py --check
-
-# Show help
-python backend/scripts/init_db.py --help
+# Validate PWM configuration
+python3 scripts/validate_pwm_config.py
 ```
 
-**Example Output**:
-```
-🗄️  Bella's Reef Database Initialization
-========================================
-
-ℹ️  Checking environment...
-✅ Found .env file: /path/to/.env
-ℹ️  Validating configuration...
-✅ Configuration validation passed
-ℹ️  Testing database connection...
-✅ Database connection successful
-ℹ️  Initializing database schema...
-✅ Schema initialization complete
-ℹ️  Seeding admin user...
-✅ Admin user created: admin@bellasreef.com
-
-🎉 Database initialization complete!
-
-📋 Summary:
-   ✅ Schema: Created successfully
-   ✅ Admin User: admin@bellasreef.com
-   ✅ Database: Ready for use
-```
-
-## 🔧 Common Workflows
-
-### First-Time Setup
+### Service Management
 ```bash
-# 1. Clone the repository
-git clone <repository-url>
-cd bellasreef-v2
+# Start specific service
+./scripts/start_core.sh
 
-# 2. Set up environment
-./backend/scripts/setup.sh
+# Setup specific service
+./scripts/setup_scheduler.sh
 
-# 3. Initialize database
-python backend/scripts/init_db.py
-
-# 4. Start application
-./backend/scripts/start.sh
+# Deploy all services
+./scripts/deploy.sh
 ```
 
-### Development Workflow
+## 📝 Environment Files
+
+Each service has its own environment configuration:
+- `core/env.example` - Core service configuration
+- `scheduler/env.example` - Scheduler service configuration
+- `poller/env.example` - Poller service configuration
+- `control/env.example` - Control service configuration
+
+**Important**: Copy `env.example` to `.env` and configure before starting services.
+
+## 🚨 Troubleshooting
+
+### Common Issues
+
+1. **"No module named 'pydantic'"**
+   - Run the appropriate setup script: `./scripts/setup_core.sh`
+
+2. **"Database not initialized"**
+   - Run: `python3 scripts/init_db.py`
+
+3. **"No .env file found"**
+   - Copy env.example to .env: `cp core/env.example core/.env`
+
+4. **"Permission denied"**
+   - Make scripts executable: `chmod +x scripts/*.sh`
+
+### Script Permissions
 ```bash
-# Check environment status
-./backend/scripts/start.sh --check
-
-# Start development server
-./backend/scripts/start.sh
-
-# Or use the full deployment script
-./backend/scripts/deploy.sh
+# Make all scripts executable
+chmod +x scripts/*.sh
+chmod +x scripts/*.py
 ```
 
-### Production Deployment
-```bash
-# Production deployment with confirmation
-./backend/scripts/deploy.sh --prod
+## 📚 Related Documentation
 
-# Or automated production deployment
-./backend/scripts/deploy.sh --prod --force
-```
-
-### Troubleshooting
-```bash
-# Validate environment
-./backend/scripts/setup.sh --check
-
-# Check application configuration
-./backend/scripts/start.sh --check
-
-# Validate database configuration
-python backend/scripts/init_db.py --check
-```
-
-## 🛡️ Security Features
-
-All scripts include security validations and warnings:
-
-- **Configuration Warnings**: Alert on insecure settings (debug in production, wildcard CORS, default passwords)
-- **Environment Validation**: Ensure proper environment setup before deployment
-- **Interactive Confirmations**: Require user confirmation for destructive operations
-- **Error Handling**: Comprehensive error reporting with helpful guidance
-
-## 📝 Error Handling
-
-All scripts provide:
-- Clear error messages with context
-- Helpful guidance for resolution
-- Proper exit codes for automation
-- Graceful failure handling
-- Status icons for visual feedback
-
-## 🔄 Integration
-
-These scripts are designed to work together seamlessly:
-- `setup.sh` → `init_db.py` → `start.sh`
-- `deploy.sh` orchestrates all three scripts
-- Consistent CLI interface across all scripts
-- Shared configuration and validation logic
-
-## 📚 Additional Resources
-
-- [Environment Configuration](../env.example) - Complete environment variable documentation
-- [Requirements](../requirements.txt) - Python dependencies
-- [API Documentation](http://localhost:8000/docs) - Interactive API documentation (when running)
-- [Project Documentation](../../project_docs/) - Detailed project specifications
+- [Main README](../readme.md) - Project overview and architecture
+- [Services Manifest](../services.yaml) - Service documentation
+- [Project Docs](../project_docs/) - Detailed documentation
