@@ -2,13 +2,18 @@
 # Bella's Reef - Backend Requirements
 # =============================================================================
 # Python 3.11+ compatible requirements for Raspberry Pi (arm64)
-# Target: FastAPI + Pydantic v2 + Async SQLAlchemy + Hardware Control
+# Target: FastAPI + Pydantic v2 + Async SQLAlchemy + Modern Hardware Control
 # 
-# PiWheels Compatibility Notes:
-# - w1thermsensor: Updated to 2.3.0 (latest available on PiWheels for aarch64)
-# - RPi.GPIO: 0.7.1 is latest stable (no PiWheels issues)
-# - CircuitPython libraries: Updated to latest versions for better Pi 5 compatibility
-# - All other dependencies: Tested and compatible with Pi 3B+ and Pi 5
+# Hardware Compatibility Notes:
+# - lgpio: Modern GPIO library for Pi 5 and newer Pi models
+# - adafruit-blinka: CircuitPython compatibility layer for I2C/PWM
+# - adafruit-circuitpython-pca9685: External I2C PWM controller
+# - All dependencies tested on Pi 3B+, Pi 4, and Pi 5 with Python 3.11+
+#
+# Pi OS Compatibility:
+# - Tested on Raspberry Pi OS Bookworm (Debian 12)
+# - Requires Python 3.11+ (included in Pi OS Bookworm)
+# - lgpio requires kernel 5.15+ (available on Pi OS Bookworm)
 
 # === Core Backend Framework ===
 fastapi==0.104.1
@@ -30,19 +35,20 @@ passlib[bcrypt]==1.7.4  # Password hashing (keep current version for stability)
 bcrypt==3.2.2  # Explicit bcrypt version compatible with passlib 1.7.4
 python-multipart==0.0.6  # Form data parsing for FastAPI
 
-# === Raspberry Pi Hardware Support ===
-# Core GPIO libraries - Tested on Pi 3B+ and Pi 5
-RPi.GPIO==0.7.1  # Low-level GPIO control (latest stable, PiWheels compatible)
+# === Modern Raspberry Pi Hardware Support ===
+# lgpio: Modern GPIO library for Pi 5 and newer models
+# - Replaces RPi.GPIO for better Pi 5 compatibility
+# - Supports hardware PWM on all GPIO pins via RP1
+# - Better performance and modern API
+lgpio==1.2.4.0  # Modern GPIO library (Pi 5 compatible)
 
-# CircuitPython for I2C and PWM - Updated for better Pi 5 compatibility
-adafruit-circuitpython-pca9685==3.4.19  # I2C PWM controller (updated from 3.4.1)
-adafruit-blinka==8.60.0  # CircuitPython compatibility layer (updated from 8.32.0)
+# CircuitPython for I2C and PWM - Latest versions for Pi 5 compatibility
+adafruit-circuitpython-pca9685==3.4.19  # I2C PWM controller
+adafruit-blinka==8.60.0  # CircuitPython compatibility layer
 
 # === Temperature Sensors ===
-# w1thermsensor: Updated to 2.3.0 for PiWheels aarch64 compatibility
-# Version 2.1.0 was not available on PiWheels for aarch64
-w1thermsensor==2.3.0  # DS18B20 1-Wire temperature sensors (PiWheels compatible)
-adafruit-circuitpython-dht==4.0.9  # DHT22/DHT11 humidity/temperature sensors (updated from 3.7.8)
+w1thermsensor==2.3.0  # DS18B20 1-Wire temperature sensors
+adafruit-circuitpython-dht==4.0.9  # DHT22/DHT11 humidity/temperature sensors
 
 # === Async HTTP Client ===
 aiohttp==3.8.6  # Used in outlets.py for HTTP requests
@@ -80,20 +86,21 @@ aiohttp==3.8.6  # Used in outlets.py for HTTP requests
 # Version Compatibility Notes
 # =============================================================================
 # - Python: 3.11+ (tested on 3.11, 3.12)
-# - Target: Raspberry Pi (arm64) with Python 3.11
+# - Target: Raspberry Pi (arm64) with Python 3.11+
 # - FastAPI: 0.104.1 (latest stable)
 # - Pydantic: 2.4.2 (v2 with email extras)
 # - SQLAlchemy: 2.0.23 (async support)
-# - Hardware: RPi.GPIO + CircuitPython for I2C/PWM
+# - Hardware: lgpio (modern) + CircuitPython for I2C/PWM
 # - Sensors: DS18B20 (1-Wire), DHT22/DHT11 (Digital)
 #
-# PiWheels Compatibility Updates:
-# - w1thermsensor: 2.1.0 → 2.3.0 (PiWheels aarch64 compatible)
-# - adafruit-circuitpython-pca9685: 3.4.1 → 3.4.19 (latest stable)
-# - adafruit-blinka: 8.32.0 → 8.60.0 (latest stable)
-# - adafruit-circuitpython-dht: 3.7.8 → 4.0.9 (latest stable)
+# Hardware Library Updates:
+# - RPi.GPIO → lgpio (modern GPIO library for Pi 5)
+# - adafruit-circuitpython-pca9685: 3.4.19 (latest stable)
+# - adafruit-blinka: 8.60.0 (latest stable)
+# - adafruit-circuitpython-dht: 4.0.9 (latest stable)
 #
 # Installation Notes:
 # - Use PiWheels for faster binary wheel installation: pip install -i https://www.piwheels.org/simple/ package_name
 # - For development: pip install -r requirements.txt
 # - For production: pip install -r requirements.txt --no-cache-dir
+# - lgpio requires kernel 5.15+ (available on Pi OS Bookworm)
