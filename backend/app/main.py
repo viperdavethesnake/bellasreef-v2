@@ -35,13 +35,14 @@ async def shutdown_event():
     await poller.stop()
 
 # Import and include routers
-from app.api import auth, users, health, devices, alerts
+from app.api import auth, users, health, devices, alerts, schedules
 
 # API v1 routers
 app.include_router(auth.router, prefix="/api/v1")
 app.include_router(users.router, prefix="/api/v1")
 app.include_router(devices.router, prefix="/api/v1/devices")
 app.include_router(alerts.router, prefix="/api/v1/alerts")
+app.include_router(schedules.router, prefix="/api/v1/schedules")
 
 # Health check router (no version prefix)
 app.include_router(health.router) 

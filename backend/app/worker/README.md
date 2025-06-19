@@ -1,351 +1,411 @@
-# Worker Package
+# Bella's Reef Scheduler System
 
-This package contains standalone worker processes that run independently from the FastAPI application to handle background tasks like alert evaluation, data processing, and other asynchronous operations.
+This document describes the comprehensive scheduler system for Bella's Reef, which provides automated device control through various scheduling mechanisms.
 
-## Overview
+## Architecture Overview
 
-The worker package is designed to be completely independent from the main FastAPI application. Workers can be run as separate processes, services, or even on different machines, communicating only through the shared PostgreSQL database.
+The scheduler system consists of several key components:
 
-## Architecture
+### Core Components
 
-### Design Principles
+1. **Database Models** (`app/db/models.py`)
+   - `Schedule`: Defines schedules with various types and parameters
+   - `DeviceAction`: Represents individual device actions to be executed
 
-1. **Independence**: Workers run completely separate from the FastAPI app
-2. **Database-Driven**: All communication through PostgreSQL (no message brokers)
-3. **Modular**: Each worker type is self-contained and extensible
-4. **Robust**: Comprehensive error handling and graceful shutdown
-5. **Configurable**: Environment-based configuration with validation
-6. **Observable**: Detailed logging and statistics
+2. **Pydantic Schemas** (`app/schemas/schedule.py`)
+   - Type-safe data validation and serialization
+   - Comprehensive enums for schedule types, action types, and statuses
 
-### Worker Types
+3. **CRUD Operations** (`app/crud/schedule.py`)
+   - Database operations for schedules and device actions
+   - Statistics and filtering capabilities
 
-#### Alert Worker (`alert_worker.py`)
-- Evaluates alerts against device readings
-- Creates and resolves alert events
-- Runs on configurable intervals
-- Future-ready for trend analysis
+4. **Schedule Calculator** (`app/worker/schedule_calculator.py`)
+   - Calculates next run times for different schedule types
+   - Handles timezone conversions and schedule validation
 
-#### Future Workers (Planned)
-- **Notification Worker**: Sends alerts via email, SMS, webhooks
-- **Data Processing Worker**: Handles complex data analysis
-- **Maintenance Worker**: Performs cleanup and maintenance tasks
-- **Report Worker**: Generates scheduled reports
+5. **Scheduler Worker** (`app/worker/scheduler_worker.py`)
+   - Standalone process that manages schedule execution
+   - Creates device actions for due schedules
 
-## Alert Worker
+6. **API Endpoints** (`app/api/schedules.py`)
+   - RESTful API for schedule and device action management
+   - Health monitoring and statistics
 
-### Features
+## Schedule Types
 
-- **Threshold Evaluation**: Monitors device readings against alert thresholds
-- **Alert Resolution**: Automatically resolves alerts when conditions normalize
-- **Comprehensive Logging**: Detailed logs for monitoring and debugging
-- **Statistics Tracking**: Runtime statistics and performance metrics
-- **Graceful Shutdown**: Handles SIGINT/SIGTERM signals properly
-- **Configuration Validation**: Validates all required settings before starting
-- **Database Health Checks**: Verifies database connectivity and table existence
+### 1. One-Off Schedules
+Single execution at a specific time.
 
-### Usage
-
-#### Basic Usage
-```bash
-# Run with default 30-second interval
-python backend/app/worker/alert_worker.py
-
-# Run with custom interval (60 seconds)
-python backend/app/worker/alert_worker.py --interval 60
-
-# Run in dry-run mode (single evaluation cycle)
-python backend/app/worker/alert_worker.py --dry-run
-
-# Validate configuration only
-python backend/app/worker/alert_worker.py --config-check
-
-# Enable verbose logging
-python backend/app/worker/alert_worker.py --verbose
+```json
+{
+  "name": "Emergency Shutdown",
+  "schedule_type": "one_off",
+  "start_time": "2024-01-15T14:30:00Z",
+  "device_ids": [1, 2],
+  "action_type": "off",
+  "timezone": "UTC"
+}
 ```
 
-#### Command Line Options
-- `--interval, -i`: Evaluation interval in seconds (default: 30)
-- `--dry-run`: Run one evaluation cycle and exit
-- `--config-check`: Validate configuration and exit
-- `--verbose, -v`: Enable verbose logging
+### 2. Interval Schedules
+Repeated execution at fixed intervals.
 
-### Configuration
+```json
+{
+  "name": "Water Change Pump",
+  "schedule_type": "interval",
+  "interval_seconds": 3600,
+  "device_ids": [3],
+  "action_type": "set_pwm",
+  "action_params": {
+    "target": 50,
+    "duration": 300
+  },
+  "timezone": "UTC"
+}
+```
 
-The alert worker uses the same configuration as the main application:
+### 3. Cron Schedules
+Complex scheduling using cron expressions.
 
-#### Required Environment Variables
+```json
+{
+  "name": "Daily Light Cycle",
+  "schedule_type": "cron",
+  "cron_expression": "0 6 * * *",
+  "device_ids": [4, 5],
+  "action_type": "ramp",
+  "action_params": {
+    "start_level": 0,
+    "end_level": 100,
+    "duration": 3600
+  },
+  "timezone": "US/Pacific"
+}
+```
+
+### 4. Recurring Schedules
+Pattern-based recurring schedules.
+
+```json
+{
+  "name": "Weekly Maintenance",
+  "schedule_type": "recurring",
+  "start_time": "2024-01-15T09:00:00Z",
+  "device_ids": [1, 2, 3],
+  "action_type": "custom",
+  "action_params": {
+    "recurring_pattern": {
+      "frequency": "weekly"
+    },
+    "script": "maintenance_cycle"
+  },
+  "timezone": "UTC"
+}
+```
+
+### 5. Static Schedules
+Pre-populated schedules for common operations.
+
+```json
+{
+  "name": "Diurnal Light Cycle",
+  "schedule_type": "static",
+  "start_time": "2024-01-15T06:00:00Z",
+  "device_ids": [4, 5],
+  "action_type": "set_pwm",
+  "action_params": {
+    "target": 100,
+    "duration": 3600,
+    "description": "Sunrise to peak lighting"
+  },
+  "timezone": "UTC"
+}
+```
+
+## Action Types
+
+### Basic Actions
+- `on`: Turn device on
+- `off`: Turn device off
+- `toggle`: Toggle device state
+
+### PWM Control
+- `set_pwm`: Set PWM level (0-100%)
+- `ramp`: Gradual PWM level change
+
+### Advanced Actions
+- `set_level`: Set device to specific level
+- `custom`: Execute custom script or action
+
+## Usage Examples
+
+### Starting the Scheduler Worker
+
 ```bash
-# Database Configuration
+# Run with default 30-second interval
+python backend/app/worker/scheduler_worker.py
+
+# Run with custom interval
+python backend/app/worker/scheduler_worker.py --interval 60
+
+# Configuration check only
+python backend/app/worker/scheduler_worker.py --config-check
+
+# Dry run (single evaluation cycle)
+python backend/app/worker/scheduler_worker.py --dry-run
+
+# Verbose logging
+python backend/app/worker/scheduler_worker.py --verbose
+```
+
+### API Usage
+
+#### Create a Schedule
+```bash
+curl -X POST "http://localhost:8000/api/v1/schedules/" \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Morning Lights",
+    "schedule_type": "cron",
+    "cron_expression": "0 6 * * *",
+    "device_ids": [1, 2],
+    "action_type": "ramp",
+    "action_params": {
+      "start_level": 0,
+      "end_level": 100,
+      "duration": 1800
+    },
+    "timezone": "US/Pacific"
+  }'
+```
+
+#### Get Schedule Statistics
+```bash
+curl -X GET "http://localhost:8000/api/v1/schedules/stats" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### Get Device Actions
+```bash
+curl -X GET "http://localhost:8000/api/v1/schedules/device-actions/" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+#### Execute Action Manually
+```bash
+curl -X POST "http://localhost:8000/api/v1/schedules/device-actions/123/execute" \
+  -H "Authorization: Bearer YOUR_TOKEN"
+```
+
+## Database Schema
+
+### Schedule Table
+```sql
+CREATE TABLE schedules (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR NOT NULL,
+    device_ids INTEGER[],
+    schedule_type VARCHAR NOT NULL,
+    cron_expression VARCHAR,
+    interval_seconds INTEGER,
+    start_time TIMESTAMP WITH TIME ZONE,
+    end_time TIMESTAMP WITH TIME ZONE,
+    timezone VARCHAR NOT NULL DEFAULT 'UTC',
+    is_enabled BOOLEAN DEFAULT TRUE,
+    next_run TIMESTAMP WITH TIME ZONE,
+    last_run TIMESTAMP WITH TIME ZONE,
+    last_run_status VARCHAR,
+    action_type VARCHAR NOT NULL,
+    action_params JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE
+);
+```
+
+### DeviceAction Table
+```sql
+CREATE TABLE device_actions (
+    id SERIAL PRIMARY KEY,
+    schedule_id INTEGER REFERENCES schedules(id),
+    device_id INTEGER NOT NULL REFERENCES devices(id),
+    action_type VARCHAR NOT NULL,
+    parameters JSONB,
+    status VARCHAR NOT NULL DEFAULT 'pending',
+    scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    executed_time TIMESTAMP WITH TIME ZONE,
+    result JSONB,
+    error_message TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE
+);
+```
+
+## Configuration
+
+### Environment Variables
+The scheduler system uses the same configuration as the main application:
+
+```bash
+# Database configuration
 DATABASE_URL=postgresql://user:password@localhost/bellasreef
 POSTGRES_SERVER=localhost
 POSTGRES_DB=bellasreef
 POSTGRES_USER=bellasreef
 POSTGRES_PASSWORD=your_password
 
-# Optional
-ENV=development
+# Admin user for API access
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=your_admin_password
+ADMIN_EMAIL=admin@example.com
 ```
 
-#### Configuration Validation
-The worker validates all required configuration before starting:
-- Database connection settings
-- Required database tables existence
-- Environment-specific settings
+### Worker Configuration
+The scheduler worker can be configured through command-line arguments:
 
-### How It Works
+- `--interval`: Evaluation interval in seconds (default: 30)
+- `--config-check`: Validate configuration only
+- `--dry-run`: Run one evaluation cycle and exit
+- `--verbose`: Enable verbose logging
 
-#### Evaluation Cycle
-1. **Fetch Enabled Alerts**: Query all alerts where `is_enabled = True`
-2. **Get Device Readings**: For each alert, fetch the latest device reading
-3. **Evaluate Thresholds**: Compare reading values against alert thresholds
-4. **Create Events**: Create alert events when thresholds are exceeded
-5. **Resolve Alerts**: Mark alerts as resolved when conditions normalize
+## Monitoring and Health
 
-#### Alert Evaluation Logic
-```python
-# For each enabled alert:
-1. Verify device exists and is active
-2. Get latest device reading (within 5 minutes for polling devices)
-3. Extract metric value from reading (value, json_value, or metadata)
-4. Evaluate threshold condition (>, <, ==, >=, <=, !=)
-5. Create alert event if threshold exceeded and no unresolved event exists
-6. Resolve existing alert if threshold no longer exceeded
+### Worker Health
+The scheduler worker provides health monitoring through:
+
+1. **Logging**: Comprehensive logging to stdout and file
+2. **Statistics**: Runtime statistics and performance metrics
+3. **API Health Endpoint**: `/api/v1/schedules/health`
+
+### Health Check Response
+```json
+{
+  "status": "healthy",
+  "uptime_seconds": 3600.0,
+  "last_check": "2024-01-15T10:30:00Z",
+  "total_schedules": 5,
+  "next_check": "2024-01-15T10:30:30Z"
+}
 ```
 
-#### Metric Value Extraction
-The worker supports multiple ways to extract metric values:
-- **Simple Readings**: Direct `value` field
-- **Complex Readings**: JSON data in `json_value` field
-- **Metadata**: Additional context in `metadata` field
+## Error Handling
 
-### Database Schema
+### Schedule Validation
+The system validates schedules before creation:
 
-#### AlertEvent Table
-```sql
-CREATE TABLE alert_events (
-    id SERIAL PRIMARY KEY,
-    alert_id INTEGER NOT NULL REFERENCES alerts(id),
-    device_id INTEGER NOT NULL REFERENCES devices(id),
-    triggered_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    current_value FLOAT,
-    threshold_value FLOAT NOT NULL,
-    operator VARCHAR(10) NOT NULL,
-    metric VARCHAR(50) NOT NULL,
-    is_resolved BOOLEAN DEFAULT FALSE,
-    resolved_at TIMESTAMP WITH TIME ZONE,
-    resolution_value FLOAT,
-    metadata JSON
-);
+- Required fields based on schedule type
+- Device existence and availability
+- Timezone validation
+- Cron expression parsing
+
+### Error Recovery
+- Failed schedules are logged with error details
+- Expired schedules are automatically disabled
+- Database connection errors trigger retry logic
+- Graceful shutdown handling
+
+## Extensibility
+
+### Adding New Schedule Types
+1. Add new type to `ScheduleTypeEnum`
+2. Implement calculation logic in `ScheduleCalculator`
+3. Add validation rules in schemas
+
+### Adding New Action Types
+1. Add new type to `ActionTypeEnum`
+2. Update device action execution logic
+3. Add parameter validation
+
+### Custom Device Actions
+The system supports custom actions through the `custom` action type:
+
+```json
+{
+  "action_type": "custom",
+  "parameters": {
+    "script": "custom_script_name",
+    "args": ["arg1", "arg2"],
+    "timeout": 300
+  }
+}
 ```
 
-### Logging
+## Best Practices
 
-#### Log Levels
-- **INFO**: Normal operation, evaluation cycles, statistics
-- **DEBUG**: Detailed evaluation steps, sleep times
-- **WARNING**: Non-critical issues, evaluation failures
-- **ERROR**: Critical errors, configuration issues
+### Schedule Design
+1. Use descriptive names for schedules
+2. Set appropriate timezones for local operations
+3. Include end times for temporary schedules
+4. Use device groups for coordinated actions
 
-#### Log Output
-- **Console**: Real-time output for monitoring
-- **File**: Persistent log file (`alert_worker.log`)
+### Performance
+1. Keep evaluation intervals reasonable (30-60 seconds)
+2. Clean up old device actions regularly
+3. Monitor database performance with large numbers of schedules
+4. Use bulk operations for multiple actions
 
-#### Example Log Output
-```
-2024-01-01 12:00:00 - alert_worker - INFO - Starting Bella's Reef Alert Worker
-2024-01-01 12:00:00 - alert_worker - INFO - Evaluation interval: 30 seconds
-2024-01-01 12:00:00 - alert_worker - INFO - Configuration validation passed
-2024-01-01 12:00:00 - alert_worker - INFO - Database connection and table verification successful
-2024-01-01 12:00:00 - alert_worker - INFO - Starting continuous evaluation loop...
-2024-01-01 12:00:00 - alert_worker - INFO - Starting evaluation cycle 1
-2024-01-01 12:00:00 - alert_worker - INFO - Found 3 enabled alerts to evaluate
-2024-01-01 12:00:00 - alert_worker - INFO - Alert 1 triggered: Threshold exceeded: 85.2 > 82.0
-2024-01-01 12:00:00 - alert_worker - INFO - Created alert event for alert 1, device Main Tank, value 85.2
-2024-01-01 12:00:00 - alert_worker - INFO - Evaluation cycle completed in 0.15s: {'total_alerts': 3, 'evaluated': 3, 'triggered': 1, 'errors': 0, 'skipped': 0}
-```
+### Security
+1. Validate all schedule parameters
+2. Use proper authentication for API access
+3. Log all schedule executions for audit trails
+4. Implement rate limiting for API endpoints
 
-### Statistics
+## Troubleshooting
 
-The worker tracks comprehensive runtime statistics:
-- **Uptime**: Total running time
-- **Cycles**: Number of evaluation cycles completed
-- **Alerts Evaluated**: Total alerts processed
-- **Alerts Triggered**: Total alerts that triggered events
-- **Errors**: Total evaluation errors
-- **Last Evaluation**: Time since last evaluation cycle
+### Common Issues
 
-### Error Handling
+1. **Schedules not executing**
+   - Check if worker is running
+   - Verify schedule is enabled
+   - Check device availability
+   - Review error logs
 
-#### Graceful Error Recovery
-- **Database Errors**: Log error and continue with next cycle
-- **Configuration Errors**: Exit with clear error message
-- **Signal Interrupts**: Graceful shutdown with statistics
-- **Evaluation Errors**: Log error and continue with next alert
+2. **Timezone issues**
+   - Ensure timezone strings are valid IANA format
+   - Check daylight saving time handling
+   - Verify UTC conversion logic
 
-#### Error Types
-- **Configuration Errors**: Missing environment variables, invalid settings
-- **Database Errors**: Connection failures, missing tables, query errors
-- **Evaluation Errors**: Invalid alert data, missing device readings
-- **System Errors**: Memory issues, file system problems
+3. **Database connection errors**
+   - Verify database is running
+   - Check connection credentials
+   - Ensure proper permissions
 
-### Deployment
+### Debug Mode
+Enable verbose logging for detailed debugging:
 
-#### As a Service (systemd)
-```ini
-# /etc/systemd/system/bellasreef-alert-worker.service
-[Unit]
-Description=Bella's Reef Alert Worker
-After=network.target postgresql.service
-
-[Service]
-Type=simple
-User=bellasreef
-WorkingDirectory=/opt/bellasreef-v2/backend
-Environment=PATH=/opt/bellasreef-v2/backend/venv/bin
-ExecStart=/opt/bellasreef-v2/backend/venv/bin/python app/worker/alert_worker.py --interval 30
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-```
-
-#### Docker
-```dockerfile
-# Dockerfile for alert worker
-FROM python:3.11-slim
-
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-CMD ["python", "app/worker/alert_worker.py", "--interval", "30"]
-```
-
-#### Cron Job
 ```bash
-# Run every 30 seconds via cron
-* * * * * /usr/bin/python /path/to/backend/app/worker/alert_worker.py --dry-run
-* * * * * sleep 30; /usr/bin/python /path/to/backend/app/worker/alert_worker.py --dry-run
+python backend/app/worker/scheduler_worker.py --verbose
 ```
 
-### Monitoring
+### Log Files
+The worker creates log files in the current directory:
+- `scheduler_worker.log`: Main worker log
+- Console output: Real-time status updates
 
-#### Health Checks
-- **Configuration Validation**: Verify all required settings
-- **Database Connectivity**: Test database connection
-- **Table Existence**: Verify required tables exist
-- **Evaluation Cycles**: Monitor successful evaluation cycles
+## Future Enhancements
 
-#### Metrics to Monitor
-- **Evaluation Frequency**: Ensure cycles run on schedule
-- **Alert Trigger Rate**: Monitor alert frequency
-- **Error Rate**: Track evaluation errors
-- **Response Time**: Monitor evaluation cycle duration
-- **Database Performance**: Monitor query performance
+### Planned Features
+1. **Event-based scheduling**: Trigger schedules based on device readings
+2. **Advanced cron support**: Full croniter library integration
+3. **Schedule templates**: Reusable schedule configurations
+4. **Webhook notifications**: External system integration
+5. **Schedule dependencies**: Chained schedule execution
+6. **Advanced timezone handling**: Full pytz integration
 
-#### Integration Points
-- **Log Aggregation**: Send logs to centralized logging system
-- **Metrics Collection**: Export statistics to monitoring system
-- **Alerting**: Alert on worker failures or high error rates
-- **Dashboard**: Display worker status and statistics
+### Integration Points
+1. **Alert system**: Trigger schedules based on alerts
+2. **Device groups**: Coordinated multi-device actions
+3. **External APIs**: Webhook-based schedule triggers
+4. **Mobile app**: Schedule management interface
+5. **Analytics**: Schedule performance metrics
 
-### Future Enhancements
+## Support
 
-#### Trend Analysis
-- **Moving Averages**: Calculate and monitor moving averages
-- **Rate of Change**: Detect rapid changes in values
-- **Pattern Recognition**: Identify recurring patterns
-- **Predictive Alerts**: Predict future alert conditions
-
-#### Notification Integration
-- **Email Notifications**: Send alert notifications via email
-- **SMS Alerts**: Send critical alerts via SMS
-- **Webhook Integration**: Send alerts to external systems
-- **Push Notifications**: Mobile app notifications
-
-#### Advanced Features
-- **Alert Escalation**: Escalate unresolved alerts
-- **Alert Suppression**: Suppress alerts during maintenance
-- **Alert Correlation**: Correlate related alerts
-- **Performance Optimization**: Optimize for large numbers of alerts
-
-### Testing
-
-#### Unit Tests
-```python
-# Test alert evaluation logic
-def test_alert_evaluation():
-    evaluator = AlertEvaluator(mock_db)
-    result = evaluator.evaluate_all_alerts()
-    assert result["evaluated"] > 0
-
-# Test threshold evaluation
-def test_threshold_evaluation():
-    assert evaluate_threshold(85.0, ">", 82.0) == True
-    assert evaluate_threshold(80.0, ">", 82.0) == False
-```
-
-#### Integration Tests
-```python
-# Test with real database
-def test_worker_integration():
-    worker = AlertWorker(interval=1)
-    worker.run(dry_run=True)
-    # Verify alert events were created
-```
-
-#### Performance Tests
-```python
-# Test with large number of alerts
-def test_performance():
-    # Create 1000 alerts
-    # Run evaluation
-    # Measure performance
-```
-
-### Troubleshooting
-
-#### Common Issues
-
-**Worker won't start**
-- Check configuration: `python alert_worker.py --config-check`
-- Verify database connection
-- Check required tables exist
-
-**No alerts being evaluated**
-- Verify alerts exist and are enabled
-- Check device readings are available
-- Review log output for errors
-
-**High error rate**
-- Check database performance
-- Verify alert data integrity
-- Review device reading quality
-
-**Memory issues**
-- Monitor memory usage
-- Consider reducing evaluation frequency
-- Implement data cleanup procedures
-
-#### Debug Mode
-```bash
-# Enable verbose logging
-python alert_worker.py --verbose
-
-# Run single evaluation cycle
-python alert_worker.py --dry-run --verbose
-```
-
-#### Log Analysis
-```bash
-# View recent logs
-tail -f alert_worker.log
-
-# Search for errors
-grep ERROR alert_worker.log
-
-# Count evaluation cycles
-grep "evaluation cycle" alert_worker.log | wc -l
-``` 
+For issues and questions:
+1. Check the logs for error details
+2. Review this documentation
+3. Test with dry-run mode
+4. Validate configuration with --config-check
+5. Check database connectivity and permissions 

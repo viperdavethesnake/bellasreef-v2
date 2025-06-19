@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, Index, ForeignKey, JSON, Float, Text
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Index, ForeignKey, JSON, Float, Text, ARRAY
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from app.db.base import Base
@@ -44,6 +44,7 @@ class Device(Base):
     # Relationships
     history = relationship("History", back_populates="device", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="device", cascade="all, delete-orphan")
+    device_actions = relationship("DeviceAction", back_populates="device", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index('ix_devices_poll_enabled_active', 'poll_enabled', 'is_active'),
@@ -118,4 +119,60 @@ class AlertEvent(Base):
         Index('ix_alert_events_device_triggered', 'device_id', 'triggered_at'),
         Index('ix_alert_events_resolved', 'is_resolved'),
         Index('ix_alert_events_triggered_at', 'triggered_at'),  # For cleanup queries
+    )
+
+class Schedule(Base):
+    __tablename__ = "schedules"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False, index=True)
+    device_ids = Column(ARRAY(Integer), nullable=True)  # Array of device IDs for group actions
+    schedule_type = Column(String, nullable=False, index=True)  # 'one_off', 'recurring', 'interval', 'cron', 'static'
+    cron_expression = Column(String, nullable=True)  # For cron schedules
+    interval_seconds = Column(Integer, nullable=True)  # For interval schedules
+    start_time = Column(DateTime(timezone=True), nullable=True)  # Start time for the schedule
+    end_time = Column(DateTime(timezone=True), nullable=True)  # End time for the schedule
+    timezone = Column(String, nullable=False, default='UTC')  # IANA timezone string
+    is_enabled = Column(Boolean, default=True, index=True)  # Whether schedule is active
+    next_run = Column(DateTime(timezone=True), nullable=True, index=True)  # Next scheduled run time
+    last_run = Column(DateTime(timezone=True), nullable=True)  # Last execution time
+    last_run_status = Column(String, nullable=True)  # 'success', 'failed', 'skipped'
+    action_type = Column(String, nullable=False)  # 'on', 'off', 'set_pwm', 'set_level', 'ramp', etc.
+    action_params = Column(JSON, nullable=True)  # Action parameters (target, duration, etc.)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    device_actions = relationship("DeviceAction", back_populates="schedule", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        Index('ix_schedules_enabled_next_run', 'is_enabled', 'next_run'),
+        Index('ix_schedules_type_enabled', 'schedule_type', 'is_enabled'),
+        Index('ix_schedules_next_run', 'next_run'),  # For efficient querying of due schedules
+    )
+
+class DeviceAction(Base):
+    __tablename__ = "device_actions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    schedule_id = Column(Integer, ForeignKey("schedules.id"), nullable=True, index=True)  # Nullable for manual actions
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
+    action_type = Column(String, nullable=False)  # 'on', 'off', 'set_pwm', 'set_level', 'ramp', etc.
+    parameters = Column(JSON, nullable=True)  # Action parameters (target, duration, etc.)
+    status = Column(String, nullable=False, default='pending', index=True)  # 'pending', 'in_progress', 'success', 'failed'
+    scheduled_time = Column(DateTime(timezone=True), nullable=False, index=True)  # When action should be executed
+    executed_time = Column(DateTime(timezone=True), nullable=True)  # When action was actually executed
+    result = Column(JSON, nullable=True)  # Execution result data
+    error_message = Column(Text, nullable=True)  # Error message if failed
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Relationships
+    schedule = relationship("Schedule", back_populates="device_actions")
+    device = relationship("Device", back_populates="device_actions")
+
+    __table_args__ = (
+        Index('ix_device_actions_status_scheduled', 'status', 'scheduled_time'),
+        Index('ix_device_actions_device_status', 'device_id', 'status'),
+        Index('ix_device_actions_scheduled_time', 'scheduled_time'),  # For efficient querying
     ) 
