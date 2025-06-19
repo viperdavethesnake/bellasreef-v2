@@ -42,7 +42,7 @@ sys.path.insert(0, str(backend_dir))
 
 # Import after adding to path
 from app.core.config import settings
-from app.db.base import SessionLocal
+from app.db.base import async_session
 from app.worker.alert_evaluator import AlertEvaluator
 
 # Configure logging
@@ -130,28 +130,30 @@ class AlertWorker:
             True if connection successful, False otherwise
         """
         try:
-            db = SessionLocal()
-            # Test connection by executing a simple query
-            result = db.execute("SELECT 1").scalar()
-            if result != 1:
-                raise Exception("Database connection test failed")
+            async def test_connection():
+                async with async_session() as db:
+                    # Test connection by executing a simple query
+                    result = await db.execute("SELECT 1")
+                    if result.scalar() != 1:
+                        raise Exception("Database connection test failed")
+                    
+                    # Check if required tables exist
+                    tables = ["alerts", "devices", "history", "alert_events"]
+                    for table in tables:
+                        result = await db.execute(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table}')")
+                        if not result.scalar():
+                            logger.error(f"Required table '{table}' does not exist")
+                            return False
+                    
+                    logger.info("Database connection and table verification successful")
+                    return True
             
-            # Check if required tables exist
-            tables = ["alerts", "devices", "history", "alert_events"]
-            for table in tables:
-                result = db.execute(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table}')").scalar()
-                if not result:
-                    logger.error(f"Required table '{table}' does not exist")
-                    return False
-            
-            logger.info("Database connection and table verification successful")
-            return True
+            # Run the async test
+            return asyncio.run(test_connection())
             
         except Exception as e:
             logger.error(f"Database connection failed: {e}")
             return False
-        finally:
-            db.close()
     
     def _run_evaluation_cycle(self) -> bool:
         """
@@ -161,33 +163,35 @@ class AlertWorker:
             True if cycle completed successfully, False otherwise
         """
         try:
-            db = SessionLocal()
-            evaluator = AlertEvaluator(db)
+            async def run_cycle():
+                async with async_session() as db:
+                    evaluator = AlertEvaluator(db)
+                    
+                    logger.info(f"Starting evaluation cycle {self.stats['cycles'] + 1}")
+                    cycle_start = time.time()
+                    
+                    # Run the evaluation
+                    result = await evaluator.evaluate_all_alerts()
+                    
+                    # Update statistics
+                    self.stats["cycles"] += 1
+                    self.stats["total_alerts_evaluated"] += result.get("evaluated", 0)
+                    self.stats["total_alerts_triggered"] += result.get("triggered", 0)
+                    self.stats["total_errors"] += result.get("errors", 0)
+                    self.stats["last_evaluation"] = time.time()
+                    
+                    cycle_duration = time.time() - cycle_start
+                    logger.info(f"Evaluation cycle completed in {cycle_duration:.2f}s: {result}")
+                    
+                    return True
             
-            logger.info(f"Starting evaluation cycle {self.stats['cycles'] + 1}")
-            cycle_start = time.time()
-            
-            # Run the evaluation
-            result = evaluator.evaluate_all_alerts()
-            
-            # Update statistics
-            self.stats["cycles"] += 1
-            self.stats["total_alerts_evaluated"] += result.get("evaluated", 0)
-            self.stats["total_alerts_triggered"] += result.get("triggered", 0)
-            self.stats["total_errors"] += result.get("errors", 0)
-            self.stats["last_evaluation"] = time.time()
-            
-            cycle_duration = time.time() - cycle_start
-            logger.info(f"Evaluation cycle completed in {cycle_duration:.2f}s: {result}")
-            
-            return True
+            # Run the async cycle
+            return asyncio.run(run_cycle())
             
         except Exception as e:
             logger.error(f"Error during evaluation cycle: {e}")
             self.stats["total_errors"] += 1
             return False
-        finally:
-            db.close()
     
     def _print_stats(self):
         """Print current worker statistics."""

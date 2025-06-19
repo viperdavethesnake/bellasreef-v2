@@ -42,7 +42,7 @@ sys.path.insert(0, str(backend_dir))
 
 # Import after adding to path
 from app.core.config import settings
-from app.db.base import SessionLocal
+from app.db.base import async_session
 from app.worker.schedule_calculator import ScheduleCalculator
 from app.crud.schedule import schedule as schedule_crud
 from app.schemas.schedule import ScheduleCreate, ActionTypeEnum
@@ -132,28 +132,31 @@ class SchedulerWorker:
             True if connection successful, False otherwise
         """
         try:
-            db = SessionLocal()
-            # Test connection by executing a simple query
-            result = db.execute("SELECT 1").scalar()
-            if result != 1:
-                raise Exception("Database connection test failed")
+            async def test_connection():
+                async with async_session() as db:
+                    # Test connection by executing a simple query
+                    result = await db.execute("SELECT 1")
+                    if result.scalar() != 1:
+                        raise Exception("Database connection test failed")
+                    
+                    # Check if required tables exist
+                    tables = ["schedules", "device_actions", "devices"]
+                    for table in tables:
+                        result = await db.execute(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table}')")
+                        if not result.scalar():
+                            logger.error(f"Required table '{table}' does not exist")
+                            return False
+                    
+                    logger.info("Database connection and table verification successful")
+                    return True
             
-            # Check if required tables exist
-            tables = ["schedules", "device_actions", "devices"]
-            for table in tables:
-                result = db.execute(f"SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = '{table}')").scalar()
-                if not result:
-                    logger.error(f"Required table '{table}' does not exist")
-                    return False
-            
-            logger.info("Database connection and table verification successful")
-            return True
+            # Run the async test
+            import asyncio
+            return asyncio.run(test_connection())
             
         except Exception as e:
             logger.error(f"Database connection failed: {e}")
             return False
-        finally:
-            db.close()
     
     def _create_static_schedules(self) -> bool:
         """
@@ -163,62 +166,64 @@ class SchedulerWorker:
             True if successful, False otherwise
         """
         try:
-            db = SessionLocal()
+            async def create_schedules():
+                async with async_session() as db:
+                    # Check if static schedules already exist
+                    existing_static = await schedule_crud.get_static_schedules(db)
+                    if existing_static:
+                        logger.info(f"Found {len(existing_static)} existing static schedules")
+                        return True
+                    
+                    logger.info("Creating default static schedules...")
+                    
+                    # Create diurnal light cycle schedule
+                    light_schedule = ScheduleCreate(
+                        name="Diurnal Light Cycle",
+                        device_ids=[],  # Will be populated when devices are available
+                        schedule_type="static",
+                        start_time=datetime.now(timezone.utc).replace(hour=6, minute=0, second=0, microsecond=0),
+                        timezone="UTC",
+                        is_enabled=True,
+                        action_type=ActionTypeEnum.SET_PWM,
+                        action_params={
+                            "target": 100,
+                            "duration": 3600,  # 1 hour ramp
+                            "description": "Sunrise to peak lighting"
+                        }
+                    )
+                    
+                    await schedule_crud.create(db, light_schedule)
+                    logger.info("Created diurnal light cycle schedule")
+                    
+                    # Create sunset schedule
+                    sunset_schedule = ScheduleCreate(
+                        name="Sunset Lighting",
+                        device_ids=[],  # Will be populated when devices are available
+                        schedule_type="static",
+                        start_time=datetime.now(timezone.utc).replace(hour=18, minute=0, second=0, microsecond=0),
+                        timezone="UTC",
+                        is_enabled=True,
+                        action_type=ActionTypeEnum.RAMP,
+                        action_params={
+                            "start_level": 100,
+                            "end_level": 0,
+                            "duration": 3600,  # 1 hour ramp down
+                            "description": "Sunset lighting ramp down"
+                        }
+                    )
+                    
+                    await schedule_crud.create(db, sunset_schedule)
+                    logger.info("Created sunset lighting schedule")
+                    
+                    return True
             
-            # Check if static schedules already exist
-            existing_static = schedule_crud.get_static_schedules(db)
-            if existing_static:
-                logger.info(f"Found {len(existing_static)} existing static schedules")
-                return True
-            
-            logger.info("Creating default static schedules...")
-            
-            # Create diurnal light cycle schedule
-            light_schedule = ScheduleCreate(
-                name="Diurnal Light Cycle",
-                device_ids=[],  # Will be populated when devices are available
-                schedule_type="static",
-                start_time=datetime.now(timezone.utc).replace(hour=6, minute=0, second=0, microsecond=0),
-                timezone="UTC",
-                is_enabled=True,
-                action_type=ActionTypeEnum.SET_PWM,
-                action_params={
-                    "target": 100,
-                    "duration": 3600,  # 1 hour ramp
-                    "description": "Sunrise to peak lighting"
-                }
-            )
-            
-            schedule_crud.create(db, light_schedule)
-            logger.info("Created diurnal light cycle schedule")
-            
-            # Create sunset schedule
-            sunset_schedule = ScheduleCreate(
-                name="Sunset Lighting",
-                device_ids=[],  # Will be populated when devices are available
-                schedule_type="static",
-                start_time=datetime.now(timezone.utc).replace(hour=18, minute=0, second=0, microsecond=0),
-                timezone="UTC",
-                is_enabled=True,
-                action_type=ActionTypeEnum.RAMP,
-                action_params={
-                    "start_level": 100,
-                    "end_level": 0,
-                    "duration": 3600,  # 1 hour ramp down
-                    "description": "Sunset lighting ramp down"
-                }
-            )
-            
-            schedule_crud.create(db, sunset_schedule)
-            logger.info("Created sunset lighting schedule")
-            
-            return True
+            # Run the async creation
+            import asyncio
+            return asyncio.run(create_schedules())
             
         except Exception as e:
             logger.error(f"Error creating static schedules: {e}")
             return False
-        finally:
-            db.close()
     
     def _run_evaluation_cycle(self) -> bool:
         """
@@ -228,33 +233,36 @@ class SchedulerWorker:
             True if cycle completed successfully, False otherwise
         """
         try:
-            db = SessionLocal()
-            calculator = ScheduleCalculator(db)
+            async def run_cycle():
+                async with async_session() as db:
+                    calculator = ScheduleCalculator(db)
+                    
+                    logger.info(f"Starting evaluation cycle {self.stats['cycles'] + 1}")
+                    cycle_start = time.time()
+                    
+                    # Process due schedules
+                    result = await calculator.process_due_schedules()
+                    
+                    # Update statistics
+                    self.stats["cycles"] += 1
+                    self.stats["total_schedules_processed"] += result.get("processed", 0)
+                    self.stats["total_actions_created"] += result.get("actions_created", 0)
+                    self.stats["total_errors"] += result.get("errors", 0)
+                    self.stats["last_evaluation"] = time.time()
+                    
+                    cycle_duration = time.time() - cycle_start
+                    logger.info(f"Evaluation cycle completed in {cycle_duration:.2f}s: {result}")
+                    
+                    return True
             
-            logger.info(f"Starting evaluation cycle {self.stats['cycles'] + 1}")
-            cycle_start = time.time()
-            
-            # Process due schedules
-            result = calculator.process_due_schedules()
-            
-            # Update statistics
-            self.stats["cycles"] += 1
-            self.stats["total_schedules_processed"] += result.get("processed", 0)
-            self.stats["total_actions_created"] += result.get("actions_created", 0)
-            self.stats["total_errors"] += result.get("errors", 0)
-            self.stats["last_evaluation"] = time.time()
-            
-            cycle_duration = time.time() - cycle_start
-            logger.info(f"Evaluation cycle completed in {cycle_duration:.2f}s: {result}")
-            
-            return True
+            # Run the async cycle
+            import asyncio
+            return asyncio.run(run_cycle())
             
         except Exception as e:
             logger.error(f"Error during evaluation cycle: {e}")
             self.stats["total_errors"] += 1
             return False
-        finally:
-            db.close()
     
     def _print_stats(self):
         """Print current worker statistics."""

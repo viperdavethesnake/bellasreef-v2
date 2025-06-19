@@ -31,7 +31,7 @@ sys.path.insert(0, str(project_root))
 
 # Import after adding to path
 from app.core.config import settings
-from app.db.base import engine, AsyncSessionLocal, Base
+from app.db.base import engine, async_session, Base
 from app.db.models import User
 from app.core.security import get_password_hash
 from sqlalchemy import text
@@ -130,7 +130,7 @@ async def create_admin_user():
     Uses Pydantic v2 settings for admin credentials.
     """
     try:
-        async with AsyncSessionLocal() as session:
+        async with async_session() as session:
             # Check if admin user already exists
             from app.crud.user import get_user_by_username
             existing_admin = await get_user_by_username(session, settings.ADMIN_USERNAME)
