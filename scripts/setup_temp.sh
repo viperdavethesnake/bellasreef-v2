@@ -7,17 +7,20 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 TEMP_DIR="$PROJECT_ROOT/temp"
+CORE_DIR="$PROJECT_ROOT/core"
 
 VENV_DIR="$TEMP_DIR/bellasreef-temp-venv"
 
 echo "Setting up Temperature Service..."
 
-if [ -f "$TEMP_DIR/.env" ]; then
-    source "$TEMP_DIR/.env"
+# Check for core/.env (shared config)
+if [ -f "$CORE_DIR/.env" ]; then
+    source "$CORE_DIR/.env"
 fi
 
 if [ "$TEMP_ENABLED" != "true" ]; then
-    echo "Error: Temperature service is not enabled. Set TEMP_ENABLED=true in temp/.env"
+    echo "Error: Temperature service is not enabled. Set TEMP_ENABLED=true in core/.env"
+    echo "   Note: Temperature service uses the shared configuration from core/.env"
     exit 1
 fi
 
@@ -31,9 +34,12 @@ source "$VENV_DIR/bin/activate"
 echo "Installing dependencies from temp/requirements.txt..."
 pip install -r "$TEMP_DIR/requirements.txt"
 
-if [ ! -f "$TEMP_DIR/.env" ]; then
-    echo "Creating .env file from env.example..."
-    cp "$TEMP_DIR/env.example" "$TEMP_DIR/.env"
+# Check if core/.env exists (required for shared config)
+if [ ! -f "$CORE_DIR/.env" ]; then
+    echo "Error: core/.env file not found. Temperature service requires the shared configuration."
+    echo "   Please run: ./scripts/setup_core.sh first to create core/.env"
+    echo "   Then set TEMP_ENABLED=true in core/.env"
+    exit 1
 fi
 
 # Check for 1-wire overlay in both legacy and modern config locations

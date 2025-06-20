@@ -106,9 +106,6 @@ class AlertWorker:
         # Check required settings
         required_settings = {
             "DATABASE_URL": settings.DATABASE_URL,
-            "POSTGRES_SERVER": settings.POSTGRES_SERVER,
-            "POSTGRES_DB": settings.POSTGRES_DB,
-            "POSTGRES_USER": settings.POSTGRES_USER,
         }
         
         missing_settings = []

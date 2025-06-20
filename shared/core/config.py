@@ -47,6 +47,20 @@ class Settings(BaseSettings):
     # Service-Specific Settings
     TEMP_ENABLED: bool = False  # Temperature service enable flag
     
+    # Hardware Control Settings (for control service)
+    RPI_PLATFORM: str = "none"  # Platform: "legacy", "rpi5", or "none"
+    PWM_GPIO_PINS: str = ""  # Comma-separated GPIO pins for PWM
+    PWM_FREQUENCY: int = 1000  # PWM frequency in Hz
+    PWM_CHANNELS: int = 16  # Number of PWM channels
+    
+    # PCA9685 I2C PWM Controller Settings
+    PCA9685_ENABLED: bool = False  # Enable external PCA9685 controller
+    PCA9685_ADDRESS: str = "0x40"  # I2C address in hex
+    PCA9685_FREQUENCY: int = 1000  # PCA9685 frequency in Hz
+    
+    # Sensor Settings
+    SENSOR_POLL_INTERVAL: int = 30  # Sensor polling interval in seconds
+    
     # Admin User (for database initialization)
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "reefrocks"
@@ -218,6 +232,13 @@ class Settings(BaseSettings):
             for warning in warnings:
                 print(f"   ⚠️  {warning}")
             print("   Please review and update these settings for production.\n")
+    
+    @property
+    def PWM_GPIO_PIN_LIST(self) -> List[int]:
+        """Convert PWM_GPIO_PINS string to list of integers."""
+        if not self.PWM_GPIO_PINS:
+            return []
+        return [int(pin.strip()) for pin in self.PWM_GPIO_PINS.split(",") if pin.strip()]
 
 # Create settings instance
 settings = Settings()

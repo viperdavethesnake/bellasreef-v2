@@ -8,6 +8,7 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 SCHEDULER_DIR="$PROJECT_ROOT/scheduler"
+CORE_DIR="$PROJECT_ROOT/core"
 VENV_DIR="$SCHEDULER_DIR/bellasreef-scheduler-venv"
 
 # Colors for output
@@ -43,8 +44,8 @@ fi
 source "$VENV_DIR/bin/activate"
 
 # Check if .env file exists
-if [ ! -f "$SCHEDULER_DIR/.env" ]; then
-    echo -e "${RED}No .env file found in $SCHEDULER_DIR. Run setup and configure your environment!${NC}"
+if [ ! -f "$CORE_DIR/.env" ]; then
+    echo -e "${RED}No .env file found in $CORE_DIR. Run setup and configure your environment!${NC}"
     exit 1
 fi
 

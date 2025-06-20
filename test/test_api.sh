@@ -37,10 +37,10 @@ find_env_file() {
   
   # Try multiple possible locations for .env file
   local possible_paths=(
-    "$current_dir/backend/.env"           # From project root
+    "$current_dir/core/.env"              # From project root (unified config)
     "$current_dir/.env"                   # From backend directory
-    "$script_dir/../.env"                 # From tests directory
-    "$script_dir/../../backend/.env"      # From tests directory (project root)
+    "$script_dir/../core/.env"            # From tests directory (unified config)
+    "$script_dir/../../core/.env"         # From tests directory (project root)
   )
   
   for path in "${possible_paths[@]}"; do
@@ -57,12 +57,12 @@ find_env_file() {
 ENV_FILE=$(find_env_file)
 if [[ -z "$ENV_FILE" ]]; then
   print_error "Could not find .env file. Tried:"
-  echo "  - $PWD/backend/.env"
+  echo "  - $PWD/core/.env"
   echo "  - $PWD/.env"
-  echo "  - $(dirname "${BASH_SOURCE[0]}")/../.env"
-  echo "  - $(dirname "${BASH_SOURCE[0]}")/../../backend/.env"
+  echo "  - $(dirname "${BASH_SOURCE[0]}")/../core/.env"
+  echo "  - $(dirname "${BASH_SOURCE[0]}")/../../core/.env"
   echo ""
-  echo "Please ensure .env file exists in the backend directory."
+  echo "Please ensure .env file exists in the core directory."
   exit 1
 fi
 

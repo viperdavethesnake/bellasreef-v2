@@ -8,6 +8,7 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 POLLER_DIR="$PROJECT_ROOT/poller"
+CORE_DIR="$PROJECT_ROOT/core"
 VENV_DIR="$POLLER_DIR/bellasreef-poller-venv"
 
 # Colors for output
@@ -43,8 +44,8 @@ fi
 source "$VENV_DIR/bin/activate"
 
 # Check if .env file exists
-if [ ! -f "$POLLER_DIR/.env" ]; then
-    echo -e "${RED}No .env file found in $POLLER_DIR. Run setup and configure your environment!${NC}"
+if [ ! -f "$CORE_DIR/.env" ]; then
+    echo -e "${RED}No .env file found in $CORE_DIR. Run setup and configure your environment!${NC}"
     exit 1
 fi
 

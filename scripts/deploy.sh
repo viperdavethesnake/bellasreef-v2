@@ -37,7 +37,7 @@ PROJECT_NAME="bellasreef"
 VENV_PATH="$HOME/.venvs/$PROJECT_NAME"
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
-ENV_FILE="$PROJECT_ROOT/.env"
+ENV_FILE="$PROJECT_ROOT/core/.env"
 
 # =============================================================================
 # CLI Argument Parsing
@@ -135,10 +135,10 @@ check_prerequisites() {
     # Check if .env exists
     if [ ! -f "$ENV_FILE" ]; then
         print_warning ".env file not found: $ENV_FILE"
-        if [ -f "$PROJECT_ROOT/env.example" ]; then
-            print_info "Copying env.example to .env..."
-            cp "$PROJECT_ROOT/env.example" "$ENV_FILE"
-            print_warning "Please edit .env with your configuration before continuing"
+        if [ -f "$PROJECT_ROOT/core/env.example" ]; then
+            print_info "Copying core/env.example to core/.env..."
+            cp "$PROJECT_ROOT/core/env.example" "$ENV_FILE"
+            print_warning "Please edit core/.env with your configuration before continuing"
             if [ "$FORCE" = false ]; then
                 read -p "Continue with deployment? (y/N): " -n 1 -r
                 echo
@@ -148,7 +148,7 @@ check_prerequisites() {
                 fi
             fi
         else
-            print_error "env.example not found. Please create .env file manually"
+            print_error "core/env.example not found. Please create core/.env file manually"
             return 1
         fi
     fi
