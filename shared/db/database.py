@@ -5,12 +5,17 @@ This module provides:
 - Async engine creation with asyncpg
 - Async session factory using async_sessionmaker
 - FastAPI dependency for database sessions
+- SQLAlchemy declarative base for models
 """
 
 from typing import AsyncGenerator
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.orm import declarative_base
 from sqlalchemy.pool import NullPool
 from shared.core.config import settings
+
+# SQLAlchemy declarative base
+Base = declarative_base()
 
 # Database URL with asyncpg driver
 DATABASE_URL = str(settings.DATABASE_URL).replace("postgresql://", "postgresql+asyncpg://")
@@ -55,4 +60,4 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 # Export for convenience
-__all__ = ["engine", "async_session", "get_db"] 
+__all__ = ["engine", "async_session", "get_db", "Base"] 
