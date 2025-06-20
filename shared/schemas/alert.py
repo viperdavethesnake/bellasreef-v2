@@ -81,4 +81,20 @@ class AlertEventWithAlert(AlertEvent):
 
 class AlertEventWithDevice(AlertEvent):
     """Alert event with device metadata included"""
-    device: dict = Field(..., description="Device information") 
+    device: dict = Field(..., description="Device information")
+
+class AlertHistory(BaseModel):
+    """Schema for alert history/events"""
+    alert_id: int = Field(..., description="ID of the alert")
+    device_id: int = Field(..., description="ID of the device")
+    triggered_at: datetime = Field(..., description="When the alert was triggered")
+    current_value: Optional[float] = Field(None, description="Value that triggered the alert")
+    threshold_value: float = Field(..., description="Threshold value at time of trigger")
+    operator: str = Field(..., description="Operator used for comparison")
+    metric: str = Field(..., description="Metric that was monitored")
+    is_resolved: bool = Field(default=False, description="Whether alert has been resolved")
+    resolution_value: Optional[float] = Field(None, description="Value when alert was resolved")
+    alert_metadata: Optional[dict] = Field(None, description="Additional context")
+
+    class Config:
+        from_attributes = True 
