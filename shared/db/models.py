@@ -204,7 +204,7 @@ class ProbeHistory(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     probe_id = Column(Integer, ForeignKey("probes.id"), nullable=False, index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)  # Removed index=True to avoid duplicate with explicit index
     temperature = Column(Float, nullable=False)
     status = Column(String, nullable=False, default="online")  # online/offline/error
     probe_metadata = Column(JSON, nullable=True)  # Optional: extra context (units, error, etc.) - renamed from metadata
