@@ -29,8 +29,7 @@ project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 from shared.core.config import settings
-from shared.db.base import Base
-from shared.db.database import get_db
+from shared.db.database import Base, get_db
 
 # Import the main app from core service
 from core.main import app
