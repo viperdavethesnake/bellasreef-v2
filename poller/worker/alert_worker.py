@@ -1,15 +1,21 @@
 #!/usr/bin/env python3
 """
-Alert Worker for Bella's Reef
+Bella's Reef - Alert Worker
+Standalone alert evaluation worker process.
 
-This is a standalone worker process that evaluates alerts against device readings
-on a regular interval. It runs independently from the FastAPI application.
+This worker runs continuously, evaluating alerts at regular intervals.
+It's designed to be independent of the FastAPI application and can be
+run as a separate process or service.
 
-USAGE:
-    python backend/app/worker/alert_worker.py                    # Run with default settings
-    python backend/app/worker/alert_worker.py --interval 60      # Run with 60-second interval
-    python backend/app/worker/alert_worker.py --config-check     # Validate configuration only
-    python backend/app/worker/alert_worker.py --dry-run          # Run one evaluation cycle and exit
+Usage:
+    python alert_worker.py [--dry-run] [--interval SECONDS]
+
+Environment Variables:
+    DATABASE_URL: PostgreSQL connection string
+    POSTGRES_SERVER: Database server hostname
+    POSTGRES_DB: Database name
+    POSTGRES_USER: Database username
+    POSTGRES_PASSWORD: Database password
 
 FEATURES:
     - Evaluates all enabled alerts against latest device readings
@@ -32,15 +38,10 @@ import logging
 import signal
 import sys
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# Add the backend directory to Python path
-script_dir = Path(__file__).resolve().parent
-backend_dir = script_dir.parent.parent
-sys.path.insert(0, str(backend_dir))
-
-# Import after adding to path
 from shared.core.config import settings
 from shared.db.database import async_session
 from poller.worker.alert_evaluator import AlertEvaluator

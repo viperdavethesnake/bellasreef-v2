@@ -8,7 +8,6 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 POLLER_DIR="$PROJECT_ROOT/poller"
-SHARED_DIR="$PROJECT_ROOT/shared"
 
 # Colors for output
 RED='\033[0;31m'
@@ -32,13 +31,16 @@ if [ ! -f "$POLLER_DIR/.env" ]; then
     echo -e "${RED}No .env file found in $POLLER_DIR. Run setup and configure your environment!${NC}"; exit 1
 fi
 
+# Set PYTHONPATH to include project root for shared module imports
+export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
+echo -e "${YELLOW}📁 PYTHONPATH set to: $PROJECT_ROOT${NC}"
+
 # Minimal DB check
 python3 - <<EOF
-import sys
-sys.path.insert(0, '$SHARED_DIR')
 from shared.db.database import engine
 from sqlalchemy import text
 import asyncio
+
 async def check_db():
     try:
         async with engine.begin() as conn:
@@ -52,12 +54,14 @@ async def check_db():
             """))
             if not result.scalar():
                 print('DB tables missing')
-                sys.exit(2)
+                exit(2)
     except Exception as e:
         print(f'Database connection failed: {e}')
-        sys.exit(3)
+        exit(3)
+
 asyncio.run(check_db())
 EOF
+
 rc=$?
 if [ $rc -eq 2 ]; then
     echo -e "${RED}Database not initialized! Run: python3 $SCRIPT_DIR/init_db.py${NC}"; exit 1

@@ -14,10 +14,6 @@ import os
 import sys
 from pathlib import Path
 
-# Add shared module to path
-shared_path = Path(__file__).parent.parent / "shared"
-sys.path.insert(0, str(shared_path))
-
 from fastapi import FastAPI, Depends, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager

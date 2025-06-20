@@ -35,12 +35,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
 
-# Add the backend directory to Python path
-script_dir = Path(__file__).resolve().parent
-backend_dir = script_dir.parent.parent
-sys.path.insert(0, str(backend_dir))
-
-# Import after adding to path
 from shared.core.config import settings
 from shared.db.database import async_session
 from scheduler.worker.schedule_calculator import ScheduleCalculator
