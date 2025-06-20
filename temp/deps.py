@@ -1,40 +1,27 @@
-from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from temp.config import settings
+from fastapi import Header, HTTPException, Depends, Security
+from fastapi.security import APIKeyHeader
+from sqlalchemy.orm import Session
+from shared.db.database import SessionLocal
+from .config import settings
 
-# HTTP Bearer token scheme
-security = HTTPBearer()
+api_key_header = APIKeyHeader(name="Authorization", auto_error=False)
 
-async def verify_service_token(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
-    """
-    Verify the service token for authentication.
-    
-    Args:
-        credentials: HTTP Bearer token credentials
-        
-    Returns:
-        str: The verified token
-        
-    Raises:
-        HTTPException: If token is invalid or missing
-    """
-    if not credentials:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing authentication token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    token = credentials.credentials
-    
-    if not token or token != settings.SERVICE_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid authentication token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    return token
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
-# Dependency for authenticated endpoints
-get_verified_token = Depends(verify_service_token) 
+async def get_api_key(api_key: str = Security(api_key_header)):
+    if not api_key:
+        raise HTTPException(status_code=403, detail="Authorization header is missing")
+    
+    token_type, _, token = api_key.partition(' ')
+    if token_type.lower() != 'bearer' or not token:
+        raise HTTPException(status_code=403, detail="Invalid token type. Use Bearer token.")
+
+    if token == settings.SERVICE_TOKEN:
+        return token
+    else:
+        raise HTTPException(status_code=403, detail="Could not validate credentials")
