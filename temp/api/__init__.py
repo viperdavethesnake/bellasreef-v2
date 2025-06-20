@@ -1,1 +1,1 @@
-# Temperature Service API endpoints 
+# Placeholder for temp/api __init__.py

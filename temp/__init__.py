@@ -1,2 +1,1 @@
-# Bella's Reef Temperature Service
-# This package provides temperature probe management and monitoring functionality 
+# Placeholder for temp service __init__.py
