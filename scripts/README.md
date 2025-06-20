@@ -34,7 +34,7 @@ git checkout v2.1.0-core-stable
 ./scripts/setup_poller.sh
 ./scripts/setup_control.sh
 ```
-- Checks for Python 3.11+, creates venv if missing, installs dependencies from /shared/requirements.txt
+- Checks for Python 3.11+, creates venv if missing, installs dependencies from /core/requirements.txt
 - Checks for .env, copies from env.example if missing, warns on unsafe secrets
 - Color-coded output and clear next steps
 

@@ -37,9 +37,7 @@ source venv/bin/activate
 # Install dependencies
 echo -e "${GREEN}Installing dependencies...${NC}"
 pip install --upgrade pip
-pip install -r "$SHARED_DIR/requirements.txt"
 pip install -r "$CORE_DIR/requirements.txt"
-
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then
@@ -52,7 +50,7 @@ fi
 
 # Requirements check (calls Python script)
 echo -e "${GREEN}Verifying installed Python modules...${NC}"
-python3 "$SCRIPT_DIR/check_requirements.py" "$SHARED_DIR/requirements.txt" "$CORE_DIR/requirements.txt"
+python3 "$SCRIPT_DIR/check_requirements.py" "$CORE_DIR/requirements.txt"
 
 echo -e "${GREEN}✅ Core service setup complete!${NC}"
 echo -e "${YELLOW}Next steps:${NC}"

@@ -89,6 +89,8 @@ bellasreef-v2/
 
 **📋 See `services.yaml` for detailed service documentation and dependencies.**
 
+Each service has its own dependencies defined in its `requirements.txt` file. The dependencies for the main service are in `core/requirements.txt`.
+
 ## 🚀 Full System Quick Start
 
 ### ⚠️ IMPORTANT: Database Initialization Required
@@ -429,4 +431,22 @@ Before contributing:
 ## License
 
 This project is licensed under the MIT License.
+
+The backend is a series of FastAPI microservices. The main service is `core`, which handles authentication, user management, and core API logic. Other services like `poller` and `temp` provide specialized functionality.
+
+- Each service has its own dependencies defined in its `requirements.txt` file. The dependencies for the main service are in `core/requirements.txt`.
+
+### Setup
+
+1.  **Set up the `core` service:**
+    ```bash
+    ./scripts/setup_core.sh
+    ```
+    This will create a virtual environment, install dependencies from `core/requirements.txt`, and create a `.env` file for you to configure.
+
+2.  **Set up other services** as needed (e.g., `poller`, `temp`):
+    ```bash
+    ./scripts/setup_poller.sh
+    ./scripts/setup_control.sh
+    ```
 
