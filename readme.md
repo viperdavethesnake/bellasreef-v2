@@ -227,6 +227,53 @@ python scripts/init_db.py --dry-run
 - Services fail with clear error message if tables are missing
 - Error message directs users to run `python scripts/init_db.py`
 
+## 🌐 CORS Configuration (ALLOWED_HOSTS)
+
+**⚠️ IMPORTANT: ALLOWED_HOSTS must use JSON array format for consistent parsing across all services.**
+
+### Format Requirements
+
+**✅ Correct JSON array format:**
+```bash
+# Development (allow all origins)
+ALLOWED_HOSTS=["*"]
+
+# Production (specific domains)
+ALLOWED_HOSTS=["https://myreefapp.com", "https://api.myreefapp.com"]
+
+# Development with specific localhost
+ALLOWED_HOSTS=["http://localhost:3000", "http://localhost:8000"]
+```
+
+**❌ Incorrect string format (will cause parsing errors):**
+```bash
+# WRONG - Don't use string format
+ALLOWED_HOSTS=*
+ALLOWED_HOSTS=http://localhost:3000
+```
+
+### Configuration Location
+
+All services use the shared configuration from `shared/core/config.py` which loads from `core/.env`:
+
+```bash
+# Configure in core/.env (used by all services)
+cp core/env.example core/.env
+# Edit core/.env and set ALLOWED_HOSTS=["*"] for development
+```
+
+### Validation
+
+The shared configuration includes robust parsing that accepts:
+- JSON arrays: `["http://localhost:3000", "https://example.com"]`
+- Wildcard: `["*"]` (development only)
+- Comma-separated fallback: `http://localhost,https://example.com`
+
+**Security Warnings:**
+- `["*"]` allows ALL origins (insecure for production)
+- Use specific domains in production environments
+- The system will warn about wildcard usage
+
 ## 📁 Service Structure Summary
 
 ### Core Service (`/core`)

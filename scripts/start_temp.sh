@@ -7,14 +7,16 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 TEMP_DIR="$PROJECT_ROOT/temp"
+CORE_DIR="$PROJECT_ROOT/core"
 VENV_DIR="$TEMP_DIR/bellasreef-temp-venv"
 
-if [ -f "$TEMP_DIR/.env" ]; then
-    source "$TEMP_DIR/.env"
+# Load environment from core/.env (shared config)
+if [ -f "$CORE_DIR/.env" ]; then
+    source "$CORE_DIR/.env"
 fi
 
 if [ "$TEMP_ENABLED" != "true" ]; then
-    echo "Error: Temperature service is not enabled. Set TEMP_ENABLED=true in temp/.env"
+    echo "Error: Temperature service is not enabled. Set TEMP_ENABLED=true in core/.env"
     exit 1
 fi
 

@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
     
+    # Service-Specific Settings
+    TEMP_ENABLED: bool = False  # Temperature service enable flag
+    
     # Admin User (for database initialization)
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD: str = "reefrocks"
