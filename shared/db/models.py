@@ -23,6 +23,9 @@ class User(Base):
     #     Index('ix_users_username', 'username', unique=True),
     # ) 
 
+    schedules = relationship("Schedule", back_populates="owner")
+    alerts = relationship("Alert", back_populates="owner")
+
 class Device(Base):
     __tablename__ = "devices"
 
@@ -179,37 +182,26 @@ class DeviceAction(Base):
     )
 
 class Probe(Base):
-    """Temperature probe model for 1-wire sensors (DS18B20, etc.).
-    Stores configuration and status for each physical probe.
-    """
-    __tablename__ = "probes"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    device_id = Column(String, unique=True, index=True, nullable=False)  # 1-wire device ID (e.g., 28-00000abcdef)
-    nickname = Column(String, nullable=True)  # User-friendly name
-    role = Column(String, nullable=False, default="other")  # Role/function (main_tank, sump, etc.)
-    location = Column(String, nullable=True)  # Physical location
-    is_enabled = Column(Boolean, default=True, nullable=False)  # Enable/disable polling
-    poll_interval = Column(Integer, default=60, nullable=False)  # Polling interval in seconds
-    status = Column(String, default="offline", nullable=False)  # online/offline/error
-    last_seen = Column(DateTime, nullable=True)  # Last time probe was seen online
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, onupdate=datetime.utcnow, nullable=True)
+    __tablename__ = 'probes'
+    hardware_id = Column(String, primary_key=True, index=True)
+    nickname = Column(String)
+    role = Column(String)
+    enabled = Column(Boolean, default=True)
+    poller_id = Column(String, index=True)
+    read_interval_seconds = Column(Integer, default=60)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    history = relationship("ProbeHistory", back_populates="probe")
 
 class ProbeHistory(Base):
-    """Historical temperature readings for probes (future use).
-    Not used by temp service directly, but available for poller or analytics.
-    """
-    __tablename__ = "probe_history"
-
+    __tablename__ = 'probe_history'
     id = Column(Integer, primary_key=True, index=True)
-    probe_id = Column(Integer, ForeignKey("probes.id"), nullable=False, index=True)
-    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False)  # Removed index=True to avoid duplicate with explicit index
-    temperature = Column(Float, nullable=False)
-    status = Column(String, nullable=False, default="online")  # online/offline/error
-    probe_metadata = Column(JSON, nullable=True)  # Optional: extra context (units, error, etc.) - renamed from metadata
+    probe_hardware_id = Column(String, ForeignKey('probes.hardware_id'))
+    timestamp = Column(DateTime(timezone=True), server_default=func.now())
+    value = Column(Float)
+    probe_metadata = Column(JSON)
+    probe = relationship("Probe", back_populates="history")
 
     __table_args__ = (
-        Index('ix_probe_history_probe_timestamp', 'probe_id', 'timestamp'),
         Index('ix_probe_history_timestamp', 'timestamp'),
-    ) 
+    )

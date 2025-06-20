@@ -1,113 +1,42 @@
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List
+from __future__ import annotations
+from pydantic import BaseModel, Field
 from datetime import datetime
-from enum import Enum
+from typing import Optional, Dict, Any
 
-class ProbeStatus(str, Enum):
-    """Probe status enumeration."""
-    ONLINE = "online"
-    OFFLINE = "offline"
-    ERROR = "error"
-    DISCOVERING = "discovering"
-
-class ProbeRole(str, Enum):
-    """Probe role enumeration."""
-    MAIN_TANK = "main_tank"
-    SUMP = "sump"
-    REFUGIUM = "refugium"
-    QUARANTINE = "quarantine"
-    ROOM = "room"
-    OTHER = "other"
-
+# Probe Schemas
 class ProbeBase(BaseModel):
-    """Base probe model with common fields."""
-    device_id: str = Field(..., description="1-wire device ID (e.g., 28-00000abcdef)")
-    nickname: Optional[str] = Field(None, description="User-friendly name for the probe")
-    role: ProbeRole = Field(ProbeRole.OTHER, description="Probe role/function")
-    location: Optional[str] = Field(None, description="Physical location description")
-    is_enabled: bool = Field(True, description="Whether the probe is enabled for polling")
-    poll_interval: int = Field(60, ge=1, le=3600, description="Polling interval in seconds")
+    nickname: Optional[str] = None
+    role: Optional[str] = None
+    enabled: bool = True
+    poller_id: Optional[str] = None
+    read_interval_seconds: int = Field(60, gt=0, description="Interval in seconds for polling the probe.")
 
 class ProbeCreate(ProbeBase):
-    """Model for creating a new probe."""
+    hardware_id: str = Field(..., description="The unique 1-wire hardware ID of the probe.")
+
+class ProbeUpdate(ProbeBase):
     pass
 
-class ProbeUpdate(BaseModel):
-    """Model for updating probe configuration."""
-    nickname: Optional[str] = None
-    role: Optional[ProbeRole] = None
-    location: Optional[str] = None
-    is_enabled: Optional[bool] = None
-    poll_interval: Optional[int] = Field(None, ge=1, le=3600)
-
-class ProbeInDB(ProbeBase):
-    """Database model for probe with additional fields."""
-    model_config = ConfigDict(from_attributes=True)
-    
-    id: int
-    status: ProbeStatus = ProbeStatus.OFFLINE
-    last_seen: Optional[datetime] = None
+class Probe(ProbeBase):
+    hardware_id: str
     created_at: datetime
-    updated_at: Optional[datetime] = None
+    updated_at: datetime
 
-class Probe(ProbeInDB):
-    """Public probe model."""
-    pass
+    class Config:
+        orm_mode = True
 
-class ProbeDiscovery(BaseModel):
-    """Model for probe discovery response."""
-    device_id: str
-    available: bool
-    temperature: Optional[float] = None
-    error: Optional[str] = None
-
-class ProbeCurrent(BaseModel):
-    """Model for current probe reading."""
-    probe_id: int
-    device_id: str
-    temperature: float
-    timestamp: datetime
-    status: ProbeStatus
-    error: Optional[str] = None
-
-class ProbeHistoryEntry(BaseModel):
-    """Model for historical probe data."""
-    probe_id: int
-    temperature: float
-    timestamp: datetime
-    status: ProbeStatus
-
-class ProbeList(BaseModel):
-    """Model for probe list response."""
-    probes: List[Probe]
-    total: int
-    online_count: int
-    offline_count: int
-
-class ProbeCheck(BaseModel):
-    """Model for probe subsystem check."""
-    subsystem_available: bool
-    device_count: int
-    error: Optional[str] = None
-    details: Optional[str] = None
-
+# ProbeHistory Schemas
 class ProbeHistoryBase(BaseModel):
-    """Base model for probe historical readings."""
-    probe_id: int
-    temperature: float
-    timestamp: datetime
-    status: ProbeStatus = ProbeStatus.ONLINE
-    probe_metadata: Optional[dict] = None
+    value: float = Field(..., description="The temperature reading in Celsius.")
+    probe_metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata for the history entry.")
 
 class ProbeHistoryCreate(ProbeHistoryBase):
-    """Model for creating a new probe history entry."""
     pass
 
-class ProbeHistoryInDB(ProbeHistoryBase):
-    """Database model for probe history with ID."""
-    model_config = ConfigDict(from_attributes=True)
+class ProbeHistory(ProbeHistoryBase):
     id: int
+    probe_hardware_id: str
+    timestamp: datetime
 
-class ProbeHistory(ProbeHistoryInDB):
-    """Public model for probe history."""
-    pass 
+    class Config:
+        orm_mode = True

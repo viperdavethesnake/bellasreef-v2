@@ -1,115 +1,46 @@
+from sqlalchemy.orm import Session
 from typing import List, Optional
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, update
-from sqlalchemy.orm import selectinload
-from datetime import datetime
+from shared.db.models import Probe, ProbeHistory
+from shared.schemas import probe as probe_schema
 
-from shared.db.models import Probe
-from shared.schemas.probe import ProbeCreate, ProbeUpdate, ProbeStatus
+# Probe CRUD
+def get_probe(db: Session, hardware_id: str) -> Optional[Probe]:
+    return db.query(Probe).filter(Probe.hardware_id == hardware_id).first()
 
-class ProbeCRUD:
-    """CRUD operations for temperature probes."""
-    
-    async def create(self, db: AsyncSession, probe_in: ProbeCreate) -> Probe:
-        """Create a new probe."""
-        probe = Probe(
-            device_id=probe_in.device_id,
-            nickname=probe_in.nickname,
-            role=probe_in.role.value,
-            location=probe_in.location,
-            is_enabled=probe_in.is_enabled,
-            poll_interval=probe_in.poll_interval,
-            status=ProbeStatus.OFFLINE.value
-        )
-        db.add(probe)
-        await db.commit()
-        await db.refresh(probe)
-        return probe
-    
-    async def get(self, db: AsyncSession, probe_id: int) -> Optional[Probe]:
-        """Get a probe by ID."""
-        result = await db.execute(select(Probe).where(Probe.id == probe_id))
-        return result.scalar_one_or_none()
-    
-    async def get_by_device_id(self, db: AsyncSession, device_id: str) -> Optional[Probe]:
-        """Get a probe by device ID."""
-        result = await db.execute(select(Probe).where(Probe.device_id == device_id))
-        return result.scalar_one_or_none()
-    
-    async def get_all(self, db: AsyncSession, skip: int = 0, limit: int = 100) -> List[Probe]:
-        """Get all probes with pagination."""
-        result = await db.execute(
-            select(Probe)
-            .offset(skip)
-            .limit(limit)
-            .order_by(Probe.created_at.desc())
-        )
-        return result.scalars().all()
-    
-    async def get_enabled(self, db: AsyncSession) -> List[Probe]:
-        """Get all enabled probes."""
-        result = await db.execute(
-            select(Probe)
-            .where(Probe.is_enabled == True)
-            .order_by(Probe.created_at.desc())
-        )
-        return result.scalars().all()
-    
-    async def update(self, db: AsyncSession, probe_id: int, probe_in: ProbeUpdate) -> Optional[Probe]:
-        """Update a probe."""
-        update_data = probe_in.model_dump(exclude_unset=True)
-        if "role" in update_data and update_data["role"]:
-            update_data["role"] = update_data["role"].value
-        
-        await db.execute(
-            update(Probe)
-            .where(Probe.id == probe_id)
-            .values(**update_data, updated_at=datetime.utcnow())
-        )
-        await db.commit()
-        
-        return await self.get(db, probe_id)
-    
-    async def update_status(self, db: AsyncSession, probe_id: int, status: ProbeStatus, temperature: Optional[float] = None) -> Optional[Probe]:
-        """Update probe status and last seen timestamp."""
-        update_data = {
-            "status": status.value,
-            "updated_at": datetime.utcnow()
-        }
-        
-        if status == ProbeStatus.ONLINE:
-            update_data["last_seen"] = datetime.utcnow()
-        
-        await db.execute(
-            update(Probe)
-            .where(Probe.id == probe_id)
-            .values(**update_data)
-        )
-        await db.commit()
-        
-        return await self.get(db, probe_id)
-    
-    async def delete(self, db: AsyncSession, probe_id: int) -> bool:
-        """Delete a probe."""
-        probe = await self.get(db, probe_id)
-        if not probe:
-            return False
-        
-        await db.delete(probe)
-        await db.commit()
-        return True
-    
-    async def count(self, db: AsyncSession) -> int:
-        """Get total number of probes."""
-        result = await db.execute(select(Probe))
-        return len(result.scalars().all())
-    
-    async def count_by_status(self, db: AsyncSession, status: ProbeStatus) -> int:
-        """Get count of probes by status."""
-        result = await db.execute(
-            select(Probe).where(Probe.status == status.value)
-        )
-        return len(result.scalars().all())
+def get_probes(db: Session, skip: int = 0, limit: int = 100) -> List[Probe]:
+    return db.query(Probe).offset(skip).limit(limit).all()
 
-# Create singleton instance
-probe = ProbeCRUD() 
+def create_probe(db: Session, probe: probe_schema.ProbeCreate) -> Probe:
+    db_probe = Probe(**probe.dict())
+    db.add(db_probe)
+    db.commit()
+    db.refresh(db_probe)
+    return db_probe
+
+def update_probe(db: Session, hardware_id: str, probe_update: probe_schema.ProbeUpdate) -> Optional[Probe]:
+    db_probe = get_probe(db, hardware_id)
+    if db_probe:
+        update_data = probe_update.dict(exclude_unset=True)
+        for key, value in update_data.items():
+            setattr(db_probe, key, value)
+        db.commit()
+        db.refresh(db_probe)
+    return db_probe
+
+def delete_probe(db: Session, hardware_id: str) -> Optional[Probe]:
+    db_probe = get_probe(db, hardware_id)
+    if db_probe:
+        db.delete(db_probe)
+        db.commit()
+    return db_probe
+
+# ProbeHistory CRUD
+def create_probe_history(db: Session, history: probe_schema.ProbeHistoryCreate, probe_hardware_id: str) -> ProbeHistory:
+    db_history = ProbeHistory(**history.dict(), probe_hardware_id=probe_hardware_id)
+    db.add(db_history)
+    db.commit()
+    db.refresh(db_history)
+    return db_history
+
+def get_probe_history(db: Session, probe_hardware_id: str, skip: int = 0, limit: int = 1000) -> List[ProbeHistory]:
+    return db.query(ProbeHistory).filter(ProbeHistory.probe_hardware_id == probe_hardware_id).offset(skip).limit(limit).all()
