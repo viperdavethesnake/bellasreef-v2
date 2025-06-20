@@ -1,0 +1,34 @@
+# =============================================================================
+# Bella's Reef - Control Service Requirements
+# =============================================================================
+# Python 3.11+ compatible requirements for the control service.
+#
+# This service handles hardware control - PWM, GPIO, relays, and device management.
+
+# === Core Backend Framework ===
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# === Database & Async Support ===
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# === Pydantic v2 & Configuration ===
+pydantic[email]==2.4.2
+pydantic-settings==2.0.3
+python-dotenv==1.0.0
+
+# === Authentication & Security ===
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+python-multipart==0.0.6
+
+# === Async HTTP Client ===
+aiohttp==3.8.6
+
+# === Hardware Control ===
+RPi.GPIO==0.7.1
+adafruit-circuitpython-pca9685==3.4.8
+smbus2==0.4.3

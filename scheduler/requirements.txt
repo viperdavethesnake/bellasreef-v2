@@ -1,0 +1,32 @@
+# =============================================================================
+# Bella's Reef - Scheduler Service Requirements
+# =============================================================================
+# Python 3.11+ compatible requirements for the scheduler service.
+#
+# This service handles job scheduling, interval management, and device action coordination.
+
+# === Core Backend Framework ===
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# === Database & Async Support ===
+sqlalchemy==2.0.23
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+
+# === Pydantic v2 & Configuration ===
+pydantic[email]==2.4.2
+pydantic-settings==2.0.3
+python-dotenv==1.0.0
+
+# === Authentication & Security ===
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+bcrypt==3.2.2
+python-multipart==0.0.6
+
+# === Async HTTP Client ===
+aiohttp==3.8.6
+
+# === Scheduling & Background Tasks ===
+apscheduler==3.10.4
