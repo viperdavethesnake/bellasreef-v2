@@ -97,7 +97,7 @@ class ProbeHistoryBase(BaseModel):
     temperature: float
     timestamp: datetime
     status: ProbeStatus = ProbeStatus.ONLINE
-    metadata: Optional[dict] = None
+    probe_metadata: Optional[dict] = None
 
 class ProbeHistoryCreate(ProbeHistoryBase):
     """Model for creating a new probe history entry."""

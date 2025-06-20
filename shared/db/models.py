@@ -207,7 +207,7 @@ class ProbeHistory(Base):
     timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     temperature = Column(Float, nullable=False)
     status = Column(String, nullable=False, default="online")  # online/offline/error
-    metadata = Column(JSON, nullable=True)  # Optional: extra context (units, error, etc.)
+    probe_metadata = Column(JSON, nullable=True)  # Optional: extra context (units, error, etc.) - renamed from metadata
 
     __table_args__ = (
         Index('ix_probe_history_probe_timestamp', 'probe_id', 'timestamp'),
