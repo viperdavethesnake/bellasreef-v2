@@ -30,7 +30,6 @@ source "$VENV_DIR/bin/activate"
 
 echo "Installing dependencies from temp/requirements.txt..."
 pip install -r "$TEMP_DIR/requirements.txt"
-pip install -r "$PROJECT_ROOT/shared/requirements.txt"
 
 if [ ! -f "$TEMP_DIR/.env" ]; then
     echo "Creating .env file from env.example..."
