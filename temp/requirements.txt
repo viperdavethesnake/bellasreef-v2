@@ -4,6 +4,7 @@
 fastapi
 uvicorn[standard]
 pydantic[email]
+pydantic-settings
 asyncpg
 w1thermsensor==2.3.0
 python-dotenv
