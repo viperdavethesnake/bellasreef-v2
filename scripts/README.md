@@ -2,6 +2,24 @@
 
 This directory contains all operational scripts for the Bella's Reef project. All scripts are robust, user-friendly, secure, and can be run from any directory.
 
+## 🏷️ Stable Release
+
+**🎉 Milestone Release Available:** `v2.1.0-core-stable`
+
+This tag represents a stable foundation with all scripts tested and verified:
+- ✅ Core service setup and start scripts fully functional
+- ✅ Database initialization script tested on Raspberry Pi
+- ✅ Import path resolution fixed across all services
+- ✅ Environment configuration standardized
+- ✅ All scripts work from any directory with proper error handling
+
+**For new developers:** This tag provides a stable base for development. All scripts have been tested and are production-ready.
+
+```bash
+# Checkout the stable release
+git checkout v2.1.0-core-stable
+```
+
 ## 🚀 Service Setup Scripts
 
 - **setup_core.sh**: Setup for the core service (auth, health, users)

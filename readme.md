@@ -4,6 +4,30 @@
 
 A comprehensive reef tank management system for tracking and maintaining your aquarium's health and parameters, built with modern async Python technologies.
 
+## 🏷️ Stable Release
+
+**🎉 Milestone Release Available:** `v2.1.0-core-stable`
+
+This tag represents a stable foundation with:
+- ✅ Core service fully modular, tested, and production ready
+- ✅ Auth, user, and health endpoints verified with full API coverage
+- ✅ Shared models/schemas/config/db fully refactored and importable
+- ✅ Scripts for setup, init, and start tested on Raspberry Pi
+- ✅ Environment/requirements structure is clean and up-to-date
+- ✅ Ready for downstream service (scheduler, poller, control) development
+
+**For new developers:** This tag provides a stable base for development. All legacy/unused configs, migrations, and duplicate logic have been removed.
+
+```bash
+# Checkout the stable release
+git checkout v2.1.0-core-stable
+
+# Or clone and checkout in one step
+git clone https://github.com/viperdavethesnake/bellasreef-v2.git
+cd bellasreef-v2
+git checkout v2.1.0-core-stable
+```
+
 ## 🚀 Quick Start - Core Service Only
 
 **For testing core service endpoints (login, auth, health) only:**
