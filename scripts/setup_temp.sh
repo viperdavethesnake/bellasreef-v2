@@ -33,6 +33,8 @@ print_error() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 TEMP_DIR="$PROJECT_ROOT/temp"
+SHARED_DIR="$PROJECT_ROOT/shared"
+
 
 print_status "Setting up Bella's Reef Temperature Service..."
 print_status "Project root: $PROJECT_ROOT"
@@ -44,7 +46,7 @@ check_raspberry_pi() {
         print_success "Raspberry Pi detected"
         return 0
     else
-        print_warning "Not running on Raspberry Pi - hardware features may not work"
+        print_warning "Not running on a Raspberry Pi - hardware features may not work"
         return 1
     fi
 }
@@ -70,27 +72,28 @@ check_python() {
     fi
 }
 
-# Check for virtual environment
-check_venv() {
-    print_status "Checking for virtual environment..."
-    
-    if [[ -d "$TEMP_DIR/venv" ]]; then
-        print_success "Virtual environment already exists"
-        return 0
-    else
-        print_status "Creating virtual environment..."
-        cd "$TEMP_DIR"
-        python3 -m venv venv
-        print_success "Virtual environment created"
-        return 1
+# Recreate virtual environment with a prompt
+recreate_venv() {
+    print_status "Recreating virtual environment..."
+    cd "$TEMP_DIR"
+
+    # If a venv already exists, delete it before creating a new one.
+    if [[ -d "venv" ]]; then
+        print_warning "Removing existing virtual environment (venv), recreating with prompt: (bellasreef-temp)"
+        rm -rf venv
     fi
+
+    # Create a new virtual environment with a service-specific prompt.
+    python3 -m venv --prompt bellasreef-temp venv
+    print_success "Virtual environment created."
 }
 
 # Activate virtual environment
 activate_venv() {
     print_status "Activating virtual environment..."
+    # Note: This only activates it for the script. You must activate it manually in your shell.
     source "$TEMP_DIR/venv/bin/activate"
-    print_success "Virtual environment activated"
+    print_success "Virtual environment activated for installer"
 }
 
 # Install dependencies
@@ -103,6 +106,7 @@ install_dependencies() {
     # Install requirements
     if [[ -f "$TEMP_DIR/requirements.txt" ]]; then
         pip install -r "$TEMP_DIR/requirements.txt"
+        pip install -r "$SHARED_DIR/requirements.txt"
         print_success "Dependencies installed"
     else
         print_error "requirements.txt not found in $TEMP_DIR"
@@ -114,11 +118,12 @@ install_dependencies() {
 setup_env() {
     print_status "Setting up environment configuration..."
     
-    if [[ ! -f "$TEMP_DIR/.env" ]]; then
-        if [[ -f "$TEMP_DIR/env.example" ]]; then
-            cp "$TEMP_DIR/env.example" "$TEMP_DIR/.env"
+    cd "$TEMP_DIR"
+    if [[ ! -f ".env" ]]; then
+        if [[ -f "env.example" ]]; then
+            cp "env.example" ".env"
             print_success "Environment file created from template"
-            print_warning "Please edit $TEMP_DIR/.env with your actual configuration"
+            print_warning "Please edit .env with your actual configuration"
         else
             print_error "env.example not found in $TEMP_DIR"
             exit 1
@@ -132,12 +137,16 @@ setup_env() {
 check_1wire() {
     print_status "Checking 1-wire subsystem..."
     
+    if ! check_raspberry_pi; then
+        return
+    fi
+    
     # Check if 1-wire is enabled in /boot/config.txt
     if [[ -f /boot/config.txt ]] && grep -q "dtoverlay=w1-gpio" /boot/config.txt; then
         print_success "1-wire overlay found in /boot/config.txt"
     else
         print_warning "1-wire overlay not found in /boot/config.txt"
-        print_warning "Add 'dtoverlay=w1-gpio,gpiopin=4' to /boot/config.txt and reboot"
+        print_warning "Add 'dtoverlay=w1-gpio' to /boot/config.txt and reboot"
     fi
     
     # Check if 1-wire device directory exists
@@ -145,16 +154,14 @@ check_1wire() {
         print_success "1-wire device directory exists"
         
         # Count temperature sensors
-        SENSOR_COUNT=$(ls /sys/bus/w1/devices/28-* 2>/dev/null | wc -l)
+        SENSOR_COUNT=$(ls -d /sys/bus/w1/devices/28-*/ 2>/dev/null | wc -l)
         if [[ $SENSOR_COUNT -gt 0 ]]; then
             print_success "Found $SENSOR_COUNT temperature sensor(s)"
         else
-            print_warning "No temperature sensors found"
-            print_warning "Check your wiring and sensor connections"
+            print_warning "No temperature sensors found. Check your wiring and sensor connections"
         fi
     else
-        print_warning "1-wire device directory not found"
-        print_warning "1-wire subsystem may not be enabled or loaded"
+        print_warning "1-wire device directory not found. The w1-gpio module may not be loaded."
     fi
 }
 
@@ -166,50 +173,15 @@ check_database() {
     if command -v psql &> /dev/null; then
         print_success "PostgreSQL client found"
     else
-        print_warning "PostgreSQL client not found"
-        print_warning "Install with: sudo apt-get install postgresql-client"
+        print_warning "PostgreSQL client not found. You can install it with: sudo apt-get install postgresql-client"
     fi
 }
 
-# Create necessary directories
-create_directories() {
-    print_status "Creating necessary directories..."
-    
-    # Create logs directory if it doesn't exist
-    mkdir -p "$TEMP_DIR/logs"
-    print_success "Directories created"
-}
-
-# Check if environment file exists
-check_env_file() {
-    print_status "Checking environment configuration..."
-    
-    if [[ ! -f "$TEMP_DIR/.env" ]]; then
-        print_error "Environment file not found: $TEMP_DIR/.env"
-        print_error "Please run setup first: ./scripts/setup_temp.sh"
-        exit 1
-    fi
-    print_success "Environment file found"
-    
-    # Check if service is enabled
-    if grep -q "^TEMP_ENABLED=false" "$TEMP_DIR/.env"; then
-        print_error "Temperature Service is disabled in $TEMP_DIR/.env"
-        print_error "Set TEMP_ENABLED=true to enable the service"
-        exit 1
-    fi
-    
-    if grep -q "^TEMP_ENABLED=true" "$TEMP_DIR/.env"; then
-        print_success "Temperature Service is enabled"
-    else
-        print_warning "TEMP_ENABLED not found in .env, defaulting to enabled"
-    fi
-}
 
 # Main setup function
 main() {
     print_status "Starting temperature service setup..."
     
-    # Check if we're in the right directory
     if [[ ! -d "$TEMP_DIR" ]]; then
         print_error "Temperature service directory not found: $TEMP_DIR"
         print_error "Please run this script from the project root directory"
@@ -217,32 +189,34 @@ main() {
     fi
     
     # Run setup steps
-    check_raspberry_pi
     check_python
-    check_env_file
-    VENV_EXISTED=$(check_venv)
-    activate_venv
-    install_dependencies
-    setup_env
-    check_1wire
-    check_database
-    create_directories
+    recreate_venv
     
-    print_success "Temperature service setup completed!"
+    # The rest of the script must run inside the venv
+    (
+      activate_venv
+      install_dependencies
+      check_raspberry_pi
+      setup_env
+      check_1wire
+      check_database
+    )
+    
+    print_success "✅ Temperature service setup completed!"
     echo
     print_status "Next steps:"
     echo "  1. Edit $TEMP_DIR/.env with your configuration"
-    echo "  2. Ensure PostgreSQL is running and accessible"
-    echo "  3. Run database initialization: python ../scripts/init_db.py"
-    echo "  4. Start the service: ./../scripts/start_temp.sh"
+    echo "  2. Activate the venv: source $TEMP_DIR/venv/bin/activate"
+    echo "      (You'll see the '(bellasreef-temp)' prompt)"
+    echo "  3. Ensure PostgreSQL is running and accessible"
+    echo "  4. Run database initialization: python3 $PROJECT_ROOT/scripts/init_db.py"
+    echo "  5. Start the service: $PROJECT_ROOT/scripts/start_temp.sh"
     echo
     print_status "For troubleshooting, check:"
-    echo "  - 1-wire subsystem: /probe/check endpoint"
-    echo "  - Service logs: $TEMP_DIR/logs/"
+    echo "  - Service logs in the console after starting"
     echo "  - Environment configuration: $TEMP_DIR/.env"
-    echo "  - Service enablement: TEMP_ENABLED setting"
     echo
 }
 
 # Run main function
-main "$@" 
+main "$@"

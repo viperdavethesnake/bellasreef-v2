@@ -20,11 +20,15 @@ echo -e "${GREEN}Setting up Bella's Reef Core Service...${NC}"
 
 cd "$CORE_DIR"
 
-# Check if virtual environment exists
-if [ ! -d "venv" ]; then
-    echo -e "${YELLOW}Creating virtual environment...${NC}"
-    python3 -m venv venv
+# Check if virtual environment exists and recreate it
+if [ -d "venv" ]; then
+    echo -e "${YELLOW}Removing existing virtual environment (venv)...${NC}"
+    rm -rf venv
 fi
+
+# Create a new virtual environment with a service-specific prompt
+echo -e "${YELLOW}Creating virtual environment with prompt (bellasreef-core)...${NC}"
+python3 -m venv --prompt bellasreef-core venv
 
 # Activate virtual environment
 echo -e "${GREEN}Activating virtual environment...${NC}"
@@ -34,6 +38,8 @@ source venv/bin/activate
 echo -e "${GREEN}Installing dependencies...${NC}"
 pip install --upgrade pip
 pip install -r "$SHARED_DIR/requirements.txt"
+pip install -r "$CORE_DIR/requirements.txt"
+
 
 # Check if .env file exists
 if [ ! -f ".env" ]; then
@@ -46,10 +52,12 @@ fi
 
 # Requirements check (calls Python script)
 echo -e "${GREEN}Verifying installed Python modules...${NC}"
-python3 "$SCRIPT_DIR/check_requirements.py" "$SHARED_DIR/requirements.txt"
+python3 "$SCRIPT_DIR/check_requirements.py" "$SHARED_DIR/requirements.txt" "$CORE_DIR/requirements.txt"
 
 echo -e "${GREEN}✅ Core service setup complete!${NC}"
 echo -e "${YELLOW}Next steps:${NC}"
 echo -e "   1. Edit $CORE_DIR/.env with your configuration"
-echo -e "   2. Run: python3 $SCRIPT_DIR/init_db.py"
-echo -e "   3. Start: $SCRIPT_DIR/start_core.sh"
+echo -e "   2. Activate the venv: source $CORE_DIR/venv/bin/activate"
+echo -e "      (You'll see the '(bellasreef-core)' prompt)"
+echo -e "   3. Run: python3 $SCRIPT_DIR/init_db.py"
+echo -e "   4. Start: $SCRIPT_DIR/start_core.sh"
