@@ -1,4 +1,5 @@
-from pydantic import BaseSettings, Field
+from pydantic_settings import BaseSettings
+from pydantic import Field
 
 class Settings(BaseSettings):
     TEMP_ENABLED: bool = Field(False, description="Set to true to enable the temperature service.")
@@ -11,8 +12,9 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     ALLOWED_HOSTS: list[str] = ["*"]
 
-    class Config:
-        env_file = 'temp/.env'
-        env_file_encoding = 'utf-8'
+    model_config = {
+        'env_file': 'temp/.env',
+        'env_file_encoding': 'utf-8',
+    }
 
 settings = Settings()

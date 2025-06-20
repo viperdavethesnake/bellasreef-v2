@@ -2,6 +2,18 @@
 
 This directory contains all operational scripts for the Bella's Reef project. All scripts are robust, user-friendly, secure, and can be run from any directory.
 
+## ⚡ Developer Setup Notes
+
+**After cloning the repository, always verify that all shell scripts in this directory are executable.**
+
+If you encounter a 'permission denied' error when running any script, set executable permissions with:
+
+```bash
+chmod +x scripts/*.sh
+```
+
+This ensures all setup and start scripts work as intended on your system.
+
 ## 🏷️ Stable Release
 
 **🎉 Milestone Release Available:** `v2.1.0-core-stable`
