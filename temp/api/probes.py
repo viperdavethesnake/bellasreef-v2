@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
-from shared.crud import probe as probe_crud
-from shared.schemas import probe as probe_schema
-from temp.deps import get_db, get_api_key
-from temp.services.temperature import temperature_service, OneWireCheckResult
+from ..crud import probe as probe_crud
+from ..schemas import probe as probe_schema
+from ..deps import get_db, get_api_key
+from ..services.temperature import temperature_service, OneWireCheckResult
 
 router = APIRouter(prefix="/probe", tags=["Probes"])
 
@@ -26,7 +26,7 @@ def list_probes(db: Session = Depends(get_db)):
 @router.post("/", response_model=probe_schema.Probe, dependencies=[Depends(get_api_key)])
 def create_probe(probe: probe_schema.ProbeCreate, db: Session = Depends(get_db)):
     """Create a new probe configuration in the database."""
-    db_probe = probe_crud.get_probe(db, hardware_id=probe.hardware_id)
+    db_probe = probe_crud.get_probe_by_hardware_id(db, hardware_id=probe.hardware_id)
     if db_probe:
         raise HTTPException(status_code=400, detail="Probe with this hardware ID already exists.")
     return probe_crud.create_probe(db=db, probe=probe)

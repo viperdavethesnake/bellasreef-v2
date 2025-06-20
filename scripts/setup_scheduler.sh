@@ -21,11 +21,11 @@ if [ ! -d "$VENV_DIR" ]; then
     python3 -m venv --prompt bellasreef-scheduler "$VENV_DIR"
 fi
 source "$VENV_DIR/bin/activate"
-if [ ! -f "$SHARED_DIR/requirements.txt" ]; then
-    echo -e "${RED}Missing requirements.txt in shared!${NC}"; exit 1
+if [ ! -f "$SCHEDULER_DIR/requirements.txt" ]; then
+    echo -e "${RED}Missing requirements.txt in scheduler!${NC}"; exit 1
 fi
 pip install --upgrade pip
-pip install -r "$SHARED_DIR/requirements.txt"
+pip install -r "$SCHEDULER_DIR/requirements.txt"
 if [ ! -f "$CORE_DIR/.env" ]; then
     echo -e "${RED}Error: core/.env file not found. Scheduler service requires the shared configuration.${NC}"
     echo -e "   Please run: ./scripts/setup_core.sh first to create core/.env"
