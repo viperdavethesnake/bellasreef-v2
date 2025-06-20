@@ -18,6 +18,20 @@ if [ "$TEMP_ENABLED" != "true" ]; then
     exit 1
 fi
 
+# Check if the correct virtual environment is activated
+# This prevents dependency issues and ensures the service runs with the correct Python packages
+if [ "$VIRTUAL_ENV" != "$VENV_DIR" ]; then
+    echo "❌ Error: Temperature Service virtual environment is not activated."
+    echo "   Current VIRTUAL_ENV: ${VIRTUAL_ENV:-'not set'}"
+    echo "   Expected VIRTUAL_ENV: $VENV_DIR"
+    echo ""
+    echo "   Please activate the virtual environment first:"
+    echo "   source $VENV_DIR/bin/activate"
+    echo ""
+    echo "   Then run this script again."
+    exit 1
+fi
+
 export PYTHONPATH="$PROJECT_ROOT"
 
 source "$VENV_DIR/bin/activate"

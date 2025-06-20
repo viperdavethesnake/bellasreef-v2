@@ -79,3 +79,13 @@ if [ "$W1_OVERLAY_FOUND" = false ]; then
 fi
 
 echo "✅ Temperature Service setup complete."
+
+echo ""
+echo "📋 Next steps:"
+echo "  1. Activate the virtual environment:"
+echo "     source $VENV_DIR/bin/activate"
+echo ""
+echo "  2. Start the Temperature Service:"
+echo "     ./scripts/start_temp.sh"
+echo ""
+echo "   Note: You must activate the virtual environment before starting the service."
