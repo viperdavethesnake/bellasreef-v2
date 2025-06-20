@@ -1,6 +1,9 @@
 # Bella's Reef Temperature Service Dependencies
 # This service requires Python 3.8+ and is designed for Raspberry Pi
 
+# Note: Hardware deployment is on Raspberry Pi only.  
+# System dependency required: sudo apt install libpq-dev
+
 # =============================================================================
 # CORE FRAMEWORK
 # =============================================================================
@@ -14,6 +17,7 @@ uvicorn[standard]>=0.24.0
 # =============================================================================
 
 # SQLAlchemy async support
+# Note: asyncpg requires libpq-dev system dependency
 sqlalchemy>=2.0.0
 asyncpg>=0.29.0
 
@@ -34,18 +38,18 @@ python-dotenv>=1.0.0
 python-multipart>=0.0.6
 
 # =============================================================================
-# HARDWARE INTERFACE (OPTIONAL)
+# HARDWARE INTERFACE
 # =============================================================================
 
 # 1-wire temperature sensor support
-# Note: This is optional and only needed if using w1thermsensor library
-# w1thermsensor>=2.3.0
+# Note: PiWheels compatible version for Raspberry Pi
+w1thermsensor==2.3.0
 
 # =============================================================================
 # DEVELOPMENT & TESTING (OPTIONAL)
 # =============================================================================
 
-# Development tools (optional)
+# Development tools (optional - for testing and development only)
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
 httpx>=0.25.0
@@ -61,8 +65,8 @@ httpx>=0.25.0
 #
 # Installation Notes:
 # - Install on Raspberry Pi: pip install -r requirements.txt
-# - For PiWheels compatibility, ensure w1thermsensor>=2.3.0
-# - Some packages may require system dependencies (e.g., libpq-dev for asyncpg)
+# - System dependency: sudo apt install libpq-dev (for asyncpg)
+# - w1thermsensor==2.3.0 is PiWheels compatible
 #
 # Development:
 # - For local development, install with: pip install -r requirements.txt[dev]
