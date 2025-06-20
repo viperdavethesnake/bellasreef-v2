@@ -23,7 +23,7 @@ class Probe(ProbeBase):
     updated_at: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # ProbeHistory Schemas
 class ProbeHistoryBase(BaseModel):
@@ -39,4 +39,4 @@ class ProbeHistory(ProbeHistoryBase):
     timestamp: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
