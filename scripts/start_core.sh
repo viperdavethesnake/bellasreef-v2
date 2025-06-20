@@ -6,6 +6,7 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CORE_DIR="$PROJECT_ROOT/core"
+VENV_DIR="$CORE_DIR/bellasreef-core-venv"
 
 # Color codes for output
 GREEN='\033[0;32m'
@@ -16,13 +17,28 @@ NC='\033[0m'
 echo -e "${GREEN}[Bella's Reef] Starting Core Service...${NC}"
 
 # Check if virtual environment exists
-if [ ! -d "$CORE_DIR/venv" ]; then
-    echo -e "${RED}No venv found. Run setup first!${NC}"
+if [ ! -d "$VENV_DIR" ]; then
+    echo -e "${RED}No virtual environment found. Run setup first!${NC}"
+    echo -e "${YELLOW}Expected: $VENV_DIR${NC}"
+    exit 1
+fi
+
+# Check if the correct virtual environment is activated
+# This prevents dependency issues and ensures the service runs with the correct Python packages
+if [ "$VIRTUAL_ENV" != "$VENV_DIR" ]; then
+    echo -e "${RED}❌ Error: Core Service virtual environment is not activated.${NC}"
+    echo -e "   Current VIRTUAL_ENV: ${VIRTUAL_ENV:-'not set'}"
+    echo -e "   Expected VIRTUAL_ENV: $VENV_DIR"
+    echo ""
+    echo -e "   Please activate the virtual environment first:"
+    echo -e "   source $VENV_DIR/bin/activate"
+    echo ""
+    echo -e "   Then run this script again."
     exit 1
 fi
 
 # Activate virtual environment
-source "$CORE_DIR/venv/bin/activate"
+source "$VENV_DIR/bin/activate"
 
 # Check if .env file exists
 if [ ! -f "$CORE_DIR/.env" ]; then

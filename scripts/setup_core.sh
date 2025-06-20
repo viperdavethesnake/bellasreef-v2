@@ -9,6 +9,7 @@ SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CORE_DIR="$PROJECT_ROOT/core"
 SHARED_DIR="$PROJECT_ROOT/shared"
+VENV_DIR="$CORE_DIR/bellasreef-core-venv"
 
 # Colors for output
 RED='\033[0;31m'
@@ -21,18 +22,18 @@ echo -e "${GREEN}Setting up Bella's Reef Core Service...${NC}"
 cd "$CORE_DIR"
 
 # Check if virtual environment exists and recreate it
-if [ -d "venv" ]; then
-    echo -e "${YELLOW}Removing existing virtual environment (venv)...${NC}"
-    rm -rf venv
+if [ -d "bellasreef-core-venv" ]; then
+    echo -e "${YELLOW}Removing existing virtual environment (bellasreef-core-venv)...${NC}"
+    rm -rf bellasreef-core-venv
 fi
 
 # Create a new virtual environment with a service-specific prompt
 echo -e "${YELLOW}Creating virtual environment with prompt (bellasreef-core)...${NC}"
-python3 -m venv --prompt bellasreef-core venv
+python3 -m venv --prompt bellasreef-core "$VENV_DIR"
 
 # Activate virtual environment
 echo -e "${GREEN}Activating virtual environment...${NC}"
-source venv/bin/activate
+source "$VENV_DIR/bin/activate"
 
 # Install dependencies
 echo -e "${GREEN}Installing dependencies...${NC}"
@@ -55,7 +56,7 @@ python3 "$SCRIPT_DIR/check_requirements.py" "$CORE_DIR/requirements.txt"
 echo -e "${GREEN}✅ Core service setup complete!${NC}"
 echo -e "${YELLOW}Next steps:${NC}"
 echo -e "   1. Edit $CORE_DIR/.env with your configuration"
-echo -e "   2. Activate the venv: source $CORE_DIR/venv/bin/activate"
+echo -e "   2. Activate the venv: source $VENV_DIR/bin/activate"
 echo -e "      (You'll see the '(bellasreef-core)' prompt)"
 echo -e "   3. Run: python3 $SCRIPT_DIR/init_db.py"
 echo -e "   4. Start: $SCRIPT_DIR/start_core.sh"

@@ -28,6 +28,14 @@ ENV/
 env.bak/
 venv.bak/
 
+# Bella's Reef service virtual environments
+*/bellasreef-*-venv/
+core/bellasreef-core-venv/
+temp/bellasreef-temp-venv/
+poller/bellasreef-poller-venv/
+scheduler/bellasreef-scheduler-venv/
+control/bellasreef-control-venv/
+
 # Environment files
 .env
 *.env

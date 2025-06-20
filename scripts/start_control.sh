@@ -4,10 +4,11 @@
 
 set -e
 
-# Get the project root directory (absolute path)
+# Get script and project directories
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 CONTROL_DIR="$PROJECT_ROOT/control"
+VENV_DIR="$CONTROL_DIR/bellasreef-control-venv"
 
 # Colors for output
 RED='\033[0;31m'
@@ -18,14 +19,28 @@ NC='\033[0m' # No Color
 echo -e "${GREEN}[Bella's Reef] Starting Control Service...${NC}"
 
 # Check if virtual environment exists
-if [ ! -d "$CONTROL_DIR/venv" ]; then
-    echo -e "${RED}No venv found. Run setup first!${NC}"
+if [ ! -d "$VENV_DIR" ]; then
+    echo -e "${RED}No virtual environment found. Run setup first!${NC}"
+    echo -e "${YELLOW}Expected: $VENV_DIR${NC}"
+    exit 1
+fi
+
+# Check if the correct virtual environment is activated
+# This prevents dependency issues and ensures the service runs with the correct Python packages
+if [ "$VIRTUAL_ENV" != "$VENV_DIR" ]; then
+    echo -e "${RED}❌ Error: Control Service virtual environment is not activated.${NC}"
+    echo -e "   Current VIRTUAL_ENV: ${VIRTUAL_ENV:-'not set'}"
+    echo -e "   Expected VIRTUAL_ENV: $VENV_DIR"
+    echo ""
+    echo -e "   Please activate the virtual environment first:"
+    echo -e "   source $VENV_DIR/bin/activate"
+    echo ""
+    echo -e "   Then run this script again."
     exit 1
 fi
 
 # Activate virtual environment
-echo -e "${GREEN}Activating virtual environment...${NC}"
-source "$CONTROL_DIR/venv/bin/activate"
+source "$VENV_DIR/bin/activate"
 
 # Check if .env file exists
 if [ ! -f "$CONTROL_DIR/.env" ]; then
