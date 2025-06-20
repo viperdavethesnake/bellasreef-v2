@@ -104,6 +104,18 @@ class Schedule(ScheduleBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
+class ScheduleExecution(BaseModel):
+    """Schema for tracking schedule execution history"""
+    schedule_id: int = Field(..., description="ID of the schedule that was executed")
+    executed_at: datetime = Field(..., description="When the schedule was executed")
+    status: RunStatusEnum = Field(..., description="Execution status")
+    message: Optional[str] = Field(None, description="Optional message about the execution")
+    result: Optional[Dict[str, Any]] = Field(None, description="Execution result data")
+    error_message: Optional[str] = Field(None, description="Error message if execution failed")
+
+    class Config:
+        from_attributes = True
+
 class ScheduleWithActions(Schedule):
     """Schedule with device actions included"""
     device_actions: List['DeviceAction'] = Field(default_factory=list)
