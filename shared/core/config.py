@@ -41,6 +41,8 @@ class Settings(BaseSettings):
     # Service Configuration
     SERVICE_PORT: int = 8000
     SERVICE_HOST: str = "0.0.0.0"
+    DEBUG: bool = False
+    LOG_LEVEL: str = "INFO"
     
     # Admin User (for database initialization)
     ADMIN_USERNAME: str = "admin"
