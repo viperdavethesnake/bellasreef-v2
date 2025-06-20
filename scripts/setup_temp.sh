@@ -40,35 +40,42 @@ fi
 # Modern Raspberry Pi OS and Ubuntu for Pi use /boot/firmware/config.txt
 # Legacy systems use /boot/config.txt
 echo "Checking 1-wire overlay configuration..."
+
 W1_OVERLAY_FOUND=false
+LEGACY_CONFIG="/boot/config.txt"
+MODERN_CONFIG="/boot/firmware/config.txt"
 
-if [ -f "/boot/config.txt" ]; then
-    echo "  Checking legacy location: /boot/config.txt"
-    if grep -q "dtoverlay=w1-gpio" /boot/config.txt 2>/dev/null; then
-        echo "  ✅ 1-wire overlay found in /boot/config.txt"
+# Check legacy location
+if [ -f "$LEGACY_CONFIG" ]; then
+    if grep -q "dtoverlay=w1-gpio" "$LEGACY_CONFIG" 2>/dev/null; then
+        echo "  ✅ 1-wire overlay found in $LEGACY_CONFIG"
         W1_OVERLAY_FOUND=true
     else
-        echo "  ❌ 1-wire overlay not found in /boot/config.txt"
+        echo "  ❌ 1-wire overlay not found in $LEGACY_CONFIG"
     fi
 else
-    echo "  ⚠️  Legacy config file not found: /boot/config.txt"
+    echo "  ⚠️  Legacy config file not found: $LEGACY_CONFIG"
 fi
 
-if [ -f "/boot/firmware/config.txt" ]; then
-    echo "  Checking modern location: /boot/firmware/config.txt"
-    if grep -q "dtoverlay=w1-gpio" /boot/firmware/config.txt 2>/dev/null; then
-        echo "  ✅ 1-wire overlay found in /boot/firmware/config.txt"
+# Check modern location
+if [ -f "$MODERN_CONFIG" ]; then
+    if grep -q "dtoverlay=w1-gpio" "$MODERN_CONFIG" 2>/dev/null; then
+        echo "  ✅ 1-wire overlay found in $MODERN_CONFIG"
         W1_OVERLAY_FOUND=true
     else
-        echo "  ❌ 1-wire overlay not found in /boot/firmware/config.txt"
+        echo "  ❌ 1-wire overlay not found in $MODERN_CONFIG"
     fi
 else
-    echo "  ⚠️  Modern config file not found: /boot/firmware/config.txt"
+    echo "  ⚠️  Modern config file not found: $MODERN_CONFIG"
 fi
 
+# Provide clear warning if overlay is not found
 if [ "$W1_OVERLAY_FOUND" = false ]; then
-    echo "⚠️  Warning: 1-wire overlay not found in either config location."
-    echo "   Hardware may not function. Add 'dtoverlay=w1-gpio' to your config file and reboot."
+    echo ""
+    echo "❌  Warning: 1-wire overlay not found in either config location."
+    echo "   Temperature sensors may not work until 1-wire is enabled."
+    echo "   Please see the README or documentation for steps to enable 1-wire overlay."
+    echo "   Typically, add 'dtoverlay=w1-gpio' to your config file and reboot."
 fi
 
 echo "✅ Temperature Service setup complete."
