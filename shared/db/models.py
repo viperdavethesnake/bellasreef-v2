@@ -23,8 +23,9 @@ class User(Base):
     #     Index('ix_users_username', 'username', unique=True),
     # ) 
 
-    schedules = relationship("Schedule", back_populates="owner")
-    alerts = relationship("Alert", back_populates="owner")
+    # Note: Schedules and alerts are not tied to users in this architecture.
+    # They are tied to devices and other entities, not user ownership.
+    # This design allows for system-wide automation without user-specific constraints.
 
 class Device(Base):
     __tablename__ = "devices"
