@@ -87,24 +87,55 @@ adafruit-circuitpython-dht==4.0.9  # NEW
 
 ### For Development
 ```bash
-# Reset virtual environment
-rm -rf venv/
-python3 -m venv venv
-source venv/bin/activate
+# For Core Service
+cd core
+rm -rf bellasreef-core-venv/
+python3 -m venv bellasreef-core-venv
+source bellasreef-core-venv/bin/activate
 
 # Install with PiWheels for faster binary wheels
 pip install -i https://www.piwheels.org/simple/ -r requirements.txt
+
+# For Temperature Service
+cd ../temp
+rm -rf bellasreef-temp-venv/
+python3 -m venv bellasreef-temp-venv
+source bellasreef-temp-venv/bin/activate
+pip install -i https://www.piwheels.org/simple/ -r requirements.txt
+
+# For other services (poller, scheduler, control)
+cd ../poller
+rm -rf bellasreef-poller-venv/
+python3 -m venv bellasreef-poller-venv
+source bellasreef-poller-venv/bin/activate
+pip install -i https://www.piwheels.org/simple/ -r ../shared/requirements.txt
+
+cd ../scheduler
+rm -rf bellasreef-scheduler-venv/
+python3 -m venv bellasreef-scheduler-venv
+source bellasreef-scheduler-venv/bin/activate
+pip install -i https://www.piwheels.org/simple/ -r ../shared/requirements.txt
+
+cd ../control
+rm -rf bellasreef-control-venv/
+python3 -m venv bellasreef-control-venv
+source bellasreef-control-venv/bin/activate
+pip install -i https://www.piwheels.org/simple/ -r ../shared/requirements.txt
 ```
 
 ### For Production
 ```bash
-# Install with no cache to ensure fresh packages
-pip install -r requirements.txt --no-cache-dir
+# Use the setup scripts which handle venv creation automatically
+./scripts/setup_core.sh
+./scripts/setup_temp.sh
+./scripts/setup_poller.sh
+./scripts/setup_scheduler.sh
+./scripts/setup_control.sh
 ```
 
 ### Using PiWheels Explicitly
 ```bash
-# For individual packages
+# For individual packages in any service venv
 pip install -i https://www.piwheels.org/simple/ w1thermsensor==2.3.0
 pip install -i https://www.piwheels.org/simple/ RPi.GPIO==0.7.1
 ```

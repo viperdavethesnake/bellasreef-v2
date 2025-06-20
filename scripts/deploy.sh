@@ -1,6 +1,17 @@
 #!/bin/bash
 # Bella's Reef - Deployment Script
 #
+# NOTE: This script uses a global virtual environment deployment model
+# ($HOME/.venvs/bellasreef) which is different from the service-specific
+# approach used by the individual service setup scripts.
+#
+# For service-specific deployment, use:
+#   ./scripts/setup_core.sh
+#   ./scripts/setup_temp.sh
+#   ./scripts/setup_poller.sh
+#   ./scripts/setup_scheduler.sh
+#   ./scripts/setup_control.sh
+#
 # FEATURES:
 # - Robust CLI flags for different deployment modes
 # - Environment and configuration validation

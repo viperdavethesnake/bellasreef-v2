@@ -109,35 +109,75 @@ New users must set up these services at minimum:
 
 ### Setup Instructions
 
-1. **Clone and navigate to project:**
+The Bella's Reef backend consists of multiple microservices, each with its own virtual environment.
+
+1. **Navigate to project root:**
    ```bash
    cd bellasreef-v2
    ```
 
-2. **Run the main setup script:**
-   ```bash
-   ./scripts/setup.sh
-   ```
-
-3. **Setup individual services:**
+2. **Set up the Core service (required):**
    ```bash
    ./scripts/setup_core.sh
-   ./scripts/setup_scheduler.sh
+   ```
+   This creates `core/bellasreef-core-venv` and installs dependencies.
+
+3. **Set up additional services as needed:**
+   ```bash
+   # Temperature service (for 1-wire sensors)
+   ./scripts/setup_temp.sh
+   
+   # Poller service (for device polling)
    ./scripts/setup_poller.sh
+   
+   # Scheduler service (for automated schedules)
+   ./scripts/setup_scheduler.sh
+   
+   # Control service (for hardware control)
    ./scripts/setup_control.sh
    ```
 
-4. **⚠️ Initialize database (REQUIRED):**
+4. **Activate a service's virtual environment:**
    ```bash
-   python3 scripts/init_db.py
+   # For core service
+   source core/bellasreef-core-venv/bin/activate
+   
+   # For temperature service
+   source temp/bellasreef-temp-venv/bin/activate
+   
+   # For poller service
+   source poller/bellasreef-poller-venv/bin/activate
+   
+   # For scheduler service
+   source scheduler/bellasreef-scheduler-venv/bin/activate
+   
+   # For control service
+   source control/bellasreef-control-venv/bin/activate
    ```
-   **This step is mandatory before starting any service.**
 
-5. **Start services:**
+5. **Configure environment:**
    ```bash
+   # Each service has its own .env file
+   cp core/env.example core/.env
+   cp temp/env.example temp/.env
+   # Edit each .env with your database and security settings
+   ```
+
+6. **Initialize database (from core service venv):**
+   ```bash
+   source core/bellasreef-core-venv/bin/activate
+   python scripts/init_db.py
+   ```
+
+7. **Start services:**
+   ```bash
+   # Start core service
    ./scripts/start_core.sh
-   ./scripts/start_scheduler.sh
+   
+   # Start other services (each in its own terminal with venv activated)
+   ./scripts/start_temp.sh
    ./scripts/start_poller.sh
+   ./scripts/start_scheduler.sh
    ./scripts/start_control.sh
    ```
 
@@ -314,56 +354,6 @@ async def create_user(db: AsyncSession, user_data: UserCreate) -> User:
     db.add(db_user)
     await db.flush()
     return db_user
-```
-
-## Setup Instructions
-
-### Backend Setup
-
-1. **Navigate to backend directory:**
-   ```bash
-   cd backend
-   ```
-
-2. **Create virtual environment:**
-   ```bash
-   python -m venv venv
-   source venv/bin/activate  # On Windows: venv\Scripts\activate
-   ```
-
-3. **Install dependencies:**
-   ```bash
-   pip install -r requirements.txt
-   ```
-
-4. **Configure environment:**
-   ```bash
-   cp env.example .env
-   # Edit .env with your database and security settings
-   ```
-
-5. **Initialize database:**
-   ```bash
-   python scripts/init_db.py
-   ```
-
-6. **Start development server:**
-   ```bash
-   python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-   ```
-
-### Database Management
-
-**Initialize/reset database:**
-```bash
-cd backend
-python scripts/init_db.py
-```
-
-**Start with database setup:**
-```bash
-cd backend
-./scripts/start.sh
 ```
 
 ## Features

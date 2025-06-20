@@ -275,8 +275,8 @@ After=network.target postgresql.service
 [Service]
 Type=simple
 User=bellasreef
-WorkingDirectory=/opt/bellasreef-v2/backend
-ExecStart=/opt/bellasreef-v2/backend/venv/bin/python app/worker/alert_worker.py --interval 30
+WorkingDirectory=/opt/bellasreef-v2
+ExecStart=/opt/bellasreef-v2/poller/bellasreef-poller-venv/bin/python poller/main.py
 Restart=always
 RestartSec=10
 
