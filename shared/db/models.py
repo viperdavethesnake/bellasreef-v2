@@ -2,6 +2,7 @@ from sqlalchemy import Boolean, Column, Integer, String, DateTime, Index, Foreig
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 from shared.db.database import Base
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
@@ -175,4 +176,40 @@ class DeviceAction(Base):
         Index('ix_device_actions_status_scheduled', 'status', 'scheduled_time'),
         Index('ix_device_actions_device_status', 'device_id', 'status'),
         Index('ix_device_actions_scheduled_time', 'scheduled_time'),  # For efficient querying
+    )
+
+class Probe(Base):
+    """Temperature probe model for 1-wire sensors (DS18B20, etc.).
+    Stores configuration and status for each physical probe.
+    """
+    __tablename__ = "probes"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(String, unique=True, index=True, nullable=False)  # 1-wire device ID (e.g., 28-00000abcdef)
+    nickname = Column(String, nullable=True)  # User-friendly name
+    role = Column(String, nullable=False, default="other")  # Role/function (main_tank, sump, etc.)
+    location = Column(String, nullable=True)  # Physical location
+    is_enabled = Column(Boolean, default=True, nullable=False)  # Enable/disable polling
+    poll_interval = Column(Integer, default=60, nullable=False)  # Polling interval in seconds
+    status = Column(String, default="offline", nullable=False)  # online/offline/error
+    last_seen = Column(DateTime, nullable=True)  # Last time probe was seen online
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, onupdate=datetime.utcnow, nullable=True)
+
+class ProbeHistory(Base):
+    """Historical temperature readings for probes (future use).
+    Not used by temp service directly, but available for poller or analytics.
+    """
+    __tablename__ = "probe_history"
+
+    id = Column(Integer, primary_key=True, index=True)
+    probe_id = Column(Integer, ForeignKey("probes.id"), nullable=False, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    temperature = Column(Float, nullable=False)
+    status = Column(String, nullable=False, default="online")  # online/offline/error
+    metadata = Column(JSON, nullable=True)  # Optional: extra context (units, error, etc.)
+
+    __table_args__ = (
+        Index('ix_probe_history_probe_timestamp', 'probe_id', 'timestamp'),
+        Index('ix_probe_history_timestamp', 'timestamp'),
     ) 

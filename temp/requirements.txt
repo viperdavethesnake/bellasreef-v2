@@ -1,0 +1,69 @@
+# Bella's Reef Temperature Service Dependencies
+# This service requires Python 3.8+ and is designed for Raspberry Pi
+
+# =============================================================================
+# CORE FRAMEWORK
+# =============================================================================
+
+# FastAPI and ASGI server
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# =============================================================================
+# DATABASE & ORM
+# =============================================================================
+
+# SQLAlchemy async support
+sqlalchemy>=2.0.0
+asyncpg>=0.29.0
+
+# =============================================================================
+# CONFIGURATION & VALIDATION
+# =============================================================================
+
+# Settings management
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+python-dotenv>=1.0.0
+
+# =============================================================================
+# AUTHENTICATION & SECURITY
+# =============================================================================
+
+# HTTP Bearer token authentication
+python-multipart>=0.0.6
+
+# =============================================================================
+# HARDWARE INTERFACE (OPTIONAL)
+# =============================================================================
+
+# 1-wire temperature sensor support
+# Note: This is optional and only needed if using w1thermsensor library
+# w1thermsensor>=2.3.0
+
+# =============================================================================
+# DEVELOPMENT & TESTING (OPTIONAL)
+# =============================================================================
+
+# Development tools (optional)
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0
+
+# =============================================================================
+# NOTES
+# =============================================================================
+#
+# Hardware Requirements:
+# - Raspberry Pi with 1-wire temperature sensors (DS18B20)
+# - 1-wire bus enabled in /boot/config.txt
+# - Temperature sensors connected to GPIO 4 (default)
+#
+# Installation Notes:
+# - Install on Raspberry Pi: pip install -r requirements.txt
+# - For PiWheels compatibility, ensure w1thermsensor>=2.3.0
+# - Some packages may require system dependencies (e.g., libpq-dev for asyncpg)
+#
+# Development:
+# - For local development, install with: pip install -r requirements.txt[dev]
+# - Testing requires pytest and related packages 

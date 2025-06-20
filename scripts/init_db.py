@@ -111,6 +111,7 @@ async def reset_db():
             
             print("📐 Creating all database tables...")
             # Create all tables using SQLAlchemy metadata
+            # This includes all probe-related tables for the temperature service (probes, probe_history)
             await conn.run_sync(Base.metadata.create_all)
             print("✅ All database tables created successfully.")
             
