@@ -30,7 +30,10 @@ sys.path.insert(0, str(project_root))
 
 from shared.core.config import settings
 from shared.db.database import engine, async_session, Base
-from shared.db.models import User
+from shared.db.models import (
+    User, Device, History, Alert, AlertEvent, 
+    Schedule, DeviceAction, Probe, ProbeHistory
+)
 from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username
 from smartoutlets.models import SmartOutlet
