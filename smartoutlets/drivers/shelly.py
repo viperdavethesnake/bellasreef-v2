@@ -80,12 +80,12 @@ class ShellyDriver(AbstractSmartOutletDriver):
             logger.error(f"Shelly discovery failed: {e}")
             return []
     
-    async def _get_device(self) -> aioshelly.Device:
+    async def _get_device(self) -> Any:
         """
         Create and initialize a device connection.
         
         Returns:
-            aioshelly.Device: Connected device instance
+            Any: Connected device instance (aioshelly Device for Gen1 or Gen2)
         """
         device = aioshelly.Device(
             self.ip_address,
@@ -96,12 +96,12 @@ class ShellyDriver(AbstractSmartOutletDriver):
         await device.initialize()
         return device
     
-    async def _get_relay(self, device: aioshelly.Device):
+    async def _get_relay(self, device: Any):
         """
         Get the relay component (Gen1) or switch component (Gen2).
         
         Args:
-            device (aioshelly.Device): The aioshelly device instance
+            device (Any): The aioshelly device instance
             
         Returns:
             Relay or Switch component
