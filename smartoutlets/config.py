@@ -1,66 +1,47 @@
 """
 SmartOutlets Configuration Module
 
-This module handles enable/disable flags for the smartoutlets module and each supported driver.
-It also loads cloud auth for VeSync from environment variables.
+This module handles configuration for the smartoutlets module using pydantic-settings.
 """
 
-import os
+from typing import Optional
+
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
-def _parse_bool(value: str, default: bool = False) -> bool:
+class SmartOutletsSettings(BaseSettings):
     """
-    Parse a string value to boolean with comprehensive support.
+    Configuration settings for the SmartOutlets module.
     
-    Args:
-        value: The string value to parse
-        default: Default value if parsing fails
-        
-    Returns:
-        bool: Parsed boolean value or default
+    Uses pydantic-settings for environment variable loading with validation.
     """
-    if not value:
-        return default
     
-    value_lower = value.lower().strip()
+    # Module enable/disable flags
+    SMART_OUTLETS_ENABLED: bool = Field(default=True, description="Enable the SmartOutlets module")
+    SMART_OUTLETS_KASA_ENABLED: bool = Field(default=True, description="Enable Kasa driver support")
+    SMART_OUTLETS_SHELLY_ENABLED: bool = Field(default=True, description="Enable Shelly driver support")
+    SMART_OUTLETS_VESYNC_ENABLED: bool = Field(default=True, description="Enable VeSync driver support")
     
-    # True values
-    if value_lower in ('true', '1', 'yes', 'on'):
-        return True
+    # VeSync cloud authentication
+    VESYNC_EMAIL: Optional[str] = Field(default=None, description="VeSync account email")
+    VESYNC_PASSWORD: Optional[str] = Field(default=None, description="VeSync account password")
     
-    # False values
-    if value_lower in ('false', '0', 'no', 'off'):
-        return False
+    # Network and retry configuration
+    OUTLET_TIMEOUT_SECONDS: int = Field(default=5, description="Timeout for outlet operations in seconds")
+    OUTLET_MAX_RETRIES: int = Field(default=3, description="Maximum retry attempts for outlet operations")
     
-    # Invalid value - return default
-    return default
+    # Security
+    ENCRYPTION_KEY: str = Field(description="Encryption key for sensitive data")
+    
+    class Config:
+        env_file = ".env"
+        env_file_encoding = "utf-8"
+        case_sensitive = False
 
 
-# Module enable/disable flags
-SMART_OUTLETS_ENABLED = _parse_bool(
-    os.getenv('SMART_OUTLETS_ENABLED', 'true'), 
-    default=True
-)
-
-# Driver-specific enable/disable flags
-SMART_OUTLETS_KASA_ENABLED = _parse_bool(
-    os.getenv('SMART_OUTLETS_KASA_ENABLED', 'true'), 
-    default=True
-)
-
-SMART_OUTLETS_SHELLY_ENABLED = _parse_bool(
-    os.getenv('SMART_OUTLETS_SHELLY_ENABLED', 'true'), 
-    default=True
-)
-
-SMART_OUTLETS_VESYNC_ENABLED = _parse_bool(
-    os.getenv('SMART_OUTLETS_VESYNC_ENABLED', 'true'), 
-    default=True
-)
-
-# VeSync cloud authentication
-VESYNC_EMAIL = os.getenv('VESYNC_EMAIL', 'user@example.com')
-VESYNC_PASSWORD = os.getenv('VESYNC_PASSWORD', 'your_password')
+# Global settings instance
+settings = SmartOutletsSettings()
 
 
 def is_driver_enabled(driver_type: str) -> bool:
@@ -76,27 +57,23 @@ def is_driver_enabled(driver_type: str) -> bool:
     Raises:
         ValueError: If driver_type is not a supported value
     """
-    if not SMART_OUTLETS_ENABLED:
+    if not settings.SMART_OUTLETS_ENABLED:
         return False
     
     driver_type = driver_type.lower()
     
     if driver_type == "kasa":
-        return SMART_OUTLETS_KASA_ENABLED
+        return settings.SMART_OUTLETS_KASA_ENABLED
     elif driver_type == "shelly":
-        return SMART_OUTLETS_SHELLY_ENABLED
+        return settings.SMART_OUTLETS_SHELLY_ENABLED
     elif driver_type == "vesync":
-        return SMART_OUTLETS_VESYNC_ENABLED
+        return settings.SMART_OUTLETS_VESYNC_ENABLED
     else:
         raise ValueError(f"Unsupported driver type: {driver_type}. Must be one of: kasa, shelly, vesync")
 
 
 __all__ = [
-    "SMART_OUTLETS_ENABLED",
-    "SMART_OUTLETS_KASA_ENABLED",
-    "SMART_OUTLETS_SHELLY_ENABLED",
-    "SMART_OUTLETS_VESYNC_ENABLED",
-    "VESYNC_EMAIL",
-    "VESYNC_PASSWORD",
+    "SmartOutletsSettings",
+    "settings",
     "is_driver_enabled"
 ] 

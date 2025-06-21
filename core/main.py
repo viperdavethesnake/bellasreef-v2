@@ -25,6 +25,8 @@ from shared.db.models import User
 from shared.utils import get_logger
 from core.api import health, auth, users, deps, system_info
 from smartoutlets.manager import SmartOutletManager
+from smartoutlets.api import router as smartoutlets_router
+from smartoutlets.handlers import register_exception_handlers
 
 # =============================================================================
 # Application Lifecycle
@@ -98,6 +100,13 @@ app.add_middleware(
 )
 
 # =============================================================================
+# Exception Handlers
+# =============================================================================
+
+# Register SmartOutlet exception handlers
+register_exception_handlers(app)
+
+# =============================================================================
 # Dependency Injection
 # =============================================================================
 
@@ -126,6 +135,9 @@ app.include_router(users.router, prefix="/api/users", tags=["users"])
 # System information endpoints
 app.include_router(system_info.router, prefix="/api", tags=["system"])
 
+# SmartOutlet endpoints
+app.include_router(smartoutlets_router, prefix="/api/smartoutlets", tags=["smartoutlets"])
+
 # =============================================================================
 # Root Endpoint
 # =============================================================================
@@ -140,7 +152,8 @@ async def root():
         "endpoints": {
             "health": "/api/health",
             "auth": "/api/auth",
-            "users": "/api/users"
+            "users": "/api/users",
+            "smartoutlets": "/api/smartoutlets"
         }
     }
 

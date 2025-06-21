@@ -86,9 +86,9 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         
         return self._device
     
-    async def turn_on(self) -> bool:
+    async def _turn_on_implementation(self) -> bool:
         """
-        Turn on the VeSync outlet.
+        Implementation of turn on operation.
         
         Returns:
             bool: True if successful, False otherwise
@@ -102,9 +102,9 @@ class VeSyncDriver(AbstractSmartOutletDriver):
             self._logger.error(f"Failed to turn on VeSync outlet {self.device_id}: {e}")
             return False
     
-    async def turn_off(self) -> bool:
+    async def _turn_off_implementation(self) -> bool:
         """
-        Turn off the VeSync outlet.
+        Implementation of turn off operation.
         
         Returns:
             bool: True if successful, False otherwise
@@ -118,22 +118,22 @@ class VeSyncDriver(AbstractSmartOutletDriver):
             self._logger.error(f"Failed to turn off VeSync outlet {self.device_id}: {e}")
             return False
     
-    async def toggle(self) -> bool:
+    async def _toggle_implementation(self) -> bool:
         """
-        Toggle the VeSync outlet state.
+        Implementation of toggle operation.
         
         Returns:
             bool: True if successful, False otherwise
         """
-        current_state = await self.get_state()
+        current_state = await self._get_state_implementation()
         if current_state.is_on:
-            return await self.turn_off()
+            return await self._turn_off_implementation()
         else:
-            return await self.turn_on()
+            return await self._turn_on_implementation()
     
-    async def get_state(self) -> SmartOutletState:
+    async def _get_state_implementation(self) -> SmartOutletState:
         """
-        Get the current state of the VeSync outlet.
+        Implementation of get state operation.
         
         Returns:
             SmartOutletState: Current state information
@@ -209,6 +209,7 @@ class VeSyncDriver(AbstractSmartOutletDriver):
             device = await self._get_device()
             loop = asyncio.get_running_loop()
             
+            # Get power usage data
             power_data = await loop.run_in_executor(None, device.get_power_usage)
             
             if not power_data:

@@ -64,9 +64,9 @@ class ShellyDriver(AbstractSmartOutletDriver):
         else:
             return device.relay[0]
     
-    async def turn_on(self) -> bool:
+    async def _turn_on_implementation(self) -> bool:
         """
-        Turn on the Shelly outlet.
+        Implementation of turn on operation.
         
         Returns:
             bool: True if successful, False otherwise
@@ -84,9 +84,9 @@ class ShellyDriver(AbstractSmartOutletDriver):
             if device:
                 await device.shutdown()
     
-    async def turn_off(self) -> bool:
+    async def _turn_off_implementation(self) -> bool:
         """
-        Turn off the Shelly outlet.
+        Implementation of turn off operation.
         
         Returns:
             bool: True if successful, False otherwise
@@ -104,22 +104,22 @@ class ShellyDriver(AbstractSmartOutletDriver):
             if device:
                 await device.shutdown()
     
-    async def toggle(self) -> bool:
+    async def _toggle_implementation(self) -> bool:
         """
-        Toggle the Shelly outlet state.
+        Implementation of toggle operation.
         
         Returns:
             bool: True if successful, False otherwise
         """
-        current_state = await self.get_state()
+        current_state = await self._get_state_implementation()
         if current_state.is_on:
-            return await self.turn_off()
+            return await self._turn_off_implementation()
         else:
-            return await self.turn_on()
+            return await self._turn_on_implementation()
     
-    async def get_state(self) -> SmartOutletState:
+    async def _get_state_implementation(self) -> SmartOutletState:
         """
-        Get the current state of the Shelly outlet.
+        Implementation of get state operation.
         
         Returns:
             SmartOutletState: Current state information
@@ -200,28 +200,31 @@ class ShellyDriver(AbstractSmartOutletDriver):
         device = None
         try:
             device = await self._get_device()
-            relay = await self._get_relay(device)
             
-            energy_data = {}
-            
-            # Get power data
             if device.gen == 2:
-                energy_data['power_w'] = getattr(relay, 'apower', None)
-                energy_data['voltage_v'] = getattr(relay, 'voltage', None)
-                energy_data['current_a'] = getattr(relay, 'current', None)
-                energy_data['energy_kwh'] = getattr(relay, 'aenergy', {}).get('total', None)
+                # Gen2 energy meter
+                if hasattr(device, 'emeter') and device.emeter:
+                    emeter = device.emeter[0]
+                    return {
+                        'power_w': getattr(emeter, 'apower', None),
+                        'voltage_v': getattr(emeter, 'voltage', None),
+                        'current_a': getattr(emeter, 'current', None),
+                        'energy_kwh': getattr(emeter, 'aenergy', {}).get('total', None)
+                    }
             else:
-                energy_data['power_w'] = getattr(relay, 'power', None)
-                energy_data['voltage_v'] = getattr(relay, 'voltage', None)
-                energy_data['current_a'] = getattr(relay, 'current', None)
-                energy_data['energy_kwh'] = getattr(relay, 'energy', None)
+                # Gen1 energy meter
+                if hasattr(device, 'emeter') and device.emeter:
+                    emeter = device.emeter[0]
+                    return {
+                        'power_w': getattr(emeter, 'power', None),
+                        'voltage_v': getattr(emeter, 'voltage', None),
+                        'current_a': getattr(emeter, 'current', None),
+                        'energy_kwh': getattr(emeter, 'total', None)
+                    }
             
-            # Filter out None values
-            energy_data = {k: v for k, v in energy_data.items() if v is not None}
-            
-            return energy_data if energy_data else None
+            return None
         except Exception as e:
-            self._logger.error(f"Failed to get energy meter data for Shelly outlet {self.device_id}: {e}")
+            self._logger.error(f"Failed to get energy meter for Shelly device {self.device_id}: {e}")
             return None
         finally:
             if device:

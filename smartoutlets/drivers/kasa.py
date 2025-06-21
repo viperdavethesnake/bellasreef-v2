@@ -34,9 +34,9 @@ class KasaDriver(AbstractSmartOutletDriver):
         super().__init__(device_id, ip_address, auth_info)
         self._logger = logging.getLogger(f"KasaDriver.{device_id}")
     
-    async def turn_on(self) -> bool:
+    async def _turn_on_implementation(self) -> bool:
         """
-        Turn on the Kasa outlet.
+        Implementation of turn on operation.
         
         Returns:
             bool: True if successful, False otherwise
@@ -50,9 +50,9 @@ class KasaDriver(AbstractSmartOutletDriver):
             self._logger.error(f"Failed to turn on Kasa outlet {self.device_id}: {e}")
             return False
     
-    async def turn_off(self) -> bool:
+    async def _turn_off_implementation(self) -> bool:
         """
-        Turn off the Kasa outlet.
+        Implementation of turn off operation.
         
         Returns:
             bool: True if successful, False otherwise
@@ -66,22 +66,22 @@ class KasaDriver(AbstractSmartOutletDriver):
             self._logger.error(f"Failed to turn off Kasa outlet {self.device_id}: {e}")
             return False
     
-    async def toggle(self) -> bool:
+    async def _toggle_implementation(self) -> bool:
         """
-        Toggle the Kasa outlet state.
+        Implementation of toggle operation.
         
         Returns:
             bool: True if successful, False otherwise
         """
-        current_state = await self.get_state()
+        current_state = await self._get_state_implementation()
         if current_state.is_on:
-            return await self.turn_off()
+            return await self._turn_off_implementation()
         else:
-            return await self.turn_on()
+            return await self._turn_on_implementation()
     
-    async def get_state(self) -> SmartOutletState:
+    async def _get_state_implementation(self) -> SmartOutletState:
         """
-        Get the current state of the Kasa outlet.
+        Implementation of get state operation.
         
         Returns:
             SmartOutletState: Current state information
