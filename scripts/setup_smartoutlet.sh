@@ -75,16 +75,14 @@ else
     echo -e "${GREEN}.env file already exists${NC}"
 fi
 
-# Requirements check (calls Python script)
-echo -e "${GREEN}Verifying installed Python modules...${NC}"
-python3 "$SCRIPT_DIR/check_requirements.py" "$SMARTOUTLETS_DIR/requirements.txt"
-
 echo -e "${GREEN}✅ SmartOutlets service setup complete!${NC}"
-echo -e "${YELLOW}Next steps:${NC}"
+echo -e "${YELLOW}📋 Next steps:${NC}"
 echo -e "   1. Edit $SMARTOUTLETS_DIR/.env with your configuration"
 echo -e "      - Set ENCRYPTION_KEY (32-byte key for data encryption)"
 echo -e "      - Set SMART_OUTLETS_API_KEY (for API authentication)"
 echo -e "      - Configure VeSync credentials if needed"
-echo -e "   2. Activate the venv: source $VENV_DIR/bin/activate"
-echo -e "      (You'll see the '(bellasreef-smartoutlet)' prompt)"
-echo -e "   3. Start: $SCRIPT_DIR/start_smartoutlet.sh" 
+echo -e "   2. Start: $SCRIPT_DIR/start_smartoutlet.sh"
+echo ""
+echo -e "${GREEN}🎯 Virtual environment is now active!${NC}"
+echo -e "   You can see the '(bellasreef-smartoutlet)' prompt above."
+echo -e "   To start the service, run: $SCRIPT_DIR/start_smartoutlet.sh" 

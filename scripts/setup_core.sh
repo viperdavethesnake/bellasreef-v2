@@ -49,14 +49,12 @@ else
     echo -e "${GREEN}.env file already exists${NC}"
 fi
 
-# Requirements check (calls Python script)
-echo -e "${GREEN}Verifying installed Python modules...${NC}"
-python3 "$SCRIPT_DIR/check_requirements.py" "$CORE_DIR/requirements.txt"
-
 echo -e "${GREEN}✅ Core service setup complete!${NC}"
-echo -e "${YELLOW}Next steps:${NC}"
+echo -e "${YELLOW}📋 Next steps:${NC}"
 echo -e "   1. Edit $CORE_DIR/.env with your configuration"
-echo -e "   2. Activate the venv: source $VENV_DIR/bin/activate"
-echo -e "      (You'll see the '(bellasreef-core)' prompt)"
-echo -e "   3. Run: python3 $SCRIPT_DIR/init_db.py"
-echo -e "   4. Start: $SCRIPT_DIR/start_core.sh"
+echo -e "   2. Run: python3 $SCRIPT_DIR/init_db.py"
+echo -e "   3. Start: $SCRIPT_DIR/start_core.sh"
+echo ""
+echo -e "${GREEN}🎯 Virtual environment is now active!${NC}"
+echo -e "   You can see the '(bellasreef-core)' prompt above."
+echo -e "   To start the service, run: $SCRIPT_DIR/start_core.sh"
