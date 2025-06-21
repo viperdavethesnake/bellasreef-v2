@@ -14,77 +14,87 @@ This service is designed to run on a Raspberry Pi with connected 1-wire sensors.
 -   **Hardware Check:** Includes an endpoint to diagnose the 1-wire subsystem.
 -   **Enable/Disable:** Can be completely disabled via an environment variable.
 -   **Secure:** API endpoints are protected by a static bearer token.
+-   **Standardized Entry Point:** Follows the project's `main:app` FastAPI pattern.
 
 ---
 
-## Getting Started
+## 🚀 Quick Start
 
 ### Prerequisites
 
--   A Raspberry Pi with Raspberry Pi OS.
--   Python 3.8+
--   PostgreSQL database accessible from the Pi.
--   1-wire temperature sensors (DS18B20) physically connected to the Pi's GPIO pins.
+- Python 3.8+
+- PostgreSQL database
+- 1-wire temperature sensors (optional)
+- Environment configuration
 
-### 1. Enable 1-Wire Interface
+### Environment Setup
 
-You must enable the 1-wire kernel module.
+1. **Copy environment template:**
+   ```bash
+   cp env.example .env
+   ```
 
-1.  Open the boot configuration file:
-    ```bash
-    sudo nano /boot/config.txt
-    ```
-2.  Add the following line to the bottom of the file. This configures the 1-wire bus to use GPIO pin 4 (the default for this service).
-    ```
-    dtoverlay=w1-gpio,gpiopin=4
-    ```
-3.  Save the file (`Ctrl+X`, then `Y`, then `Enter`).
-4.  Reboot the Raspberry Pi for the changes to take effect:
-    ```bash
-    sudo reboot
-    ```
+2. **Configure required settings:**
+   ```bash
+   # Required: Database connection
+   DATABASE_URL=postgresql://username:password@localhost:5432/bellasreef
+   
+   # Required: Service authentication
+   SERVICE_TOKEN=your_secure_service_token_here
+   
+   # Required: Service enablement
+   TEMP_ENABLED=true
+   
+   # Optional: Network settings
+   SERVICE_HOST=0.0.0.0
+   SERVICE_PORT=8005
+   ```
 
-### 2. Setup
+### Service Enablement
 
-The setup script automates the creation of the virtual environment and installation of dependencies.
+**🔒 The Temperature Service includes an enablement guard for safety.**
 
-1.  **Navigate to the project root** on your Raspberry Pi.
-2.  **Run the setup script:**
-    ```bash
-    ./scripts/setup_temp.sh
-    ```
-    This will:
-    - Check if the service is enabled in the `.env` file.
-    - Create a Python virtual environment at `temp/bellasreef-temp-venv`.
-    - Install all required Python packages.
-    - Copy `temp/env.example` to `temp/.env` if it doesn't exist.
+- **Default**: Service is disabled by default (`TEMP_ENABLED=false`)
+- **Enable**: Set `TEMP_ENABLED=true` to allow startup
+- **Message**: If disabled, service prints clear instructions and exits gracefully
 
-### 3. Configuration
-
-Before starting the service, you must configure it by editing the `.env` file.
-
-1.  **Open the environment file:**
-    ```bash
-    nano temp/.env
-    ```
-2.  **Update the following required variables:**
-    -   `TEMP_ENABLED`: Must be `true` for the service to run.
-    -   `DATABASE_URL`: The full connection string for your PostgreSQL database.
-    -   `SERVICE_TOKEN`: A secure, secret token for API authentication. **Do not use the default.** Generate a new one with `openssl rand -hex 32`.
-
-### 4. Start the Service
-
-Once configured, you can start the service.
-
+**Example disabled startup:**
 ```bash
-./scripts/start_temp.sh
+$ uvicorn temp.main:app --host 0.0.0.0 --port 8005
+Temperature Service is disabled. Set TEMP_ENABLED=true in temp/.env to enable.
 ```
 
-The service will be running and accessible at `http://<your-pi-ip>:8001`.
+### Starting the Service
+
+**Option 1: Using the startup script (recommended)**
+```bash
+../scripts/start_temp.sh
+```
+
+**Option 2: Direct uvicorn command**
+```bash
+uvicorn temp.main:app --host 0.0.0.0 --port 8005
+```
+
+**Option 3: From project root**
+```bash
+uvicorn temp.main:app --host 0.0.0.0 --port 8005
+```
 
 ---
 
 ## API Endpoints
+
+### Standard Service Endpoints
+
+Each service provides these standard endpoints via `main.py`:
+
+-   **`GET /`** - Service information and available endpoints *(requires API key authentication)*
+-   **`GET /docs`** - Interactive API documentation (Swagger UI)
+-   **`GET /redoc`** - Alternative API documentation (ReDoc)
+-   **`GET /openapi.json`** - Raw OpenAPI specification
+
+### Temperature-Specific Endpoints
 
 -   **`GET /probe/health`** (Public): A public endpoint to check if the service is running.
 -   **`GET /probe/discover`**: Discovers and returns the hardware IDs of all attached 1-wire sensors. No authentication required.
@@ -94,7 +104,58 @@ The service will be running and accessible at `http://<your-pi-ip>:8001`.
 -   **`GET /probe/{hardware_id}/current`**: Gets the current temperature from the specified probe. Requires authentication.
 -   **`GET /probe/{hardware_id}/history`**: (Stub) A placeholder for future history functionality. Requires authentication.
 
-Full interactive documentation is available at the `/docs` endpoint (e.g., `http://localhost:8001/docs`) when the service is running.
+### Service Meta Endpoints
+
+#### Root Endpoint (`GET /`)
+Returns service information (requires API key authentication):
+```json
+{
+  "message": "Welcome to the Temperature Service"
+}
+```
+
+#### Health Check Endpoint (`GET /probe/health`)
+Returns basic health status (no authentication required):
+```json
+{
+  "status": "ok"
+}
+```
+
+**Note**: The temperature service uses `/probe/health` instead of the standard `/health` endpoint.
+
+### OpenAPI Documentation
+
+Full interactive documentation is available at:
+- **Swagger UI**: `http://localhost:8005/docs`
+- **ReDoc**: `http://localhost:8005/redoc`
+- **OpenAPI JSON**: `http://localhost:8005/openapi.json`
+
+All endpoints are documented with request/response examples and authentication requirements.
+
+---
+
+## Service Architecture
+
+### Standard FastAPI Entry Point
+
+This service follows the project's standardized FastAPI entry point pattern:
+
+```
+temp/
+├── main.py                    # FastAPI app instance (app)
+├── api/                       # API routes and endpoints
+├── services/                  # Business logic services
+├── config.py                  # Service-specific configuration
+├── deps.py                    # FastAPI dependencies
+├── requirements.txt           # Service dependencies
+├── env.example               # Environment template
+└── __init__.py               # Module initialization
+```
+
+### Startup Pattern
+
+The service uses the standard `uvicorn temp.main:app` pattern for consistency with other services in the project.
 
 ---
 

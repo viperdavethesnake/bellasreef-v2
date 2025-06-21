@@ -80,6 +80,8 @@ bellasreef-v2/
 ├── scheduler/                 # Job scheduling and automation management (port 8001)
 ├── poller/                    # Device polling, sensor data collection, alerts (port 8002)
 ├── control/                   # Hardware control - PWM, GPIO, relays (port 8003)
+├── temp/                      # Temperature sensor management (port 8005)
+├── smartoutlets/              # Smart outlet management and control (port 8004)
 ├── shared/                    # Common code - models, schemas, config, utils
 ├── test/                      # All tests organized by service
 ├── scripts/                   # Deployment, setup, and utility scripts
@@ -90,6 +92,71 @@ bellasreef-v2/
 **📋 See `services.yaml` for detailed service documentation and dependencies.**
 
 Each service has its own dependencies defined in its `requirements.txt` file. The dependencies for the main service are in `core/requirements.txt`.
+
+## 🚀 FastAPI Entry Point Standard
+
+**✅ All services follow a standardized FastAPI entry point pattern for consistency and easy deployment.**
+
+### Standard Entry Point Pattern
+
+All modules are started with the standard `uvicorn <module>.main:app` pattern:
+
+```bash
+# Core service
+uvicorn core.main:app --host 0.0.0.0 --port 8000
+
+# Temperature service  
+uvicorn temp.main:app --host 0.0.0.0 --port 8005
+
+# SmartOutlets service
+uvicorn smartoutlets.main:app --host 0.0.0.0 --port 8004
+
+# Scheduler service
+uvicorn scheduler.main:app --host 0.0.0.0 --port 8001
+
+# Poller service
+uvicorn poller.main:app --host 0.0.0.0 --port 8002
+
+# Control service
+uvicorn control.main:app --host 0.0.0.0 --port 8003
+```
+
+### Standard Service Structure
+
+Each service module follows this structure:
+```
+<module>/
+├── main.py                    # FastAPI app instance (app)
+├── api/                       # API routes and endpoints
+├── services/                  # Business logic services
+├── models.py                  # Database models (if applicable)
+├── schemas.py                 # Pydantic schemas (if applicable)
+├── config.py                  # Service-specific configuration
+├── requirements.txt           # Service dependencies
+├── env.example               # Environment template
+└── __init__.py               # Module initialization
+```
+
+### Standard Endpoints
+
+Each service's `main.py` provides these standard endpoints:
+
+- **`GET /`** - Service information and available endpoints
+- **`GET /health`** - Health check endpoint
+- **`GET /docs`** - Interactive API documentation (Swagger UI)
+- **`GET /redoc`** - Alternative API documentation (ReDoc)
+
+### Service Startup Scripts
+
+All services use standardized startup scripts in `/scripts/`:
+- `start_core.sh` - Starts core service
+- `start_temp.sh` - Starts temperature service  
+- `start_smartoutlet.sh` - Starts SmartOutlets service
+- `start_scheduler.sh` - Starts scheduler service
+- `start_poller.sh` - Starts poller service
+- `start_control.sh` - Starts control service
+
+**⚠️ IMPORTANT: Never use `api:router` directly. Always use `main:app` for proper service initialization.**
 
 ## 🚀 Full System Quick Start
 
@@ -127,6 +194,9 @@ The Bella's Reef backend consists of multiple microservices, each with its own v
    # Temperature service (for 1-wire sensors)
    ./scripts/setup_temp.sh
    
+   # SmartOutlets service (for smart outlet control)
+   ./scripts/setup_smartoutlet.sh
+   
    # Poller service (for device polling)
    ./scripts/setup_poller.sh
    
@@ -145,6 +215,9 @@ The Bella's Reef backend consists of multiple microservices, each with its own v
    # For temperature service
    source temp/bellasreef-temp-venv/bin/activate
    
+   # For SmartOutlets service
+   source smartoutlets/bellasreef-smartoutlet-venv/bin/activate
+   
    # For poller service
    source poller/bellasreef-poller-venv/bin/activate
    
@@ -160,6 +233,7 @@ The Bella's Reef backend consists of multiple microservices, each with its own v
    # Each service has its own .env file
    cp core/env.example core/.env
    cp temp/env.example temp/.env
+   cp smartoutlets/env.example smartoutlets/.env
    # Edit each .env with your database and security settings
    ```
 
@@ -176,6 +250,7 @@ The Bella's Reef backend consists of multiple microservices, each with its own v
    
    # Start other services (each in its own terminal with venv activated)
    ./scripts/start_temp.sh
+   ./scripts/start_smartoutlet.sh
    ./scripts/start_poller.sh
    ./scripts/start_scheduler.sh
    ./scripts/start_control.sh
@@ -185,10 +260,14 @@ The Bella's Reef backend consists of multiple microservices, each with its own v
 All operational scripts are located in `/scripts/`:
 - `scripts/setup.sh` - Main setup script
 - `scripts/setup_core.sh` - Core service setup
+- `scripts/setup_temp.sh` - Temperature service setup
+- `scripts/setup_smartoutlet.sh` - SmartOutlets service setup
 - `scripts/setup_scheduler.sh` - Scheduler service setup
 - `scripts/setup_poller.sh` - Poller service setup
 - `scripts/setup_control.sh` - Control service setup
 - `scripts/start_core.sh` - Start core service
+- `scripts/start_temp.sh` - Start temperature service
+- `scripts/start_smartoutlet.sh` - Start SmartOutlets service
 - `scripts/start_scheduler.sh` - Start scheduler service
 - `scripts/start_poller.sh` - Start poller service
 - `scripts/start_control.sh` - Start control service
@@ -279,22 +358,38 @@ The shared configuration includes robust parsing that accepts:
 ### Core Service (`/core`)
 - **Purpose**: User authentication, session management, system health
 - **Port**: 8000
-- **Files**: `main.py`, `start.sh`, `env.example`, `api/`, `services/`
+- **Entry Point**: `uvicorn core.main:app`
+- **Files**: `main.py`, `start_core.sh`, `env.example`, `api/`, `services/`
+
+### Temperature Service (`/temp`)
+- **Purpose**: 1-wire temperature sensor management and monitoring
+- **Port**: 8005
+- **Entry Point**: `uvicorn temp.main:app`
+- **Files**: `main.py`, `start_temp.sh`, `env.example`, `api/`, `services/`
+
+### SmartOutlets Service (`/smartoutlets`)
+- **Purpose**: Smart outlet management, control, and discovery
+- **Port**: 8004
+- **Entry Point**: `uvicorn smartoutlets.main:app`
+- **Files**: `main.py`, `start_smartoutlet.sh`, `env.example`, `api.py`, `drivers/`, `manager.py`
 
 ### Scheduler Service (`/scheduler`) 
 - **Purpose**: Job scheduling and automation management
 - **Port**: 8001
-- **Files**: `main.py`, `start.sh`, `env.example`, `api/`, `services/`, `worker/`
+- **Entry Point**: `uvicorn scheduler.main:app`
+- **Files**: `main.py`, `start_scheduler.sh`, `env.example`, `api/`, `services/`, `worker/`
 
 ### Poller Service (`/poller`)
 - **Purpose**: Device polling, sensor data collection, alert management
 - **Port**: 8002
-- **Files**: `main.py`, `start.sh`, `env.example`, `api/`, `services/`, `worker/`
+- **Entry Point**: `uvicorn poller.main:app`
+- **Files**: `main.py`, `start_poller.sh`, `env.example`, `api/`, `services/`, `worker/`
 
 ### Control Service (`/control`)
 - **Purpose**: Hardware control - PWM, GPIO, relays
 - **Port**: 8003
-- **Files**: `main.py`, `start.sh`, `env.example`, `hardware/`
+- **Entry Point**: `uvicorn control.main:app`
+- **Files**: `main.py`, `start_control.sh`, `env.example`, `hardware/`
 
 ### Shared Module (`/shared`)
 - **Purpose**: Common code used across all services
@@ -486,4 +581,289 @@ The backend is a series of FastAPI microservices. The main service is `core`, wh
     ./scripts/setup_poller.sh
     ./scripts/setup_control.sh
     ```
+
+## 📚 OpenAPI Documentation & Service Meta Endpoints
+
+**✅ All services provide comprehensive OpenAPI documentation and standardized meta endpoints for service discovery and health monitoring.**
+
+### OpenAPI Documentation
+
+Every service automatically exposes OpenAPI documentation at these endpoints:
+
+- **`GET /docs`** - Interactive Swagger UI documentation
+- **`GET /openapi.json`** - Raw OpenAPI specification (JSON format)
+- **`GET /redoc`** - Alternative ReDoc documentation interface
+
+**Example URLs:**
+```bash
+# Core service documentation
+http://localhost:8000/docs
+http://localhost:8000/openapi.json
+http://localhost:8000/redoc
+
+# Temperature service documentation
+http://localhost:8005/docs
+http://localhost:8005/openapi.json
+http://localhost:8005/redoc
+
+# SmartOutlets service documentation
+http://localhost:8004/docs
+http://localhost:8004/openapi.json
+http://localhost:8004/redoc
+```
+
+### Service Meta Endpoints
+
+Each service provides standardized meta endpoints for service discovery and health monitoring:
+
+#### Root Endpoint (`GET /`)
+Returns service information, version, and available endpoints:
+
+**Core Service Response:**
+```json
+{
+  "service": "Bella's Reef Core Service",
+  "version": "1.0.0",
+  "description": "User authentication, session management, and system health APIs",
+  "endpoints": {
+    "health": "/api/health",
+    "auth": "/api/auth",
+    "users": "/api/users",
+    "smartoutlets": "/api/smartoutlets"
+  }
+}
+```
+
+**SmartOutlets Service Response:**
+```json
+{
+  "service": "Bella's Reef SmartOutlets Service",
+  "version": "1.0.0",
+  "description": "Smart outlet management, control, and discovery APIs",
+  "endpoints": {
+    "smartoutlets": "/api/smartoutlets"
+  },
+  "features": [
+    "Outlet registration and configuration",
+    "Real-time outlet control",
+    "Device discovery (local and cloud)",
+    "State monitoring and telemetry"
+  ]
+}
+```
+
+**Temperature Service Response:**
+```json
+{
+  "message": "Welcome to the Temperature Service"
+}
+```
+*Note: Temperature service root endpoint requires API key authentication*
+
+#### Health Check Endpoints
+
+**Core Service (`GET /health`):**
+```json
+{
+  "status": "healthy",
+  "timestamp": "2024-01-15T10:30:00.123456",
+  "service": "Bella's Reef API",
+  "version": "1.0.0"
+}
+```
+
+**SmartOutlets Service (`GET /health`):**
+```json
+{
+  "status": "healthy",
+  "service": "smartoutlets",
+  "version": "1.0.0"
+}
+```
+
+**Temperature Service (`GET /probe/health`):**
+```json
+{
+  "status": "ok"
+}
+```
+*Note: Temperature service uses `/probe/health` instead of `/health`*
+
+### Service-Specific Variations
+
+#### Temperature Service Differences
+The temperature service has some variations from the standard pattern:
+
+- **Health Endpoint**: Uses `/probe/health` instead of `/health`
+- **Root Endpoint**: Requires API key authentication
+- **Probe-Specific Endpoints**: All probe operations are under `/probe/` prefix
+
+#### Core Service Features
+The core service includes additional health monitoring:
+
+- **`GET /api/health`** - Basic health check
+- **`GET /api/health/detailed`** - Detailed health status with dependencies
+- **`GET /api/system/info`** - System information and configuration
+- **`GET /api/system/health`** - Detailed system health status
+
+### API Documentation Features
+
+All services provide:
+
+- **Interactive Documentation**: Full Swagger UI with request/response examples
+- **Request Validation**: Automatic validation of request parameters and bodies
+- **Response Models**: Complete response schemas and examples
+- **Authentication**: Documentation of required authentication methods
+- **Error Responses**: Detailed error response documentation
+- **Try It Out**: Ability to test endpoints directly from the documentation
+
+### Development Benefits
+
+- **Consistent API Discovery**: All services follow the same documentation pattern
+- **Easy Integration**: Developers can quickly understand available endpoints
+- **Testing Support**: Interactive documentation allows immediate endpoint testing
+- **Version Tracking**: Service versions are clearly documented
+- **Health Monitoring**: Standardized health check endpoints for monitoring systems
+
+## 🧪 Startup Consistency Testing
+
+**✅ All services can be started from the project root using the standardized pattern.**
+
+### Port Assignments (No Conflicts)
+
+Each service has been assigned a unique port to avoid conflicts:
+
+- **Core Service**: Port 8000
+- **Scheduler Service**: Port 8001  
+- **Poller Service**: Port 8002
+- **Control Service**: Port 8003
+- **SmartOutlets Service**: Port 8004
+- **Temperature Service**: Port 8005
+
+### Standard Startup Pattern
+
+All services follow the same startup pattern from the project root:
+
+```bash
+# Core service
+uvicorn core.main:app --host 0.0.0.0 --port 8000
+
+# Temperature service  
+uvicorn temp.main:app --host 0.0.0.0 --port 8005
+
+# SmartOutlets service
+uvicorn smartoutlets.main:app --host 0.0.0.0 --port 8004
+
+# Scheduler service
+uvicorn scheduler.main:app --host 0.0.0.0 --port 8001
+
+# Poller service
+uvicorn poller.main:app --host 0.0.0.0 --port 8002
+
+# Control service
+uvicorn control.main:app --host 0.0.0.0 --port 8003
+```
+
+### Testing Startup Consistency
+
+Run the startup consistency test to verify all services can be started properly:
+
+```bash
+./scripts/test_startup_consistency.sh
+```
+
+This test verifies:
+- ✅ No port conflicts between services
+- ✅ All services have `main.py` files
+- ✅ Environment files have correct port assignments
+- ✅ Startup scripts use the standard uvicorn pattern
+- ✅ Services can be imported (when dependencies are available)
+
+### Service Reachability
+
+Once started, each service is reachable at its configured port:
+
+- **Core**: `http://localhost:8000`
+- **Temperature**: `http://localhost:8005`
+- **SmartOutlets**: `http://localhost:8004`
+- **Scheduler**: `http://localhost:8001`
+- **Poller**: `http://localhost:8002`
+- **Control**: `http://localhost:8003`
+
+### Environment Configuration
+
+Each service's environment file (`<service>/.env`) must be configured with:
+
+```bash
+SERVICE_HOST=0.0.0.0
+SERVICE_PORT=<assigned_port>
+```
+
+The startup scripts automatically load these environment variables and use them for the uvicorn command.
+
+## 🔒 Service Enablement Guards
+
+**✅ All services include enablement guards to prevent accidental startup.**
+
+### Enablement Flags
+
+Each service can be enabled or disabled using environment variables:
+
+- **Core Service**: `CORE_ENABLED=true/false` in `core/.env`
+- **Temperature Service**: `TEMP_ENABLED=true/false` in `temp/.env`
+- **SmartOutlets Service**: `SMART_OUTLETS_ENABLED=true/false` in `smartoutlets/.env`
+
+### Default Behavior
+
+- **Core Service**: Enabled by default (`CORE_ENABLED=true`)
+- **Temperature Service**: Must be explicitly enabled (`TEMP_ENABLED=true`)
+- **SmartOutlets Service**: Must be explicitly enabled (`SMART_OUTLETS_ENABLED=true`)
+
+### Service Startup Behavior
+
+When a service is disabled:
+
+1. **Clear Message**: Service prints a clear message explaining how to enable it
+2. **Graceful Exit**: Service exits with status code 0 (no error)
+3. **No Startup**: Service does not start or bind to any ports
+
+**Example disabled service output:**
+```bash
+$ uvicorn temp.main:app --host 0.0.0.0 --port 8005
+Temperature Service is disabled. Set TEMP_ENABLED=true in temp/.env to enable.
+```
+
+### Configuration Requirements
+
+**Core Service** (`core/.env`):
+```bash
+CORE_ENABLED=true
+SERVICE_HOST=0.0.0.0
+SERVICE_PORT=8000
+# ... other required settings
+```
+
+**Temperature Service** (`temp/.env`):
+```bash
+TEMP_ENABLED=true
+SERVICE_HOST=0.0.0.0
+SERVICE_PORT=8005
+# ... other required settings
+```
+
+**SmartOutlets Service** (`smartoutlets/.env`):
+```bash
+SMART_OUTLETS_ENABLED=true
+SERVICE_HOST=0.0.0.0
+SERVICE_PORT=8004
+# ... other required settings
+```
+
+### Benefits
+
+- **Safety**: Prevents accidental service startup
+- **Clarity**: Clear messages explain how to enable services
+- **Flexibility**: Easy to disable services without removing configuration
+- **Consistency**: All services follow the same enablement pattern
+- **Documentation**: Self-documenting startup requirements
 

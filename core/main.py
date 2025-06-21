@@ -164,6 +164,11 @@ async def root():
 if __name__ == "__main__":
     import uvicorn
     
+    # Check if service is enabled
+    if not settings.CORE_ENABLED:
+        print("Core Service is disabled. Set CORE_ENABLED=true in core/.env to enable.")
+        sys.exit(0)
+    
     uvicorn.run(
         "main:app",
         host=os.getenv("SERVICE_HOST", "0.0.0.0"),

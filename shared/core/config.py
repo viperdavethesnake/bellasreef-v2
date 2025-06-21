@@ -45,6 +45,7 @@ class Settings(BaseSettings):
     LOG_LEVEL: str = "INFO"
     
     # Service-Specific Settings
+    CORE_ENABLED: bool = True  # Core service enable flag
     TEMP_ENABLED: bool = False  # Temperature service enable flag
     
     # Hardware Control Settings (for control service)

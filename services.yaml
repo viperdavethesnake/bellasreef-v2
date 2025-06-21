@@ -1,10 +1,15 @@
 # Bella's Reef Services Manifest
 # This file documents each service's purpose, port, and configuration
 
+# FastAPI Entry Point Standard
+# All services follow the standardized pattern: uvicorn <module>.main:app
+# This ensures consistency across all services and easy deployment
+
 services:
   core:
     description: User authentication, session management, and system health APIs
     port: 8000
+    entry_point: uvicorn core.main:app
     env: core/env.example
     dependencies:
       - shared
@@ -12,10 +17,80 @@ services:
       - /api/auth - Authentication endpoints
       - /api/users - User management
       - /api/health - System health check
+      - /api/system - System information
+    standard_endpoints:
+      - / - Service information
+      - /health - Health check
+      - /docs - Interactive API documentation
+      - /redoc - Alternative API documentation
+      - /openapi.json - OpenAPI specification
+    meta_endpoints:
+      root: GET / - Service info, version, available endpoints
+      health: GET /health - Health status with timestamp
+      docs: GET /docs - Swagger UI documentation
+      openapi: GET /openapi.json - Raw OpenAPI spec
+
+  temp:
+    description: 1-wire temperature sensor management and monitoring
+    port: 8005
+    entry_point: uvicorn temp.main:app
+    env: temp/env.example
+    dependencies:
+      - shared
+      - core (for user authentication)
+    endpoints:
+      - /probe/discover - Sensor discovery
+      - /probe/check - Hardware diagnostics
+      - /probe/list - List configured probes
+      - /probe/{id}/current - Current temperature reading
+      - /probe/{id}/history - Historical data (stub)
+    standard_endpoints:
+      - / - Service information (requires auth)
+      - /docs - Interactive API documentation
+      - /redoc - Alternative API documentation
+      - /openapi.json - OpenAPI specification
+    meta_endpoints:
+      root: GET / - Service welcome message (requires API key)
+      health: GET /probe/health - Health status (public)
+      docs: GET /docs - Swagger UI documentation
+      openapi: GET /openapi.json - Raw OpenAPI spec
+    notes:
+      - Uses /probe/health instead of standard /health endpoint
+      - Root endpoint requires API key authentication
+      - All probe operations under /probe/ prefix
+
+  smartoutlets:
+    description: Smart outlet management, control, and discovery
+    port: 8004
+    entry_point: uvicorn smartoutlets.main:app
+    env: smartoutlets/env.example
+    dependencies:
+      - shared
+      - core (for user authentication)
+    endpoints:
+      - /api/smartoutlets/outlets - Outlet management
+      - /api/smartoutlets/outlets/{id}/state - Outlet state and telemetry
+      - /api/smartoutlets/outlets/{id}/turn_on - Turn on outlet
+      - /api/smartoutlets/outlets/{id}/turn_off - Turn off outlet
+      - /api/smartoutlets/outlets/{id}/toggle - Toggle outlet
+      - /api/smartoutlets/outlets/discover/local - Local device discovery
+      - /api/smartoutlets/outlets/discover/cloud/vesync - VeSync cloud discovery
+    standard_endpoints:
+      - / - Service information
+      - /health - Health check
+      - /docs - Interactive API documentation
+      - /redoc - Alternative API documentation
+      - /openapi.json - OpenAPI specification
+    meta_endpoints:
+      root: GET / - Service info, version, features, endpoints
+      health: GET /health - Health status with service name
+      docs: GET /docs - Swagger UI documentation
+      openapi: GET /openapi.json - Raw OpenAPI spec
 
   scheduler:
     description: Job scheduling and automation management
     port: 8001
+    entry_point: uvicorn scheduler.main:app
     env: scheduler/env.example
     dependencies:
       - shared
@@ -24,10 +99,22 @@ services:
       - /api/schedules - Schedule management
       - /api/schedules/device-actions - Device action management
       - /api/schedules/health - Scheduler health check
+    standard_endpoints:
+      - / - Service information
+      - /health - Health check
+      - /docs - Interactive API documentation
+      - /redoc - Alternative API documentation
+      - /openapi.json - OpenAPI specification
+    meta_endpoints:
+      root: GET / - Service info, version, available endpoints
+      health: GET /health - Health status
+      docs: GET /docs - Swagger UI documentation
+      openapi: GET /openapi.json - Raw OpenAPI spec
 
   poller:
     description: Device polling, sensor data collection, and alert management
     port: 8002
+    entry_point: uvicorn poller.main:app
     env: poller/env.example
     dependencies:
       - shared
@@ -36,10 +123,22 @@ services:
       - /api/devices - Device management and polling
       - /api/alerts - Alert management
       - /api/history - Historical data
+    standard_endpoints:
+      - / - Service information
+      - /health - Health check
+      - /docs - Interactive API documentation
+      - /redoc - Alternative API documentation
+      - /openapi.json - OpenAPI specification
+    meta_endpoints:
+      root: GET / - Service info, version, available endpoints
+      health: GET /health - Health status
+      docs: GET /docs - Swagger UI documentation
+      openapi: GET /openapi.json - Raw OpenAPI spec
 
   control:
     description: PWM, relay, and GPIO hardware control
     port: 8003
+    entry_point: uvicorn control.main:app
     env: control/env.example
     dependencies:
       - shared
@@ -48,10 +147,22 @@ services:
       - /api/hardware - Hardware control endpoints
       - /api/pwm - PWM control
       - /api/gpio - GPIO control
+    standard_endpoints:
+      - / - Service information
+      - /health - Health check
+      - /docs - Interactive API documentation
+      - /redoc - Alternative API documentation
+      - /openapi.json - OpenAPI specification
+    meta_endpoints:
+      root: GET / - Service info, version, available endpoints
+      health: GET /health - Health status
+      docs: GET /docs - Swagger UI documentation
+      openapi: GET /openapi.json - Raw OpenAPI spec
 
   shared:
     description: Common code (models, schemas, config, utils)
     port: null
+    entry_point: null
     env: null
     dependencies: []
     components:
@@ -64,6 +175,7 @@ services:
   test:
     description: All test scripts organized by service
     port: null
+    entry_point: null
     env: null
     dependencies:
       - shared
@@ -71,6 +183,8 @@ services:
       - scheduler
       - poller
       - control
+      - temp
+      - smartoutlets
     test_suites:
       - test_system.py - System integration tests
       - test_scheduler.py - Scheduler tests
@@ -88,10 +202,94 @@ database:
   type: PostgreSQL
   shared: true
   connection: All services connect to the same database instance
+  initialization: scripts/init_db.py (REQUIRED before starting any service)
+
+# FastAPI Entry Point Standard
+entry_point_standard:
+  pattern: uvicorn <module>.main:app
+  description: All services follow this standardized pattern for consistency
+  benefits:
+    - Consistent startup across all services
+    - Easy deployment and containerization
+    - Standard middleware and exception handling
+    - Uniform health checks and documentation
+  startup_scripts:
+    - start_core.sh - Core service
+    - start_temp.sh - Temperature service
+    - start_smartoutlet.sh - SmartOutlets service
+    - start_scheduler.sh - Scheduler service
+    - start_poller.sh - Poller service
+    - start_control.sh - Control service
+
+# OpenAPI Documentation Standard
+openapi_standard:
+  description: All services provide comprehensive OpenAPI documentation
+  endpoints:
+    - /docs - Interactive Swagger UI documentation
+    - /redoc - Alternative ReDoc documentation
+    - /openapi.json - Raw OpenAPI specification (JSON)
+  features:
+    - Request/response validation
+    - Interactive endpoint testing
+    - Authentication documentation
+    - Error response schemas
+    - Example request/response data
+  benefits:
+    - Consistent API discovery across services
+    - Easy integration for developers
+    - Automatic request validation
+    - Comprehensive error handling documentation
+
+# Service Meta Endpoints
+meta_endpoints:
+  description: Standardized endpoints for service discovery and health monitoring
+  root_endpoint:
+    path: GET /
+    purpose: Service information, version, and available endpoints
+    authentication: Varies by service (some require auth)
+  health_endpoint:
+    path: GET /health (or /probe/health for temp service)
+    purpose: Health status and uptime information
+    authentication: Usually public
+    response_format: JSON with status, service name, version
+  documentation_endpoints:
+    - GET /docs - Interactive documentation
+    - GET /redoc - Alternative documentation
+    - GET /openapi.json - Machine-readable API spec
 
 # Deployment Notes
 deployment:
   - Each service can be deployed independently
   - Services can run on separate machines/containers
   - Shared database must be accessible to all services
-  - SERVICE_TOKEN must be consistent across all services 
+  - SERVICE_TOKEN must be consistent across all services
+  - Database initialization required before starting any service
+  - All services use the standardized uvicorn <module>.main:app pattern
+  - OpenAPI documentation available at /docs for all services
+  - Health monitoring available at /health (or /probe/health for temp)
+
+# Startup Consistency
+startup_consistency:
+  description: All services follow standardized startup pattern from project root
+  pattern: uvicorn <module>.main:app --host 0.0.0.0 --port <SERVICE_PORT>
+  port_assignments:
+    core: 8000
+    scheduler: 8001
+    poller: 8002
+    control: 8003
+    smartoutlets: 8004
+    temp: 8005
+  environment_requirements:
+    - SERVICE_HOST=0.0.0.0
+    - SERVICE_PORT=<assigned_port>
+  testing:
+    script: scripts/test_startup_consistency.sh
+    verifies:
+      - No port conflicts
+      - Correct environment configuration
+      - Standard uvicorn pattern usage
+      - Service importability
+  reachability:
+    - All services accessible on localhost at assigned ports
+    - Standard endpoints available at /docs, /health, /
+    - Environment variables control host and port binding 
