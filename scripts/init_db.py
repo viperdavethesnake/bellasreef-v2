@@ -30,12 +30,20 @@ sys.path.insert(0, str(project_root))
 
 from shared.core.config import settings
 from shared.db.database import engine, async_session, Base
+
+# Debug: Print tables before model imports
+print("[DEBUG] Tables registered BEFORE model imports:", list(Base.metadata.tables.keys()))
+
 from shared.db.models import (
     User, Device, History, Alert, AlertEvent, 
     Schedule, DeviceAction, Probe, ProbeHistory
 )
 from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username
+from smartoutlets.models import SmartOutlet
+
+# Debug: Print tables after all model imports
+print("[DEBUG] Tables registered AFTER model imports:", list(Base.metadata.tables.keys()))
 
 from sqlalchemy import text
 
@@ -114,9 +122,12 @@ async def reset_db():
             print("✅ Public schema recreated successfully.")
             
             print("📐 Creating all database tables...")
+            # Debug: Print before table creation
+            print("[DEBUG] Creating tables with create_all...")
             # Create all tables using SQLAlchemy metadata
             # This includes all probe-related tables for the temperature service (probes, probe_history)
             await conn.run_sync(Base.metadata.create_all)
+            print("[DEBUG] Tables created!")
             print("✅ All database tables created successfully.")
             
         print("✅ Database schema reset complete.")
