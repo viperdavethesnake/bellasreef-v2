@@ -9,9 +9,11 @@ import logging
 from typing import Dict, Optional
 
 import aioshelly
+from aioshelly.exceptions import DeviceConnectionError, DeviceCommunicationError, AuthRequired
 
 from .base import AbstractSmartOutletDriver
 from ..models import SmartOutletState
+from ..exceptions import OutletConnectionError, OutletTimeoutError, OutletAuthenticationError
 
 
 class ShellyDriver(AbstractSmartOutletDriver):
@@ -71,18 +73,30 @@ class ShellyDriver(AbstractSmartOutletDriver):
         Returns:
             bool: True if successful, False otherwise
         """
-        device = None
-        try:
-            device = await self._get_device()
-            relay = await self._get_relay(device)
-            await relay.turn_on()
-            return True
-        except Exception as e:
-            self._logger.error(f"Failed to turn on Shelly outlet {self.device_id}: {e}")
-            return False
-        finally:
-            if device:
-                await device.shutdown()
+        async def _turn_on_action():
+            device = None
+            try:
+                device = await self._get_device()
+                relay = await self._get_relay(device)
+                await relay.turn_on()
+                return True
+            except AuthRequired as e:
+                self._logger.error(f"Authentication required for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication required for outlet at {self.ip_address}: {e}")
+            except DeviceConnectionError as e:
+                self._logger.error(f"Connection error turning on Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Connection error turning on outlet at {self.ip_address}: {e}")
+            except DeviceCommunicationError as e:
+                self._logger.error(f"Communication error turning on Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Communication error turning on outlet at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error turning on Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to turn on outlet at {self.ip_address}: {e}")
+            finally:
+                if device:
+                    await device.shutdown()
+        
+        return await self._perform_network_action(_turn_on_action())
     
     async def _turn_off_implementation(self) -> bool:
         """
@@ -91,18 +105,30 @@ class ShellyDriver(AbstractSmartOutletDriver):
         Returns:
             bool: True if successful, False otherwise
         """
-        device = None
-        try:
-            device = await self._get_device()
-            relay = await self._get_relay(device)
-            await relay.turn_off()
-            return True
-        except Exception as e:
-            self._logger.error(f"Failed to turn off Shelly outlet {self.device_id}: {e}")
-            return False
-        finally:
-            if device:
-                await device.shutdown()
+        async def _turn_off_action():
+            device = None
+            try:
+                device = await self._get_device()
+                relay = await self._get_relay(device)
+                await relay.turn_off()
+                return True
+            except AuthRequired as e:
+                self._logger.error(f"Authentication required for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication required for outlet at {self.ip_address}: {e}")
+            except DeviceConnectionError as e:
+                self._logger.error(f"Connection error turning off Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Connection error turning off outlet at {self.ip_address}: {e}")
+            except DeviceCommunicationError as e:
+                self._logger.error(f"Communication error turning off Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Communication error turning off outlet at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error turning off Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to turn off outlet at {self.ip_address}: {e}")
+            finally:
+                if device:
+                    await device.shutdown()
+        
+        return await self._perform_network_action(_turn_off_action())
     
     async def _toggle_implementation(self) -> bool:
         """
@@ -124,33 +150,45 @@ class ShellyDriver(AbstractSmartOutletDriver):
         Returns:
             SmartOutletState: Current state information
         """
-        device = None
-        try:
-            device = await self._get_device()
-            relay = await self._get_relay(device)
-            
-            # Get basic state
-            is_on = relay.output
-            
-            # Get power information if available
-            power_w = None
-            if device.gen == 2:
-                # Gen2 has apower (active power)
-                power_w = getattr(relay, 'apower', None)
-            else:
-                # Gen1 has power
-                power_w = getattr(relay, 'power', None)
-            
-            return SmartOutletState(
-                is_on=is_on,
-                power_w=power_w
-            )
-        except Exception as e:
-            self._logger.error(f"Failed to get state for Shelly outlet {self.device_id}: {e}")
-            return SmartOutletState(is_on=False)
-        finally:
-            if device:
-                await device.shutdown()
+        async def _get_state_action():
+            device = None
+            try:
+                device = await self._get_device()
+                relay = await self._get_relay(device)
+                
+                # Get basic state
+                is_on = relay.output
+                
+                # Get power information if available
+                power_w = None
+                if device.gen == 2:
+                    # Gen2 has apower (active power)
+                    power_w = getattr(relay, 'apower', None)
+                else:
+                    # Gen1 has power
+                    power_w = getattr(relay, 'power', None)
+                
+                return SmartOutletState(
+                    is_on=is_on,
+                    power_w=power_w
+                )
+            except AuthRequired as e:
+                self._logger.error(f"Authentication required for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication required for outlet at {self.ip_address}: {e}")
+            except DeviceConnectionError as e:
+                self._logger.error(f"Connection error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Connection error getting state for outlet at {self.ip_address}: {e}")
+            except DeviceCommunicationError as e:
+                self._logger.error(f"Communication error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Communication error getting state for outlet at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to get state for outlet at {self.ip_address}: {e}")
+            finally:
+                if device:
+                    await device.shutdown()
+        
+        return await self._perform_network_action(_get_state_action())
     
     async def discover_device(self) -> Dict:
         """
@@ -159,36 +197,52 @@ class ShellyDriver(AbstractSmartOutletDriver):
         Returns:
             Dict: Device information including generation, model, capabilities
         """
-        device = None
+        async def _discover_action():
+            device = None
+            try:
+                device = await self._get_device()
+                
+                info = {
+                    'device_id': self.device_id,
+                    'ip_address': self.ip_address,
+                    'model': device.model,
+                    'generation': device.gen,
+                    'firmware': device.firmware,
+                    'mac': device.mac,
+                    'components': list(device.shelly.keys())
+                }
+                
+                # Add relay/switch info
+                relay = await self._get_relay(device)
+                info['relay_type'] = 'switch' if device.gen == 2 else 'relay'
+                info['relay_output'] = relay.output
+                
+                return info
+            except AuthRequired as e:
+                self._logger.error(f"Authentication required for Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication required for device at {self.ip_address}: {e}")
+            except DeviceConnectionError as e:
+                self._logger.error(f"Connection error discovering Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Connection error discovering device at {self.ip_address}: {e}")
+            except DeviceCommunicationError as e:
+                self._logger.error(f"Communication error discovering Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Communication error discovering device at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error discovering Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to discover device at {self.ip_address}: {e}")
+            finally:
+                if device:
+                    await device.shutdown()
+        
         try:
-            device = await self._get_device()
-            
-            info = {
-                'device_id': self.device_id,
-                'ip_address': self.ip_address,
-                'model': device.model,
-                'generation': device.gen,
-                'firmware': device.firmware,
-                'mac': device.mac,
-                'components': list(device.shelly.keys())
-            }
-            
-            # Add relay/switch info
-            relay = await self._get_relay(device)
-            info['relay_type'] = 'switch' if device.gen == 2 else 'relay'
-            info['relay_output'] = relay.output
-            
-            return info
-        except Exception as e:
-            self._logger.error(f"Failed to discover Shelly device {self.device_id}: {e}")
+            return await self._perform_network_action(_discover_action())
+        except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
+            # Return error info instead of re-raising for discovery
             return {
                 'device_id': self.device_id,
                 'ip_address': self.ip_address,
-                'error': str(e)
+                'error': 'Device discovery failed'
             }
-        finally:
-            if device:
-                await device.shutdown()
     
     async def get_energy_meter(self) -> Optional[Dict]:
         """
@@ -197,35 +251,51 @@ class ShellyDriver(AbstractSmartOutletDriver):
         Returns:
             Optional[Dict]: Energy data or None if not available
         """
-        device = None
+        async def _get_energy_action():
+            device = None
+            try:
+                device = await self._get_device()
+                
+                if device.gen == 2:
+                    # Gen2 energy meter
+                    if hasattr(device, 'emeter') and device.emeter:
+                        emeter = device.emeter[0]
+                        return {
+                            'power_w': getattr(emeter, 'apower', None),
+                            'voltage_v': getattr(emeter, 'voltage', None),
+                            'current_a': getattr(emeter, 'current', None),
+                            'energy_kwh': getattr(emeter, 'aenergy', {}).get('total', None)
+                        }
+                else:
+                    # Gen1 energy meter
+                    if hasattr(device, 'emeter') and device.emeter:
+                        emeter = device.emeter[0]
+                        return {
+                            'power_w': getattr(emeter, 'power', None),
+                            'voltage_v': getattr(emeter, 'voltage', None),
+                            'current_a': getattr(emeter, 'current', None),
+                            'energy_kwh': getattr(emeter, 'total', None)
+                        }
+                
+                return None
+            except AuthRequired as e:
+                self._logger.error(f"Authentication required for Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication required for device at {self.ip_address}: {e}")
+            except DeviceConnectionError as e:
+                self._logger.error(f"Connection error getting energy meter for Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Connection error getting energy meter for device at {self.ip_address}: {e}")
+            except DeviceCommunicationError as e:
+                self._logger.error(f"Communication error getting energy meter for Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Communication error getting energy meter for device at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error getting energy meter for Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to get energy meter for device at {self.ip_address}: {e}")
+            finally:
+                if device:
+                    await device.shutdown()
+        
         try:
-            device = await self._get_device()
-            
-            if device.gen == 2:
-                # Gen2 energy meter
-                if hasattr(device, 'emeter') and device.emeter:
-                    emeter = device.emeter[0]
-                    return {
-                        'power_w': getattr(emeter, 'apower', None),
-                        'voltage_v': getattr(emeter, 'voltage', None),
-                        'current_a': getattr(emeter, 'current', None),
-                        'energy_kwh': getattr(emeter, 'aenergy', {}).get('total', None)
-                    }
-            else:
-                # Gen1 energy meter
-                if hasattr(device, 'emeter') and device.emeter:
-                    emeter = device.emeter[0]
-                    return {
-                        'power_w': getattr(emeter, 'power', None),
-                        'voltage_v': getattr(emeter, 'voltage', None),
-                        'current_a': getattr(emeter, 'current', None),
-                        'energy_kwh': getattr(emeter, 'total', None)
-                    }
-            
-            return None
-        except Exception as e:
-            self._logger.error(f"Failed to get energy meter for Shelly device {self.device_id}: {e}")
-            return None
-        finally:
-            if device:
-                await device.shutdown() 
+            return await self._perform_network_action(_get_energy_action())
+        except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
+            # Return None instead of re-raising for energy meter
+            return None 

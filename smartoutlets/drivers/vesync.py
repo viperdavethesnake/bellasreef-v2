@@ -10,9 +10,11 @@ import logging
 from typing import Dict, Optional
 
 from pyvesync import VeSync
+from pyvesync.exceptions import VeSyncException, VeSyncAuthError
 
 from .base import AbstractSmartOutletDriver
 from ..models import SmartOutletState
+from ..exceptions import OutletConnectionError, OutletTimeoutError, OutletAuthenticationError
 
 
 class VeSyncDriver(AbstractSmartOutletDriver):
@@ -93,14 +95,26 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         Returns:
             bool: True if successful, False otherwise
         """
-        try:
-            device = await self._get_device()
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, device.turn_on)
-            return True
-        except Exception as e:
-            self._logger.error(f"Failed to turn on VeSync outlet {self.device_id}: {e}")
-            return False
+        async def _turn_on_action():
+            try:
+                device = await self._get_device()
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, device.turn_on)
+                return True
+            except VeSyncAuthError as e:
+                self._logger.error(f"Authentication error turning on VeSync outlet {self.device_id} at {self.ip_address}: {e}")
+                # Reset manager to force re-authentication
+                self._manager = None
+                self._device = None
+                raise OutletAuthenticationError(f"Authentication error turning on outlet at {self.ip_address}: {e}")
+            except VeSyncException as e:
+                self._logger.error(f"VeSync error turning on outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"VeSync error turning on outlet at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error turning on VeSync outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to turn on outlet at {self.ip_address}: {e}")
+        
+        return await self._perform_network_action(_turn_on_action())
     
     async def _turn_off_implementation(self) -> bool:
         """
@@ -109,14 +123,26 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         Returns:
             bool: True if successful, False otherwise
         """
-        try:
-            device = await self._get_device()
-            loop = asyncio.get_running_loop()
-            await loop.run_in_executor(None, device.turn_off)
-            return True
-        except Exception as e:
-            self._logger.error(f"Failed to turn off VeSync outlet {self.device_id}: {e}")
-            return False
+        async def _turn_off_action():
+            try:
+                device = await self._get_device()
+                loop = asyncio.get_running_loop()
+                await loop.run_in_executor(None, device.turn_off)
+                return True
+            except VeSyncAuthError as e:
+                self._logger.error(f"Authentication error turning off VeSync outlet {self.device_id} at {self.ip_address}: {e}")
+                # Reset manager to force re-authentication
+                self._manager = None
+                self._device = None
+                raise OutletAuthenticationError(f"Authentication error turning off outlet at {self.ip_address}: {e}")
+            except VeSyncException as e:
+                self._logger.error(f"VeSync error turning off outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"VeSync error turning off outlet at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error turning off VeSync outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to turn off outlet at {self.ip_address}: {e}")
+        
+        return await self._perform_network_action(_turn_off_action())
     
     async def _toggle_implementation(self) -> bool:
         """
@@ -138,33 +164,45 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         Returns:
             SmartOutletState: Current state information
         """
-        try:
-            device = await self._get_device()
-            loop = asyncio.get_running_loop()
-            
-            # Update device state
-            await loop.run_in_executor(None, device.update)
-            
-            # Get basic state
-            is_on = device.is_on
-            
-            # Get power usage if available
-            power_w = None
+        async def _get_state_action():
             try:
-                power_data = await loop.run_in_executor(None, device.get_power_usage)
-                if power_data:
-                    power_w = power_data.get('power')
+                device = await self._get_device()
+                loop = asyncio.get_running_loop()
+                
+                # Update device state
+                await loop.run_in_executor(None, device.update)
+                
+                # Get basic state
+                is_on = device.is_on
+                
+                # Get power usage if available
+                power_w = None
+                try:
+                    power_data = await loop.run_in_executor(None, device.get_power_usage)
+                    if power_data:
+                        power_w = power_data.get('power')
+                except Exception as e:
+                    # Power usage not available
+                    self._logger.debug(f"Power usage not available for {self.device_id} at {self.ip_address}: {e}")
+                
+                return SmartOutletState(
+                    is_on=is_on,
+                    power_w=power_w
+                )
+            except VeSyncAuthError as e:
+                self._logger.error(f"Authentication error getting state for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
+                # Reset manager to force re-authentication
+                self._manager = None
+                self._device = None
+                raise OutletAuthenticationError(f"Authentication error getting state for outlet at {self.ip_address}: {e}")
+            except VeSyncException as e:
+                self._logger.error(f"VeSync error getting state for outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"VeSync error getting state for outlet at {self.ip_address}: {e}")
             except Exception as e:
-                # Power usage not available
-                self._logger.debug(f"Power usage not available for {self.device_id}: {e}")
-            
-            return SmartOutletState(
-                is_on=is_on,
-                power_w=power_w
-            )
-        except Exception as e:
-            self._logger.error(f"Failed to get state for VeSync outlet {self.device_id}: {e}")
-            return SmartOutletState(is_on=False)
+                self._logger.error(f"Unexpected error getting state for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to get state for outlet at {self.ip_address}: {e}")
+        
+        return await self._perform_network_action(_get_state_action())
     
     async def discover_device(self) -> Dict:
         """
@@ -173,29 +211,45 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         Returns:
             Dict: Device information including model, capabilities, etc.
         """
+        async def _discover_action():
+            try:
+                device = await self._get_device()
+                loop = asyncio.get_running_loop()
+                
+                # Update device info
+                await loop.run_in_executor(None, device.update)
+                
+                return {
+                    'device_id': self.device_id,
+                    'ip_address': self.ip_address,
+                    'device_name': device.device_name,
+                    'model': device.device_type,
+                    'cid': device.cid,
+                    'uuid': device.uuid,
+                    'is_on': device.is_on,
+                    'status': 'connected'
+                }
+            except VeSyncAuthError as e:
+                self._logger.error(f"Authentication error discovering VeSync device {self.device_id} at {self.ip_address}: {e}")
+                # Reset manager to force re-authentication
+                self._manager = None
+                self._device = None
+                raise OutletAuthenticationError(f"Authentication error discovering device at {self.ip_address}: {e}")
+            except VeSyncException as e:
+                self._logger.error(f"VeSync error discovering device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"VeSync error discovering device at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error discovering VeSync device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to discover device at {self.ip_address}: {e}")
+        
         try:
-            device = await self._get_device()
-            loop = asyncio.get_running_loop()
-            
-            # Update device info
-            await loop.run_in_executor(None, device.update)
-            
+            return await self._perform_network_action(_discover_action())
+        except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
+            # Return error info instead of re-raising for discovery
             return {
                 'device_id': self.device_id,
                 'ip_address': self.ip_address,
-                'device_name': device.device_name,
-                'model': device.device_type,
-                'cid': device.cid,
-                'uuid': device.uuid,
-                'is_on': device.is_on,
-                'status': 'connected'
-            }
-        except Exception as e:
-            self._logger.error(f"Failed to discover VeSync device {self.device_id}: {e}")
-            return {
-                'device_id': self.device_id,
-                'ip_address': self.ip_address,
-                'error': str(e)
+                'error': 'Device discovery failed'
             }
     
     async def get_energy_meter(self) -> Optional[Dict]:
@@ -205,28 +259,44 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         Returns:
             Optional[Dict]: Energy data or None if not available
         """
+        async def _get_energy_action():
+            try:
+                device = await self._get_device()
+                loop = asyncio.get_running_loop()
+                
+                # Get power usage data
+                power_data = await loop.run_in_executor(None, device.get_power_usage)
+                
+                if not power_data:
+                    return None
+                
+                energy_data = {
+                    'power_w': power_data.get('power'),
+                    'voltage_v': power_data.get('voltage'),
+                    'current_a': power_data.get('current'),
+                    'energy_kwh': power_data.get('energy'),
+                    'timestamp': power_data.get('timestamp')
+                }
+                
+                # Filter out None values
+                energy_data = {k: v for k, v in energy_data.items() if v is not None}
+                
+                return energy_data if energy_data else None
+            except VeSyncAuthError as e:
+                self._logger.error(f"Authentication error getting energy meter for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
+                # Reset manager to force re-authentication
+                self._manager = None
+                self._device = None
+                raise OutletAuthenticationError(f"Authentication error getting energy meter for outlet at {self.ip_address}: {e}")
+            except VeSyncException as e:
+                self._logger.error(f"VeSync error getting energy meter for outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"VeSync error getting energy meter for outlet at {self.ip_address}: {e}")
+            except Exception as e:
+                self._logger.error(f"Unexpected error getting energy meter for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Failed to get energy meter for outlet at {self.ip_address}: {e}")
+        
         try:
-            device = await self._get_device()
-            loop = asyncio.get_running_loop()
-            
-            # Get power usage data
-            power_data = await loop.run_in_executor(None, device.get_power_usage)
-            
-            if not power_data:
-                return None
-            
-            energy_data = {
-                'power_w': power_data.get('power'),
-                'voltage_v': power_data.get('voltage'),
-                'current_a': power_data.get('current'),
-                'energy_kwh': power_data.get('energy'),
-                'timestamp': power_data.get('timestamp')
-            }
-            
-            # Filter out None values
-            energy_data = {k: v for k, v in energy_data.items() if v is not None}
-            
-            return energy_data if energy_data else None
-        except Exception as e:
-            self._logger.error(f"Failed to get energy meter data for VeSync outlet {self.device_id}: {e}")
+            return await self._perform_network_action(_get_energy_action())
+        except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
+            # Return None instead of re-raising for energy meter
             return None 
