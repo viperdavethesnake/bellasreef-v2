@@ -10,7 +10,7 @@ asyncpg>=0.29.0
 # Driver dependencies
 python-kasa>=0.5.0
 aioshelly>=1.0.0
-pyvesync>=3.0.0b0
+pyvesync==2.1.18
 
 # Utilities
 tenacity>=8.2.0
