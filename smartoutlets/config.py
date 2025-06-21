@@ -41,6 +41,7 @@ class SmartOutletsSettings(BaseSettings):
         env_file = str(Path(__file__).parent / ".env")
         env_file_encoding = "utf-8"
         case_sensitive = False
+        extra = "ignore"  # Ignore extra env vars for shared environment compatibility
 
 
 # Global settings instance
