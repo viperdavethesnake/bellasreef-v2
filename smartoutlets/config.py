@@ -5,6 +5,7 @@ This module handles configuration for the smartoutlets module using pydantic-set
 It provides environment-based settings and driver enablement logic.
 """
 
+from pathlib import Path
 from typing import Optional
 
 from pydantic import Field
@@ -37,7 +38,7 @@ class SmartOutletsSettings(BaseSettings):
     SERVICE_TOKEN: str = Field(description="Shared service token for inter-module authentication")
     
     class Config:
-        env_file = ".env"
+        env_file = str(Path(__file__).parent / ".env")
         env_file_encoding = "utf-8"
         case_sensitive = False
 
