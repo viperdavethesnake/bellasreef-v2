@@ -9,8 +9,7 @@ import asyncio
 import logging
 from typing import Dict, Optional, List, Any
 
-from pyHS100 import SmartPlug, Discover
-from pyHS100.exceptions import SmartDeviceException, DeviceTimeoutError
+from pyHS100 import SmartPlug, Discover, SmartDeviceException, DeviceTimeoutError
 
 from .base import AbstractSmartOutletDriver
 from ..models import SmartOutletState
