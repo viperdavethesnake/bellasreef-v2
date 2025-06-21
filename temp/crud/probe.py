@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from typing import List, Optional
 from shared.db.models import Probe
-from ..schemas.probe import ProbeCreate, ProbeUpdate
+from shared.schemas.probe import ProbeCreate, ProbeUpdate
 
 async def get_probe(db: AsyncSession, hardware_id: str) -> Optional[Probe]:
     result = await db.execute(select(Probe).filter(Probe.hardware_id == hardware_id))

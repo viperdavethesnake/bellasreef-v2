@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from ..crud import probe as probe_crud
-from ..schemas import probe as probe_schema
+from shared.schemas import probe as probe_schema
 from ..deps import get_db, get_api_key
 from ..services.temperature import temperature_service, OneWireCheckResult
 
