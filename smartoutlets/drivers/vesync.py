@@ -67,10 +67,8 @@ class VeSyncDriver(AbstractSmartOutletDriver):
             if not login_success:
                 raise OutletAuthenticationError(f"VeSync authentication failed for {email}")
             
+            # Update to populate devices - outlets are available in manager.outlets after this
             await loop.run_in_executor(None, manager.update)
-            
-            # Load outlets
-            await loop.run_in_executor(None, manager.get_outlets)
             
             devices = []
             for outlet in manager.outlets:
@@ -146,9 +144,6 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         if self._device is None:
             manager = await self._get_manager()
             loop = asyncio.get_running_loop()
-            
-            # Load outlets
-            await loop.run_in_executor(None, manager.get_outlets)
             
             # Find target device by device_name or cid
             target_name = self.auth_info.get('vesync_device_name')

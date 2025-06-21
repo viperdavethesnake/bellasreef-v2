@@ -2,7 +2,7 @@
 
 import requests
 
-BASE_URL = "http://192.168.33.122:8001"
+BASE_URL = "http://192.168.33.122:8005"
 AUTH_HEADER = {"Authorization": "Bearer ab7941c9e0957d7d3394da288f3c5e08af6ff7d7cde2188b44b37ec808bbde16"}
 
 
