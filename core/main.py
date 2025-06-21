@@ -20,9 +20,11 @@ from contextlib import asynccontextmanager
 from sqlalchemy import text
 
 from shared.core.config import settings
-from shared.db.database import engine, Base
+from shared.db.database import engine, Base, async_session
 from shared.db.models import User
+from shared.utils import get_logger
 from core.api import health, auth, users, deps, system_info
+from smartoutlets.manager import SmartOutletManager
 
 # =============================================================================
 # Application Lifecycle
@@ -94,6 +96,19 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# =============================================================================
+# Dependency Injection
+# =============================================================================
+
+async def get_smart_outlet_manager() -> SmartOutletManager:
+    """
+    FastAPI dependency to provide SmartOutletManager instance.
+    
+    Returns:
+        SmartOutletManager: Configured manager instance
+    """
+    return SmartOutletManager(async_session, get_logger("smartoutlets"))
 
 # =============================================================================
 # API Routes
