@@ -10,7 +10,7 @@ from uuid import UUID
 from datetime import datetime
 
 from pydantic import BaseModel, Field, constr
-from .enums import OutletRole, SmartOutletDriverType, DriverType
+from .enums import OutletRole, SmartOutletDriverType
 
 
 class SmartOutletCreate(BaseModel):
@@ -18,7 +18,7 @@ class SmartOutletCreate(BaseModel):
     Schema for creating a new smart outlet.
 
     Attributes:
-        driver_type (DriverType): Type of smart outlet driver
+        driver_type (SmartOutletDriverType): Type of smart outlet driver
         driver_device_id (str): Device ID from the driver
         name (str): Human-readable name for the outlet
         nickname (Optional[str]): Optional nickname
@@ -31,7 +31,7 @@ class SmartOutletCreate(BaseModel):
         scheduler_enabled (bool): Whether scheduling is enabled
     """
     
-    driver_type: DriverType = Field(..., description="Type of smart outlet driver")
+    driver_type: SmartOutletDriverType = Field(..., description="Type of smart outlet driver")
     driver_device_id: str = Field(..., description="Device ID from the driver")
     name: str = Field(..., description="Human-readable name for the outlet")
     nickname: Optional[str] = Field(None, description="Optional nickname")
