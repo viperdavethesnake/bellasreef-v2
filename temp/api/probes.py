@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from ..crud import probe as probe_crud
 from ..schemas import probe as probe_schema
@@ -19,17 +19,17 @@ def check_1wire():
     return temperature_service.check_1wire_subsystem()
 
 @router.get("/list", response_model=List[probe_schema.Probe], dependencies=[Depends(get_api_key)])
-def list_probes(db: Session = Depends(get_db)):
+async def list_probes(db: AsyncSession = Depends(get_db)):
     """List all configured probes from the database."""
-    return probe_crud.get_probes(db)
+    return await probe_crud.get_probes(db)
 
 @router.post("/", response_model=probe_schema.Probe, dependencies=[Depends(get_api_key)])
-def create_probe(probe: probe_schema.ProbeCreate, db: Session = Depends(get_db)):
+async def create_probe(probe: probe_schema.ProbeCreate, db: AsyncSession = Depends(get_db)):
     """Create a new probe configuration in the database."""
-    db_probe = probe_crud.get_probe_by_hardware_id(db, hardware_id=probe.hardware_id)
+    db_probe = await probe_crud.get_probe_by_hardware_id(db, hardware_id=probe.hardware_id)
     if db_probe:
         raise HTTPException(status_code=400, detail="Probe with this hardware ID already exists.")
-    return probe_crud.create_probe(db=db, probe=probe)
+    return await probe_crud.create_probe(db=db, probe=probe)
 
 @router.get("/{hardware_id}/current", response_model=float, dependencies=[Depends(get_api_key)])
 def get_current_reading(hardware_id: str):
