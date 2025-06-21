@@ -63,14 +63,14 @@ OUTLET_MAX_RETRIES=3
 
 # Security (REQUIRED - must be set before starting service)
 ENCRYPTION_KEY=your-32-byte-encryption-key-here
-SECRET_API_KEY=your-secret-api-key-here
+SMART_OUTLETS_API_KEY=your-smartoutlets-api-key-here
 
 # Service configuration
 SERVICE_HOST=0.0.0.0
 SERVICE_PORT=8003
 EOF
     echo -e "${YELLOW}Please edit .env file with your configuration before starting the service.${NC}"
-    echo -e "${RED}⚠️  IMPORTANT: You must set ENCRYPTION_KEY and SECRET_API_KEY before starting the service!${NC}"
+    echo -e "${RED}⚠️  IMPORTANT: You must set ENCRYPTION_KEY and SMART_OUTLETS_API_KEY before starting the service!${NC}"
 else
     echo -e "${GREEN}.env file already exists${NC}"
 fi
@@ -83,7 +83,7 @@ echo -e "${GREEN}✅ SmartOutlets service setup complete!${NC}"
 echo -e "${YELLOW}Next steps:${NC}"
 echo -e "   1. Edit $SMARTOUTLETS_DIR/.env with your configuration"
 echo -e "      - Set ENCRYPTION_KEY (32-byte key for data encryption)"
-echo -e "      - Set SECRET_API_KEY (for API authentication)"
+echo -e "      - Set SMART_OUTLETS_API_KEY (for API authentication)"
 echo -e "      - Configure VeSync credentials if needed"
 echo -e "   2. Activate the venv: source $VENV_DIR/bin/activate"
 echo -e "      (You'll see the '(bellasreef-smartoutlet)' prompt)"

@@ -34,7 +34,7 @@ class SmartOutletsSettings(BaseSettings):
     
     # Security
     ENCRYPTION_KEY: str = Field(description="Encryption key for sensitive data")
-    SECRET_API_KEY: str = Field(description="Secret API key for authentication")
+    SMART_OUTLETS_API_KEY: str = Field(description="API key for SmartOutlets authentication")
     
     class Config:
         env_file = ".env"

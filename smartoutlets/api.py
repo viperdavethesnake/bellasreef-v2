@@ -45,7 +45,7 @@ def require_api_key(api_key: str = Header(..., description="API key for authenti
     Raises:
         HTTPException: 403 if API key is invalid
     """
-    if api_key != settings.SECRET_API_KEY:
+    if api_key != settings.SMART_OUTLETS_API_KEY:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Invalid API key"
