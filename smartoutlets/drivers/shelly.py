@@ -10,7 +10,13 @@ import logging
 from typing import Dict, Optional, List, Any
 
 import aioshelly
-from aioshelly.exceptions import DeviceConnectionError, DeviceCommunicationError, AuthRequired
+from aioshelly.exceptions import (
+    DeviceConnectionError,
+    DeviceConnectionTimeoutError,
+    InvalidAuthError,
+    ShellyError,  # Base exception for aioshelly errors
+    # Add other exceptions if you specifically handle them, e.g., ConnectionClosed
+)
 
 from .base import AbstractSmartOutletDriver
 from ..models import SmartOutletState
@@ -119,15 +125,18 @@ class ShellyDriver(AbstractSmartOutletDriver):
                 relay = await self._get_relay(device)
                 await relay.turn_on()
                 return True
-            except AuthRequired as e:
-                self._logger.error(f"Authentication required for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletAuthenticationError(f"Authentication required for outlet at {self.ip_address}: {e}")
+            except DeviceConnectionTimeoutError as e:
+                self._logger.error(f"Timeout turning on Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletTimeoutError(f"Timeout turning on outlet at {self.ip_address}: {e}")
+            except InvalidAuthError as e:
+                self._logger.error(f"Authentication error turning on Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error turning on outlet at {self.ip_address}: {e}")
             except DeviceConnectionError as e:
                 self._logger.error(f"Connection error turning on Shelly outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Connection error turning on outlet at {self.ip_address}: {e}")
-            except DeviceCommunicationError as e:
-                self._logger.error(f"Communication error turning on Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Communication error turning on outlet at {self.ip_address}: {e}")
+            except ShellyError as e:
+                self._logger.error(f"Shelly error turning on outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Shelly error turning on outlet at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error turning on Shelly outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to turn on outlet at {self.ip_address}: {e}")
@@ -151,15 +160,18 @@ class ShellyDriver(AbstractSmartOutletDriver):
                 relay = await self._get_relay(device)
                 await relay.turn_off()
                 return True
-            except AuthRequired as e:
-                self._logger.error(f"Authentication required for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletAuthenticationError(f"Authentication required for outlet at {self.ip_address}: {e}")
+            except DeviceConnectionTimeoutError as e:
+                self._logger.error(f"Timeout turning off Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletTimeoutError(f"Timeout turning off outlet at {self.ip_address}: {e}")
+            except InvalidAuthError as e:
+                self._logger.error(f"Authentication error turning off Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error turning off outlet at {self.ip_address}: {e}")
             except DeviceConnectionError as e:
                 self._logger.error(f"Connection error turning off Shelly outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Connection error turning off outlet at {self.ip_address}: {e}")
-            except DeviceCommunicationError as e:
-                self._logger.error(f"Communication error turning off Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Communication error turning off outlet at {self.ip_address}: {e}")
+            except ShellyError as e:
+                self._logger.error(f"Shelly error turning off outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Shelly error turning off outlet at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error turning off Shelly outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to turn off outlet at {self.ip_address}: {e}")
@@ -211,15 +223,18 @@ class ShellyDriver(AbstractSmartOutletDriver):
                     is_on=is_on,
                     power_w=power_w
                 )
-            except AuthRequired as e:
-                self._logger.error(f"Authentication required for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletAuthenticationError(f"Authentication required for outlet at {self.ip_address}: {e}")
+            except DeviceConnectionTimeoutError as e:
+                self._logger.error(f"Timeout getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletTimeoutError(f"Timeout getting state for outlet at {self.ip_address}: {e}")
+            except InvalidAuthError as e:
+                self._logger.error(f"Authentication error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error getting state for outlet at {self.ip_address}: {e}")
             except DeviceConnectionError as e:
                 self._logger.error(f"Connection error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Connection error getting state for outlet at {self.ip_address}: {e}")
-            except DeviceCommunicationError as e:
-                self._logger.error(f"Communication error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Communication error getting state for outlet at {self.ip_address}: {e}")
+            except ShellyError as e:
+                self._logger.error(f"Shelly error getting state for outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Shelly error getting state for outlet at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to get state for outlet at {self.ip_address}: {e}")
@@ -257,15 +272,18 @@ class ShellyDriver(AbstractSmartOutletDriver):
                 info['relay_output'] = relay.output
                 
                 return info
-            except AuthRequired as e:
-                self._logger.error(f"Authentication required for Shelly device {self.device_id} at {self.ip_address}: {e}")
-                raise OutletAuthenticationError(f"Authentication required for device at {self.ip_address}: {e}")
+            except DeviceConnectionTimeoutError as e:
+                self._logger.error(f"Timeout discovering Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletTimeoutError(f"Timeout discovering device at {self.ip_address}: {e}")
+            except InvalidAuthError as e:
+                self._logger.error(f"Authentication error discovering Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error discovering device at {self.ip_address}: {e}")
             except DeviceConnectionError as e:
                 self._logger.error(f"Connection error discovering Shelly device {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Connection error discovering device at {self.ip_address}: {e}")
-            except DeviceCommunicationError as e:
-                self._logger.error(f"Communication error discovering Shelly device {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Communication error discovering device at {self.ip_address}: {e}")
+            except ShellyError as e:
+                self._logger.error(f"Shelly error discovering device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Shelly error discovering device at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error discovering Shelly device {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to discover device at {self.ip_address}: {e}")
@@ -317,15 +335,18 @@ class ShellyDriver(AbstractSmartOutletDriver):
                         }
                 
                 return None
-            except AuthRequired as e:
-                self._logger.error(f"Authentication required for Shelly device {self.device_id} at {self.ip_address}: {e}")
-                raise OutletAuthenticationError(f"Authentication required for device at {self.ip_address}: {e}")
+            except DeviceConnectionTimeoutError as e:
+                self._logger.error(f"Timeout getting energy meter for Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletTimeoutError(f"Timeout getting energy meter for device at {self.ip_address}: {e}")
+            except InvalidAuthError as e:
+                self._logger.error(f"Authentication error getting energy meter for Shelly device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error getting energy meter for device at {self.ip_address}: {e}")
             except DeviceConnectionError as e:
                 self._logger.error(f"Connection error getting energy meter for Shelly device {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Connection error getting energy meter for device at {self.ip_address}: {e}")
-            except DeviceCommunicationError as e:
-                self._logger.error(f"Communication error getting energy meter for Shelly device {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Communication error getting energy meter for device at {self.ip_address}: {e}")
+            except ShellyError as e:
+                self._logger.error(f"Shelly error getting energy meter for device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Shelly error getting energy meter for device at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error getting energy meter for Shelly device {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to get energy meter for device at {self.ip_address}: {e}")

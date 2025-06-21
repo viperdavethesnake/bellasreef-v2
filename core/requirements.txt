@@ -38,7 +38,7 @@ cryptography>=41.0.0
 # Driver dependencies
 python-kasa>=0.5.0
 aioshelly>=1.0.0
-pyvesync>=2.1.0
+pyvesync>=3.0.0b0
 
 # Optional: For better async support
 asyncio-mqtt>=0.13.0 
