@@ -11,7 +11,13 @@ from typing import Dict, Optional, List, Any
 
 import kasa
 from kasa import SmartPlug, Discover
-from kasa.exceptions import SmartDeviceException, SmartDeviceTimeout
+from kasa.exceptions import (
+    AuthenticationError,
+    DeviceError,
+    TimeoutError,
+    KasaException,
+    UnsupportedDeviceError
+)
 
 from .base import AbstractSmartOutletDriver
 from ..models import SmartOutletState
@@ -96,12 +102,18 @@ class KasaDriver(AbstractSmartOutletDriver):
                 plug = await self._create_smart_plug()
                 await plug.turn_on()
                 return True
-            except SmartDeviceTimeout as e:
+            except TimeoutError as e:
                 self._logger.error(f"Timeout turning on Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletTimeoutError(f"Timeout turning on outlet at {self.ip_address}: {e}")
-            except SmartDeviceException as e:
+            except AuthenticationError as e:
+                self._logger.error(f"Authentication error turning on Kasa outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error turning on outlet at {self.ip_address}: {e}")
+            except DeviceError as e:
                 self._logger.error(f"Device error turning on Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Device error turning on outlet at {self.ip_address}: {e}")
+            except KasaException as e:
+                self._logger.error(f"Kasa error turning on outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Kasa error turning on outlet at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error turning on Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to turn on outlet at {self.ip_address}: {e}")
@@ -120,12 +132,18 @@ class KasaDriver(AbstractSmartOutletDriver):
                 plug = await self._create_smart_plug()
                 await plug.turn_off()
                 return True
-            except SmartDeviceTimeout as e:
+            except TimeoutError as e:
                 self._logger.error(f"Timeout turning off Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletTimeoutError(f"Timeout turning off outlet at {self.ip_address}: {e}")
-            except SmartDeviceException as e:
+            except AuthenticationError as e:
+                self._logger.error(f"Authentication error turning off Kasa outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error turning off outlet at {self.ip_address}: {e}")
+            except DeviceError as e:
                 self._logger.error(f"Device error turning off Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Device error turning off outlet at {self.ip_address}: {e}")
+            except KasaException as e:
+                self._logger.error(f"Kasa error turning off outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Kasa error turning off outlet at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error turning off Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to turn off outlet at {self.ip_address}: {e}")
@@ -185,12 +203,18 @@ class KasaDriver(AbstractSmartOutletDriver):
                     voltage_v=voltage_v,
                     current_a=current_a
                 )
-            except SmartDeviceTimeout as e:
+            except TimeoutError as e:
                 self._logger.error(f"Timeout getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletTimeoutError(f"Timeout getting state for outlet at {self.ip_address}: {e}")
-            except SmartDeviceException as e:
+            except AuthenticationError as e:
+                self._logger.error(f"Authentication error getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error getting state for outlet at {self.ip_address}: {e}")
+            except DeviceError as e:
                 self._logger.error(f"Device error getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Device error getting state for outlet at {self.ip_address}: {e}")
+            except KasaException as e:
+                self._logger.error(f"Kasa error getting state for outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Kasa error getting state for outlet at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to get state for outlet at {self.ip_address}: {e}")
@@ -223,19 +247,25 @@ class KasaDriver(AbstractSmartOutletDriver):
                     'device_id_kasa': info.get('deviceId', 'Unknown'),
                     'status': 'connected'
                 }
-            except SmartDeviceTimeout as e:
+            except TimeoutError as e:
                 self._logger.error(f"Timeout discovering Kasa device {self.device_id} at {self.ip_address}: {e}")
                 raise OutletTimeoutError(f"Timeout discovering device at {self.ip_address}: {e}")
-            except SmartDeviceException as e:
+            except AuthenticationError as e:
+                self._logger.error(f"Authentication error discovering Kasa device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error discovering device at {self.ip_address}: {e}")
+            except DeviceError as e:
                 self._logger.error(f"Device error discovering Kasa device {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Device error discovering device at {self.ip_address}: {e}")
+            except KasaException as e:
+                self._logger.error(f"Kasa error discovering device {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Kasa error discovering device at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error discovering Kasa device {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to discover device at {self.ip_address}: {e}")
         
         try:
             return await self._perform_network_action(_discover_action())
-        except (OutletConnectionError, OutletTimeoutError):
+        except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
             # Return error info instead of re-raising for discovery
             return {
                 'device_id': self.device_id,
@@ -279,18 +309,24 @@ class KasaDriver(AbstractSmartOutletDriver):
                 energy_data = {k: v for k, v in energy_data.items() if v is not None}
                 
                 return energy_data if energy_data else None
-            except SmartDeviceTimeout as e:
+            except TimeoutError as e:
                 self._logger.error(f"Timeout getting energy meter for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletTimeoutError(f"Timeout getting energy meter for outlet at {self.ip_address}: {e}")
-            except SmartDeviceException as e:
+            except AuthenticationError as e:
+                self._logger.error(f"Authentication error getting energy meter for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletAuthenticationError(f"Authentication error getting energy meter for outlet at {self.ip_address}: {e}")
+            except DeviceError as e:
                 self._logger.error(f"Device error getting energy meter for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Device error getting energy meter for outlet at {self.ip_address}: {e}")
+            except KasaException as e:
+                self._logger.error(f"Kasa error getting energy meter for outlet {self.device_id} at {self.ip_address}: {e}")
+                raise OutletConnectionError(f"Kasa error getting energy meter for outlet at {self.ip_address}: {e}")
             except Exception as e:
                 self._logger.error(f"Unexpected error getting energy meter for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to get energy meter for outlet at {self.ip_address}: {e}")
         
         try:
             return await self._perform_network_action(_get_energy_action())
-        except (OutletConnectionError, OutletTimeoutError):
+        except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
             # Return None instead of re-raising for energy meter
             return None 
