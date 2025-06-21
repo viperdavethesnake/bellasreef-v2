@@ -22,7 +22,7 @@ from sqlalchemy import text
 from shared.core.config import settings
 from shared.db.database import engine, Base
 from shared.db.models import User
-from core.api import health, auth, users, deps
+from core.api import health, auth, users, deps, system_info
 
 # =============================================================================
 # Application Lifecycle
@@ -107,6 +107,9 @@ app.include_router(auth.router, prefix="/api/auth", tags=["authentication"])
 
 # User management endpoints
 app.include_router(users.router, prefix="/api/users", tags=["users"])
+
+# System information endpoints
+app.include_router(system_info.router, prefix="/api", tags=["system"])
 
 # =============================================================================
 # Root Endpoint

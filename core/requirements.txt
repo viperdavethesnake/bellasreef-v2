@@ -7,8 +7,8 @@
 # like 'temp' or 'poller' have their own, minimal requirements.txt files.
 
 # === Core Backend Framework ===
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
+fastapi>=0.111.0,<0.112.0
+uvicorn[standard]>=0.30.1,<0.31.0
 
 # === Database & Async Support ===
 sqlalchemy==2.0.23
@@ -28,3 +28,6 @@ python-multipart==0.0.6
 
 # === Async HTTP Client ===
 aiohttp==3.8.6
+
+# === System Monitoring ===
+psutil==5.9.8
