@@ -7,7 +7,7 @@ using the pyvesync library.
 
 import asyncio
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 
 from pyvesync import VeSync
 from pyvesync.exceptions import VeSyncException, VeSyncAuthError
@@ -37,6 +37,64 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         self._logger = logging.getLogger(f"VeSyncDriver.{device_id}")
         self._manager = None
         self._device = None
+    
+    @classmethod
+    async def discover_devices(cls, email: str, password: str) -> List[Dict[str, Any]]:
+        """
+        Discover VeSync devices using cloud credentials.
+        
+        Args:
+            email: VeSync account email
+            password: VeSync account password
+            
+        Returns:
+            List[Dict]: List of discovered VeSync devices
+            
+        Raises:
+            OutletAuthenticationError: If credentials are invalid
+            OutletConnectionError: If discovery fails
+        """
+        logger = logging.getLogger("VeSyncDriver.discovery")
+        
+        try:
+            loop = asyncio.get_running_loop()
+            
+            # Create VeSync manager and login
+            manager = VeSync(email, password)
+            await loop.run_in_executor(None, manager.login)
+            await loop.run_in_executor(None, manager.update)
+            
+            # Load outlets
+            await loop.run_in_executor(None, manager.outlets)
+            
+            devices = []
+            for outlet in manager.outlets:
+                try:
+                    # Extract device information
+                    device_data = {
+                        "driver_type": "vesync",
+                        "driver_device_id": outlet.cid,  # CID as driver_device_id
+                        "ip_address": None,  # No IP address for cloud devices
+                        "name": outlet.device_name
+                    }
+                    devices.append(device_data)
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to process discovered VeSync device: {e}")
+                    continue
+            
+            logger.info(f"Discovered {len(devices)} VeSync devices")
+            return devices
+            
+        except VeSyncAuthError as e:
+            logger.error(f"VeSync authentication failed: {e}")
+            raise OutletAuthenticationError(f"VeSync authentication failed: {e}")
+        except VeSyncException as e:
+            logger.error(f"VeSync discovery failed: {e}")
+            raise OutletConnectionError(f"VeSync discovery failed: {e}")
+        except Exception as e:
+            logger.error(f"Unexpected error during VeSync discovery: {e}")
+            raise OutletConnectionError(f"VeSync discovery failed: {e}")
     
     async def _get_manager(self) -> VeSync:
         """

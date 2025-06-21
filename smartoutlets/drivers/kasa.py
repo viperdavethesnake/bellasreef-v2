@@ -7,9 +7,9 @@ using the pyHS100 library.
 
 import asyncio
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 
-from pyHS100 import SmartPlug
+from pyHS100 import SmartPlug, Discover
 from pyHS100.exceptions import SmartDeviceException, DeviceTimeoutError
 
 from .base import AbstractSmartOutletDriver
@@ -35,6 +35,45 @@ class KasaDriver(AbstractSmartOutletDriver):
         """
         super().__init__(device_id, ip_address, auth_info)
         self._logger = logging.getLogger(f"KasaDriver.{device_id}")
+    
+    @classmethod
+    async def discover_devices(cls) -> List[Dict[str, Any]]:
+        """
+        Discover Kasa devices on the local network.
+        
+        Returns:
+            List[Dict]: List of discovered Kasa devices
+        """
+        logger = logging.getLogger("KasaDriver.discovery")
+        
+        try:
+            loop = asyncio.get_running_loop()
+            
+            # Use pyHS100 Discover.discover() wrapped in executor
+            discovered_devices = await loop.run_in_executor(None, Discover.discover)
+            
+            devices = []
+            for ip_address, device_info in discovered_devices.items():
+                try:
+                    # Extract device information
+                    device_data = {
+                        "driver_type": "kasa",
+                        "driver_device_id": device_info.get('deviceId', f"kasa_{ip_address}"),
+                        "ip_address": ip_address,
+                        "name": device_info.get('alias', f"Kasa Device {ip_address}")
+                    }
+                    devices.append(device_data)
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to process discovered Kasa device at {ip_address}: {e}")
+                    continue
+            
+            logger.info(f"Discovered {len(devices)} Kasa devices")
+            return devices
+            
+        except Exception as e:
+            logger.error(f"Kasa discovery failed: {e}")
+            return []
     
     def _create_smart_plug(self) -> SmartPlug:
         """

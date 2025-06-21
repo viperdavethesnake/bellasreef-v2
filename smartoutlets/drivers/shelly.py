@@ -5,8 +5,9 @@ This module provides the ShellyDriver class for controlling Shelly Gen1/Gen2 dev
 using the aioshelly library.
 """
 
+import asyncio
 import logging
-from typing import Dict, Optional
+from typing import Dict, Optional, List, Any
 
 import aioshelly
 from aioshelly.exceptions import DeviceConnectionError, DeviceCommunicationError, AuthRequired
@@ -34,6 +35,43 @@ class ShellyDriver(AbstractSmartOutletDriver):
         """
         super().__init__(device_id, ip_address, auth_info)
         self._logger = logging.getLogger(f"ShellyDriver.{device_id}")
+    
+    @classmethod
+    async def discover_devices(cls) -> List[Dict[str, Any]]:
+        """
+        Discover Shelly devices on the local network.
+        
+        Returns:
+            List[Dict]: List of discovered Shelly devices
+        """
+        logger = logging.getLogger("ShellyDriver.discovery")
+        
+        try:
+            # Use aioshelly to discover devices
+            discovered_devices = await aioshelly.discover()
+            
+            devices = []
+            for device_info in discovered_devices:
+                try:
+                    # Extract device information
+                    device_data = {
+                        "driver_type": "shelly",
+                        "driver_device_id": device_info.get('mac', f"shelly_{device_info.get('ip', 'unknown')}"),
+                        "ip_address": device_info.get('ip'),
+                        "name": device_info.get('name', f"Shelly Device {device_info.get('ip', 'unknown')}")
+                    }
+                    devices.append(device_data)
+                    
+                except Exception as e:
+                    logger.warning(f"Failed to process discovered Shelly device: {e}")
+                    continue
+            
+            logger.info(f"Discovered {len(devices)} Shelly devices")
+            return devices
+            
+        except Exception as e:
+            logger.error(f"Shelly discovery failed: {e}")
+            return []
     
     async def _get_device(self) -> aioshelly.Device:
         """

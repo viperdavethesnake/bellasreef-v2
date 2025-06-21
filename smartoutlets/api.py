@@ -15,11 +15,18 @@ from shared.db.database import async_session
 from shared.utils.logger import get_logger
 from .manager import SmartOutletManager
 from .models import SmartOutlet
-from .schemas import SmartOutletCreate, SmartOutletRead, SmartOutletState, SmartOutletUpdate
+from .schemas import (
+    SmartOutletCreate, SmartOutletRead, SmartOutletState, SmartOutletUpdate,
+    VeSyncDiscoveryRequest, DiscoveredDevice, DiscoveryTaskResponse, DiscoveryResults
+)
 from .exceptions import OutletNotFoundError, OutletConnectionError
 from .handlers import register_exception_handlers
+from .discovery_service import DiscoveryService
 
 router = APIRouter()
+
+# Global discovery service instance
+discovery_service = DiscoveryService()
 
 
 async def get_smart_outlet_manager() -> SmartOutletManager:
@@ -222,4 +229,94 @@ async def toggle_outlet(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to toggle outlet {outlet_id}"
+        )
+
+
+# Discovery Endpoints
+
+@router.post("/outlets/discover/local", response_model=DiscoveryTaskResponse, status_code=status.HTTP_202_ACCEPTED)
+async def start_local_discovery():
+    """
+    Start local device discovery for Shelly and Kasa devices.
+    
+    Returns:
+        DiscoveryTaskResponse: Task ID for tracking the discovery process
+    """
+    task_id = await discovery_service.run_local_discovery()
+    return DiscoveryTaskResponse(task_id=task_id)
+
+
+@router.get("/outlets/discover/local/{task_id}/results", response_model=DiscoveryResults)
+async def get_local_discovery_results(task_id: str):
+    """
+    Get results from a local discovery task.
+    
+    Args:
+        task_id: The task ID to retrieve results for
+        
+    Returns:
+        DiscoveryResults: Discovery results and status
+        
+    Raises:
+        HTTPException: 404 if task not found
+    """
+    results = await discovery_service.get_discovery_results(task_id)
+    
+    if not results:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Discovery task {task_id} not found"
+        )
+    
+    # Convert results to Pydantic models
+    discovered_devices = []
+    for device_data in results.get('results', []):
+        discovered_devices.append(DiscoveredDevice(**device_data))
+    
+    return DiscoveryResults(
+        task_id=task_id,
+        status=results['status'],
+        created_at=results['created_at'],
+        completed_at=results.get('completed_at'),
+        results=discovered_devices,
+        error=results.get('error')
+    )
+
+
+@router.post("/outlets/discover/cloud/vesync", response_model=List[DiscoveredDevice])
+async def discover_vesync_devices(request: VeSyncDiscoveryRequest):
+    """
+    Discover VeSync devices using cloud credentials.
+    
+    Args:
+        request: VeSync discovery request with email and password
+        
+    Returns:
+        List[DiscoveredDevice]: List of discovered VeSync devices
+        
+    Raises:
+        HTTPException: 401 if credentials are invalid, 503 if discovery fails
+    """
+    try:
+        devices = await discovery_service.run_vesync_discovery(
+            email=request.email,
+            password=request.password
+        )
+        
+        # Convert to Pydantic models
+        discovered_devices = []
+        for device_data in devices:
+            discovered_devices.append(DiscoveredDevice(**device_data))
+        
+        return discovered_devices
+        
+    except OutletAuthenticationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e)
+        )
+    except OutletConnectionError as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
         ) 
