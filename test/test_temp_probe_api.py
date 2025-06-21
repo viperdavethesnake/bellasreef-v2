@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import requests
 
 BASE_URL = "http://192.168.33.122:8001"
