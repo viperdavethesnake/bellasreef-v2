@@ -184,7 +184,8 @@ class DeviceAction(Base):
 
 class Probe(Base):
     __tablename__ = 'probes'
-    hardware_id = Column(String, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
+    hardware_id = Column(String, unique=True, index=True, nullable=False)
     nickname = Column(String)
     role = Column(String)
     enabled = Column(Boolean, default=True)
@@ -197,7 +198,7 @@ class Probe(Base):
 class ProbeHistory(Base):
     __tablename__ = 'probe_history'
     id = Column(Integer, primary_key=True, index=True)
-    probe_hardware_id = Column(String, ForeignKey('probes.hardware_id'))
+    probe_id = Column(Integer, ForeignKey('probes.id'))
     timestamp = Column(DateTime(timezone=True), server_default=func.now())
     value = Column(Float)
     probe_metadata = Column(JSON)
