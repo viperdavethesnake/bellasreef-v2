@@ -63,6 +63,17 @@ async def get_smart_outlet_manager() -> SmartOutletManager:
     return SmartOutletManager(async_session, logger)
 
 
+async def get_db_session() -> AsyncSession:
+    """
+    Dependency to provide a database session.
+    
+    Returns:
+        AsyncSession: Database session instance
+    """
+    async with async_session() as session:
+        yield session
+
+
 @router.post(
     "/outlets/",
     response_model=SmartOutletRead,
@@ -75,7 +86,7 @@ async def get_smart_outlet_manager() -> SmartOutletManager:
 async def create_outlet(
     outlet_data: SmartOutletCreate,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    session: AsyncSession = Depends(async_session)
+    session: AsyncSession = Depends(get_db_session)
 ):
     """
     Create a new smart outlet.
