@@ -10,11 +10,11 @@ from ..database import Base
 class Probe(Base):
     __tablename__ = "probes"
 
-    id = Column(Integer, primary_key=True, index=True)
-    hardware_id = Column(String, unique=True, index=True, nullable=False)
-    name = Column(String, nullable=False)
-    location = Column(String, nullable=True)
-    description = Column(String, nullable=True)
-    is_active = Column(Boolean, default=True)
+    hardware_id = Column(String, primary_key=True, index=True)
+    nickname = Column(String)
+    role = Column(String)
+    enabled = Column(Boolean, default=True)
+    poller_id = Column(String, index=True)
+    read_interval_seconds = Column(Integer, default=60)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now()) 
