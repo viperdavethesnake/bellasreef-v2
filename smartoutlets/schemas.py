@@ -61,7 +61,7 @@ class SmartOutletRead(BaseModel):
         enabled (bool): Whether the outlet is enabled
         poller_enabled (bool): Whether polling is enabled
         scheduler_enabled (bool): Whether scheduling is enabled
-        is_online (bool): Whether the outlet is currently online
+        is_online (Optional[bool]): Whether the outlet is currently online (None if not checked)
         created_at (datetime): Creation timestamp
         updated_at (datetime): Last update timestamp
     """
@@ -78,7 +78,7 @@ class SmartOutletRead(BaseModel):
     enabled: bool = Field(..., description="Whether the outlet is enabled")
     poller_enabled: bool = Field(..., description="Whether polling is enabled")
     scheduler_enabled: bool = Field(..., description="Whether scheduling is enabled")
-    is_online: bool = Field(..., description="Whether the outlet is currently online")
+    is_online: Optional[bool] = Field(None, description="Whether the outlet is currently online (None if not checked)")
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
