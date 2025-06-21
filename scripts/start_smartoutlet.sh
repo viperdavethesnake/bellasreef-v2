@@ -61,4 +61,5 @@ export PYTHONPATH="$PROJECT_ROOT:$PYTHONPATH"
 source "$VENV_DIR/bin/activate"
 
 echo "Starting SmartOutlets Service..."
-uvicorn smartoutlets.api:router --host "$SERVICE_HOST" --port "$SERVICE_PORT" 
+# Updated to use standard main:app pattern for consistency with other services
+uvicorn smartoutlets.main:app --host "$SERVICE_HOST" --port "$SERVICE_PORT" 
