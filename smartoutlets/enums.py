@@ -9,6 +9,7 @@ from enum import Enum
 
 class OutletRole(str, Enum):
     """Roles that smart outlets can serve in the aquarium system."""
+    GENERAL = "general"
     LIGHT = "light"
     HEATER = "heater"
     CHILLER = "chiller"
