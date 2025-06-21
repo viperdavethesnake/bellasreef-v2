@@ -31,3 +31,7 @@ aiohttp==3.8.6
 
 # === System Monitoring ===
 psutil==5.9.8
+
+# Utilities
+tenacity>=8.2.0
+cryptography>=41.0.0
