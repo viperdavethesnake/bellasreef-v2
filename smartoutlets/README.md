@@ -249,7 +249,7 @@ All data is encrypted at rest using the configured encryption key.
 
 -   **Authentication Errors (403 Forbidden):**
     -   Make sure you are including the `X-API-Key` header with the correct API key.
-    -   Verify the `SMART_OUTLETS_API_KEY` in your request matches the one in `smartoutlets/.env`.
+    -   Verify the `SERVICE_TOKEN` in your request matches the one in `smartoutlets/.env`.
 
 ---
 

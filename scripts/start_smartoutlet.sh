@@ -27,9 +27,9 @@ if [ -z "$ENCRYPTION_KEY" ] || [ "$ENCRYPTION_KEY" = "your-32-byte-encryption-ke
     exit 1
 fi
 
-if [ -z "$SMART_OUTLETS_API_KEY" ] || [ "$SMART_OUTLETS_API_KEY" = "your-smartoutlets-api-key-here" ]; then
-    echo "Error: SMART_OUTLETS_API_KEY is not set or is using default value."
-    echo "   Please set a valid SmartOutlets API key in smartoutlets/.env"
+if [ -z "$SERVICE_TOKEN" ] || [ "$SERVICE_TOKEN" = "your-smartoutlets-api-key-here" ]; then
+    echo "Error: SERVICE_TOKEN is not set or is using default value."
+    echo "   Please set a valid service token in smartoutlets/.env"
     exit 1
 fi
 

@@ -85,7 +85,7 @@ A demo authentication dependency is implemented to show how API authentication w
 #### Key Components
 
 - **`api.py`**: Contains `require_api_key` dependency function
-- **`config.py`**: Added `SMART_OUTLETS_API_KEY` setting
+- **`config.py`**: Added `SERVICE_TOKEN` setting
 
 #### How It Works
 
@@ -95,10 +95,10 @@ A demo authentication dependency is implemented to show how API authentication w
 
 #### Configuration
 
-Set the `SMART_OUTLETS_API_KEY` environment variable:
+Set the `SERVICE_TOKEN` environment variable:
 
 ```bash
-SMART_OUTLETS_API_KEY="your-smartoutlets-api-key-here"
+SERVICE_TOKEN="your-service-token-here"
 ```
 
 #### Usage Example
@@ -222,7 +222,7 @@ curl -X POST "http://localhost:8000/outlets/" \
    - Check for special characters in key
 
 2. **API Key Errors**:
-   - Ensure `SMART_OUTLETS_API_KEY` is set in environment
+   - Ensure `SERVICE_TOKEN` is set in environment
    - Check that API key is included in request headers
    - Verify key matches exactly
 
