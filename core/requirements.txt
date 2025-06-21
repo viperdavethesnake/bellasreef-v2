@@ -35,3 +35,8 @@ psutil==5.9.8
 # Utilities
 tenacity>=8.2.0
 cryptography>=41.0.0
+
+# Driver dependencies
+pyHS100>=0.3.5.2
+aioshelly>=1.0.0
+pyvesync>=2.1.0
