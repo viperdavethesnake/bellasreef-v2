@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 from ..crud import probe as probe_crud
@@ -43,3 +43,20 @@ def get_current_reading(hardware_id: str):
 def get_probe_history(hardware_id: str):
     """Returns stub/dummy data for probe history."""
     return {"message": f"History for probe {hardware_id} is not yet implemented."}
+
+@router.delete("/{hardware_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(get_api_key)])
+async def delete_probe(hardware_id: str, db: AsyncSession = Depends(get_db)):
+    deleted = await probe_crud.delete_probe(db, hardware_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Probe not found.")
+    return None
+
+@router.get("/{hardware_id}/temperature", dependencies=[Depends(get_api_key)])
+async def get_probe_temperature(hardware_id: str, db: AsyncSession = Depends(get_db)):
+    probe = await probe_crud.get_probe(db, hardware_id)
+    if not probe:
+        raise HTTPException(status_code=404, detail="Probe not found.")
+    # Stub/mock temperature value
+    temperature = 23.5
+    unit = "C"
+    return {"hardware_id": hardware_id, "temperature": temperature, "unit": unit}
