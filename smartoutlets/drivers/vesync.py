@@ -2,7 +2,7 @@
 VeSync SmartOutlet Driver
 
 This module provides the VeSyncDriver class for controlling VeSync devices
-using the pyvesync library.
+using the pyvesync library. Includes device discovery, control, and state retrieval.
 """
 
 import asyncio
@@ -22,6 +22,7 @@ class VeSyncDriver(AbstractSmartOutletDriver):
     Driver for VeSync smart outlets.
     
     Uses pyvesync library with asyncio.run_in_executor for non-blocking operations.
+    Supports device discovery, control, and state retrieval.
     """
     
     def __init__(self, device_id: str, ip_address: str, auth_info: Optional[Dict] = None):
@@ -29,9 +30,9 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         Initialize the VeSync driver.
         
         Args:
-            device_id: Unique identifier for the device
-            ip_address: IP address of the VeSync device
-            auth_info: Authentication information containing email, password, and vesync_device_name
+            device_id (str): Unique identifier for the device
+            ip_address (str): IP address of the VeSync device
+            auth_info (Optional[Dict]): Authentication information containing email, password, and vesync_device_name
         """
         super().__init__(device_id, ip_address, auth_info)
         self._logger = logging.getLogger(f"VeSyncDriver.{device_id}")
@@ -44,8 +45,8 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         Discover VeSync devices using cloud credentials.
         
         Args:
-            email: VeSync account email
-            password: VeSync account password
+            email (str): VeSync account email
+            password (str): VeSync account password
             
         Returns:
             List[Dict]: List of discovered VeSync devices

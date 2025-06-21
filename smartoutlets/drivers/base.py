@@ -2,6 +2,7 @@
 Abstract SmartOutlet Driver Base Class
 
 This module defines the base class that all smart outlet drivers must implement.
+It provides the interface and retry logic for all driver implementations.
 """
 
 import asyncio
@@ -21,7 +22,7 @@ class AbstractSmartOutletDriver(ABC):
     Abstract base class for smart outlet drivers.
     
     All driver implementations must inherit from this class and implement
-    the required methods.
+    the required methods for device control and state retrieval.
     """
     
     def __init__(self, device_id: str, ip_address: str, auth_info: Optional[Dict] = None):
@@ -29,9 +30,9 @@ class AbstractSmartOutletDriver(ABC):
         Initialize the driver.
         
         Args:
-            device_id: Unique identifier for the device
-            ip_address: IP address of the device
-            auth_info: Optional authentication information
+            device_id (str): Unique identifier for the device
+            ip_address (str): IP address of the device
+            auth_info (Optional[Dict]): Optional authentication information
         """
         self.device_id = device_id
         self.ip_address = ip_address
@@ -53,7 +54,7 @@ class AbstractSmartOutletDriver(ABC):
         Perform a network action with retry logic and timeout.
         
         Args:
-            action_coro: The coroutine to execute
+            action_coro (Coroutine): The coroutine to execute
             
         Returns:
             Any: The result of the action

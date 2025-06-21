@@ -2,6 +2,7 @@
 SmartOutlets Configuration Module
 
 This module handles configuration for the smartoutlets module using pydantic-settings.
+It provides environment-based settings and driver enablement logic.
 """
 
 from typing import Optional
@@ -33,6 +34,7 @@ class SmartOutletsSettings(BaseSettings):
     
     # Security
     ENCRYPTION_KEY: str = Field(description="Encryption key for sensitive data")
+    SECRET_API_KEY: str = Field(description="Secret API key for authentication")
     
     class Config:
         env_file = ".env"
@@ -49,7 +51,7 @@ def is_driver_enabled(driver_type: str) -> bool:
     Return whether the given driver is enabled via config.
     
     Args:
-        driver_type: The driver type to check. Must be one of: "kasa", "shelly", "vesync"
+        driver_type (str): The driver type to check. Must be one of: "kasa", "shelly", "vesync"
         
     Returns:
         bool: True if the driver is enabled, False otherwise

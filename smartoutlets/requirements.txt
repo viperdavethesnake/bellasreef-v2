@@ -1,16 +1,25 @@
-# SmartOutlets Module Dependencies
+# SmartOutlets Module Requirements
 
 # Core dependencies
 fastapi>=0.104.0
-pydantic>=2.0.0
-pydantic-settings>=2.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
 sqlalchemy>=2.0.0
-tenacity>=8.2.0
+asyncpg>=0.29.0
 
-# Driver-specific dependencies
-pyHS100>=0.3.5  # For Kasa devices
-aioshelly>=0.5.0  # For Shelly devices
-pyvesync>=2.1.0  # For VeSync devices
+# Driver dependencies
+pyHS100>=0.3.5.2
+aioshelly>=1.0.0
+pyvesync>=2.1.0
+
+# Utilities
+tenacity>=8.2.0
+cryptography>=41.0.0
+
+# Development and testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+httpx>=0.25.0
 
 # Optional: For better async support
 asyncio-mqtt>=0.13.0 

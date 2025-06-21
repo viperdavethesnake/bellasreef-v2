@@ -2,7 +2,7 @@
 Shelly SmartOutlet Driver
 
 This module provides the ShellyDriver class for controlling Shelly Gen1/Gen2 devices
-using the aioshelly library.
+using the aioshelly library. Includes device discovery, control, and state retrieval.
 """
 
 import asyncio
@@ -22,6 +22,7 @@ class ShellyDriver(AbstractSmartOutletDriver):
     Driver for Shelly Gen1/Gen2 smart outlets.
     
     Supports both generations with automatic detection at runtime.
+    Provides device discovery, control, and state retrieval.
     """
     
     def __init__(self, device_id: str, ip_address: str, auth_info: Optional[Dict] = None):
@@ -29,9 +30,9 @@ class ShellyDriver(AbstractSmartOutletDriver):
         Initialize the Shelly driver.
         
         Args:
-            device_id: Unique identifier for the device
-            ip_address: IP address of the Shelly device
-            auth_info: Optional authentication information (username/password)
+            device_id (str): Unique identifier for the device
+            ip_address (str): IP address of the Shelly device
+            auth_info (Optional[Dict]): Optional authentication information (username/password)
         """
         super().__init__(device_id, ip_address, auth_info)
         self._logger = logging.getLogger(f"ShellyDriver.{device_id}")
@@ -94,7 +95,7 @@ class ShellyDriver(AbstractSmartOutletDriver):
         Get the relay component (Gen1) or switch component (Gen2).
         
         Args:
-            device: The aioshelly device instance
+            device (aioshelly.Device): The aioshelly device instance
             
         Returns:
             Relay or Switch component

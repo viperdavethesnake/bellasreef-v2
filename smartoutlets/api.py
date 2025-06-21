@@ -1,13 +1,15 @@
 """
 SmartOutlet API Routes
 
-This module defines FastAPI routes for smart outlet operations.
+This module defines FastAPI routes for smart outlet operations, including
+creation, update, control, and discovery of smart outlets. All endpoints
+are documented for OpenAPI/Swagger UI.
 """
 
 from uuid import uuid4
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,9 +21,10 @@ from .schemas import (
     SmartOutletCreate, SmartOutletRead, SmartOutletState, SmartOutletUpdate,
     VeSyncDiscoveryRequest, DiscoveredDevice, DiscoveryTaskResponse, DiscoveryResults
 )
-from .exceptions import OutletNotFoundError, OutletConnectionError
+from .exceptions import OutletNotFoundError, OutletConnectionError, OutletAuthenticationError
 from .handlers import register_exception_handlers
 from .discovery_service import DiscoveryService
+from .config import settings
 
 router = APIRouter()
 
@@ -29,13 +32,46 @@ router = APIRouter()
 discovery_service = DiscoveryService()
 
 
+def require_api_key(api_key: str = Header(..., description="API key for authentication")):
+    """
+    Demo authentication dependency for API routes.
+
+    This is a placeholder implementation showing how API authentication
+    will integrate with the project-wide security system in the future.
+
+    Args:
+        api_key: API key from request header
+
+    Raises:
+        HTTPException: 403 if API key is invalid
+    """
+    if api_key != settings.SECRET_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Invalid API key"
+        )
+
+
 async def get_smart_outlet_manager() -> SmartOutletManager:
-    """FastAPI dependency to provide SmartOutletManager instance."""
+    """
+    Dependency to provide a SmartOutletManager instance.
+
+    Returns:
+        SmartOutletManager: The manager instance
+    """
     logger = get_logger(__name__)
     return SmartOutletManager(async_session, logger)
 
 
-@router.post("/outlets/", response_model=SmartOutletRead, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/outlets/",
+    response_model=SmartOutletRead,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_api_key)],
+    summary="Create a new smart outlet",
+    description="Creates a new smart outlet record in the database and registers it with the manager.",
+    tags=["Smart Outlets"]
+)
 async def create_outlet(
     outlet_data: SmartOutletCreate,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
@@ -43,15 +79,15 @@ async def create_outlet(
 ):
     """
     Create a new smart outlet.
-    
+
     Args:
         outlet_data: Smart outlet creation data
         manager: SmartOutletManager instance
         session: Database session
-        
+
     Returns:
         SmartOutletRead: Created outlet data
-        
+
     Raises:
         HTTPException: If outlet with same driver_type and driver_device_id already exists
     """
@@ -99,18 +135,24 @@ async def create_outlet(
     return SmartOutletRead.model_validate(outlet)
 
 
-@router.get("/outlets/", response_model=List[SmartOutletRead])
+@router.get(
+    "/outlets/",
+    response_model=List[SmartOutletRead],
+    summary="List all smart outlets",
+    description="Retrieves a list of all smart outlets, optionally including disabled ones.",
+    tags=["Smart Outlets"]
+)
 async def list_outlets(
     include_disabled: bool = Query(False, description="Include disabled outlets"),
     manager: SmartOutletManager = Depends(get_smart_outlet_manager)
 ):
     """
     List all smart outlets.
-    
+
     Args:
         include_disabled: Whether to include disabled outlets
         manager: SmartOutletManager instance
-        
+
     Returns:
         List[SmartOutletRead]: List of outlet data
     """
@@ -118,7 +160,14 @@ async def list_outlets(
     return [SmartOutletRead.model_validate(outlet) for outlet in outlets]
 
 
-@router.patch("/outlets/{outlet_id}", response_model=SmartOutletRead, status_code=status.HTTP_200_OK)
+@router.patch(
+    "/outlets/{outlet_id}",
+    response_model=SmartOutletRead,
+    status_code=status.HTTP_200_OK,
+    summary="Update a smart outlet",
+    description="Updates the configuration of an existing smart outlet.",
+    tags=["Smart Outlets"]
+)
 async def update_outlet(
     outlet_id: str,
     update_data: SmartOutletUpdate,
@@ -126,48 +175,60 @@ async def update_outlet(
 ):
     """
     Update an existing smart outlet configuration.
-    
+
     Args:
         outlet_id: The ID of the outlet to update
         update_data: Update data containing allowed fields
         manager: SmartOutletManager instance
-        
+
     Returns:
         SmartOutletRead: Updated outlet data
     """
     return await manager.update_outlet(outlet_id, update_data)
 
 
-@router.get("/outlets/{outlet_id}/state", response_model=SmartOutletState)
+@router.get(
+    "/outlets/{outlet_id}/state",
+    response_model=SmartOutletState,
+    summary="Get smart outlet state",
+    description="Retrieves the current state and telemetry of a smart outlet.",
+    tags=["State"]
+)
 async def get_outlet_state(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager)
 ):
     """
     Get the current state of a smart outlet.
-    
+
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
-        
+
     Returns:
         SmartOutletState: Current outlet state
     """
     return await manager.get_outlet_status(outlet_id)
 
 
-@router.post("/outlets/{outlet_id}/turn_on", status_code=status.HTTP_200_OK)
+@router.post(
+    "/outlets/{outlet_id}/turn_on",
+    status_code=status.HTTP_200_OK,
+    summary="Turn on smart outlet",
+    description="Activates the specified smart outlet using its configured driver.",
+    tags=["Control"]
+)
 async def turn_on_outlet(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager)
 ):
     """
     Turn on a smart outlet.
-    
+
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
-        
+
     Returns:
         dict: Success response
     """
@@ -181,18 +242,24 @@ async def turn_on_outlet(
         )
 
 
-@router.post("/outlets/{outlet_id}/turn_off", status_code=status.HTTP_200_OK)
+@router.post(
+    "/outlets/{outlet_id}/turn_off",
+    status_code=status.HTTP_200_OK,
+    summary="Turn off smart outlet",
+    description="Deactivates the specified smart outlet using its configured driver.",
+    tags=["Control"]
+)
 async def turn_off_outlet(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager)
 ):
     """
     Turn off a smart outlet.
-    
+
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
-        
+
     Returns:
         dict: Success response
     """
@@ -206,18 +273,24 @@ async def turn_off_outlet(
         )
 
 
-@router.post("/outlets/{outlet_id}/toggle", response_model=SmartOutletState)
+@router.post(
+    "/outlets/{outlet_id}/toggle",
+    response_model=SmartOutletState,
+    summary="Toggle smart outlet",
+    description="Toggles the state of the specified smart outlet (on/off).",
+    tags=["Control"]
+)
 async def toggle_outlet(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager)
 ):
     """
     Toggle a smart outlet (turn off if on, turn on if off).
-    
+
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
-        
+
     Returns:
         SmartOutletState: Current outlet state after toggle
     """
@@ -234,11 +307,18 @@ async def toggle_outlet(
 
 # Discovery Endpoints
 
-@router.post("/outlets/discover/local", response_model=DiscoveryTaskResponse, status_code=status.HTTP_202_ACCEPTED)
+@router.post(
+    "/outlets/discover/local",
+    response_model=DiscoveryTaskResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+    summary="Start local device discovery",
+    description="Initiates asynchronous discovery of Shelly and Kasa devices on the local network.",
+    tags=["Discovery"]
+)
 async def start_local_discovery():
     """
     Start local device discovery for Shelly and Kasa devices.
-    
+
     Returns:
         DiscoveryTaskResponse: Task ID for tracking the discovery process
     """
@@ -246,17 +326,23 @@ async def start_local_discovery():
     return DiscoveryTaskResponse(task_id=task_id)
 
 
-@router.get("/outlets/discover/local/{task_id}/results", response_model=DiscoveryResults)
+@router.get(
+    "/outlets/discover/local/{task_id}/results",
+    response_model=DiscoveryResults,
+    summary="Get local discovery results",
+    description="Retrieves the results of a local device discovery task by task ID.",
+    tags=["Discovery"]
+)
 async def get_local_discovery_results(task_id: str):
     """
     Get results from a local discovery task.
-    
+
     Args:
         task_id: The task ID to retrieve results for
-        
+
     Returns:
         DiscoveryResults: Discovery results and status
-        
+
     Raises:
         HTTPException: 404 if task not found
     """
@@ -283,17 +369,23 @@ async def get_local_discovery_results(task_id: str):
     )
 
 
-@router.post("/outlets/discover/cloud/vesync", response_model=List[DiscoveredDevice])
+@router.post(
+    "/outlets/discover/cloud/vesync",
+    response_model=List[DiscoveredDevice],
+    summary="Discover VeSync cloud devices",
+    description="Discovers VeSync smart outlets using provided cloud credentials.",
+    tags=["Discovery"]
+)
 async def discover_vesync_devices(request: VeSyncDiscoveryRequest):
     """
     Discover VeSync devices using cloud credentials.
-    
+
     Args:
         request: VeSync discovery request with email and password
-        
+
     Returns:
         List[DiscoveredDevice]: List of discovered VeSync devices
-        
+
     Raises:
         HTTPException: 401 if credentials are invalid, 503 if discovery fails
     """

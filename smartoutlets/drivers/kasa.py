@@ -2,7 +2,7 @@
 Kasa SmartOutlet Driver
 
 This module provides the KasaDriver class for controlling TP-Link Kasa devices
-using the pyHS100 library.
+using the pyHS100 library. Includes device discovery, control, and state retrieval.
 """
 
 import asyncio
@@ -22,6 +22,7 @@ class KasaDriver(AbstractSmartOutletDriver):
     Driver for TP-Link Kasa smart outlets.
     
     Uses pyHS100 library with asyncio.run_in_executor for non-blocking operations.
+    Supports device discovery, control, and state retrieval.
     """
     
     def __init__(self, device_id: str, ip_address: str, auth_info: Optional[Dict] = None):
@@ -29,9 +30,9 @@ class KasaDriver(AbstractSmartOutletDriver):
         Initialize the Kasa driver.
         
         Args:
-            device_id: Unique identifier for the device
-            ip_address: IP address of the Kasa device
-            auth_info: Optional authentication information
+            device_id (str): Unique identifier for the device
+            ip_address (str): IP address of the Kasa device
+            auth_info (Optional[Dict]): Optional authentication information
         """
         super().__init__(device_id, ip_address, auth_info)
         self._logger = logging.getLogger(f"KasaDriver.{device_id}")
