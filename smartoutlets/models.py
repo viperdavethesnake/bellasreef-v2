@@ -12,11 +12,10 @@ from uuid import uuid4
 
 from sqlalchemy import Column, String, Boolean, DateTime, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.ext.declarative import declarative_base
+# Use shared Base for cross-service table registration!
+from shared.db.database import Base
 
 from .db_encryption import EncryptedJSON
-
-Base = declarative_base()
 
 
 @dataclass
