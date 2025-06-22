@@ -1,27 +1,16 @@
 #!/bin/bash
 #
-# Bella's Reef - Unified Project Setup Script
+# Bella's Reef - Unified Project Setup Script (v2)
 #
-# This script creates a single virtual environment for the entire project
-# and installs all required dependencies from all services.
+# This script creates a single virtual environment and installs all
+# dependencies from the single, unified requirements.txt at the project root.
 
 set -e # Exit immediately if a command exits with a non-zero status.
 
 # --- Configuration ---
 PYTHON_CMD="python3"
 VENV_DIR=".venv"
-PROJECT_ROOT=$(pwd)
 REQUIREMENTS_FILE="requirements.txt"
-TEMP_REQUIREMENTS="all_requirements.tmp"
-
-# --- Functions ---
-cleanup() {
-    echo "🧹 Cleaning up temporary files..."
-    rm -f "$PROJECT_ROOT/$TEMP_REQUIREMENTS"
-}
-
-# Register the cleanup function to be called on script exit
-trap cleanup EXIT
 
 # --- Main Script ---
 echo "🚀 Starting Bella's Reef Project Setup..."
@@ -32,26 +21,15 @@ then
     echo "❌ Error: $PYTHON_CMD is not installed or not in your PATH."
     exit 1
 fi
-
 echo "✅ Python 3 found."
 
-# 2. Consolidate all requirements.txt files
-echo "📝 Consolidating all requirements.txt files..."
-# Create/clear the temp file
-> "$PROJECT_ROOT/$TEMP_REQUIREMENTS"
-
-# Find all requirements.txt files in the service directories and concatenate them
-find "$PROJECT_ROOT/control" "$PROJECT_ROOT/core" "$PROJECT_ROOT/poller" "$PROJECT_ROOT/scheduler" "$PROJECT_ROOT/shared" "$PROJECT_ROOT/smartoutlets" "$PROJECT_ROOT/temp" -name "requirements.txt" -print0 | while IFS= read -r -d '' file; do
-    echo "   -> Found: $file"
-    cat "$file" >> "$PROJECT_ROOT/$TEMP_REQUIREMENTS"
-    echo "" >> "$PROJECT_ROOT/$TEMP_REQUIREMENTS" # Add a newline for safety
-done
-
-# Remove duplicate lines and create the final requirements.txt
-echo "   -> Creating unified '$REQUIREMENTS_FILE' at project root..."
-sort -u "$PROJECT_ROOT/$TEMP_REQUIREMENTS" > "$PROJECT_ROOT/$REQUIREMENTS_FILE"
-
-echo "✅ All dependencies consolidated into '$PROJECT_ROOT/$REQUIREMENTS_FILE'."
+# 2. Check for the unified requirements.txt at the project root
+if [ ! -f "$REQUIREMENTS_FILE" ]; then
+    echo "❌ Error: Unified '$REQUIREMENTS_FILE' not found at project root."
+    echo "   Please create it before running setup."
+    exit 1
+fi
+echo "✅ Found unified '$REQUIREMENTS_FILE'."
 
 # 3. Create Virtual Environment
 if [ -d "$VENV_DIR" ]; then
@@ -69,7 +47,7 @@ source "$VENV_DIR/bin/activate"
 # Upgrade pip
 pip install --upgrade pip
 
-# Install all dependencies from the unified requirements file
+# Install all dependencies from the single, unified requirements file
 pip install -r "$REQUIREMENTS_FILE"
 
 echo "✅ All dependencies installed successfully."
@@ -86,9 +64,6 @@ echo ""
 echo "2. Initialize the database (run this once):"
 echo "   python scripts/init_db.py"
 echo ""
-echo "3. Start the services using the new start scripts:"
-echo "   ./scripts/start_all.sh (to run all services)"
-echo "   OR"
-echo "   ./scripts/start_core.sh (to run a single service)"
+echo "3. Start the services using the start scripts:"
+echo "   ./scripts/start_all.sh"
 echo "---------------------------------------------------------"
-
