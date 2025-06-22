@@ -25,21 +25,74 @@ from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username
 from sqlalchemy import text
 
+# ANSI Color Constants
+RED = "\033[91m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+MAGENTA = "\033[95m"
+CYAN = "\033[96m"
+WHITE = "\033[97m"
+BOLD = "\033[1m"
+NC = "\033[0m"  # No Color
+
+def print_banner():
+    """Print the Bella's Reef banner."""
+    print(f"""
+{BLUE}╔══════════════════════════════════════════════════════════════╗
+║                    {BOLD}🗄️  Bella's Reef v2.3.0{NC}{BLUE}                    ║
+║                   Database Initialization                    ║
+╚══════════════════════════════════════════════════════════════╝{NC}
+""")
+
+def print_section(title: str):
+    """Print a section header."""
+    print(f"\n{BLUE}╔══ {BOLD}{title}{NC}{BLUE} {'═' * (50 - len(title))}")
+
+def print_section_end():
+    """Print a section end."""
+    print(f"{BLUE}╚{'═' * 52}{NC}\n")
+
+def print_progress(message: str):
+    """Print a progress message."""
+    print(f"{BLUE}🔄{NC} {BOLD}{message}{NC}")
+
+def print_success(message: str):
+    """Print a success message."""
+    print(f"{GREEN}✓{NC} {BOLD}{message}{NC}")
+
+def print_error(message: str):
+    """Print an error message."""
+    print(f"{RED}✗{NC} {BOLD}{message}{NC}")
+
+def print_warning(message: str):
+    """Print a warning message."""
+    print(f"{YELLOW}⚠️{NC} {BOLD}{message}{NC}")
+
+def print_info(message: str):
+    """Print an info message."""
+    print(f"{CYAN}ℹ️{NC} {BOLD}{message}{NC}")
+
 def check_env_file() -> bool:
     """Check if the root .env file exists and print status."""
+    print_section("Environment Check")
+    
     # This now correctly points to the project root .env file.
     env_path = project_root / ".env"
     if not env_path.exists():
-        print("❌ Error: Project root .env file not found!")
-        print(f"   Expected location: {env_path}")
-        print("   Please copy env.example to .env and configure your settings.")
+        print_error("Project root .env file not found!")
+        print(f"   {CYAN}Expected location:{NC} {env_path}")
+        print(f"   {WHITE}Please copy env.example to .env and configure your settings.{NC}")
         return False
     
-    print(f"✅ Found project .env file: {env_path}")
+    print_success("Found project .env file")
+    print(f"   {CYAN}Location:{NC} {env_path}")
     return True
 
 def validate_required_settings() -> bool:
     """Validate that all required settings are present."""
+    print_section("Configuration Validation")
+    
     required_settings = {
         "SECRET_KEY": settings.SECRET_KEY,
         "DATABASE_URL": settings.DATABASE_URL,
@@ -55,60 +108,78 @@ def validate_required_settings() -> bool:
             missing_settings.append(name)
     
     if missing_settings:
-        # Corrected error message to refer to the root .env file.
-        print("❌ Error: Missing or default required settings in your .env file:")
+        print_error("Missing or default required settings in your .env file:")
         for setting in missing_settings:
-            print(f"   - {setting}")
-        print("   Please check your .env file and ensure all required values are set.")
+            print(f"   {RED}•{NC} {setting}")
+        print(f"   {WHITE}Please check your .env file and ensure all required values are set.{NC}")
         return False
     
-    print("✅ All required settings are configured.")
+    print_success("All required settings are configured")
     return True
 
 def print_config_summary():
     """Print a summary of the current configuration."""
-    print("\n📋 Configuration Summary:")
-    print(f"   Database URL:   {settings.DATABASE_URL}")
-    print(f"   Admin User:     {settings.ADMIN_USERNAME} ({settings.ADMIN_EMAIL})")
-    print(f"   Service Token:  {settings.SERVICE_TOKEN[:10]}...")
-    # Updated to show multiple service ports for clarity
-    print("   Service Ports:")
-    print(f"     - Core:         {settings.SERVICE_PORT_CORE}")
-    print(f"     - Temp:         {settings.SERVICE_PORT_TEMP}")
-    print(f"     - SmartOutlets: {settings.SERVICE_PORT_SMARTOUTLETS}")
+    print_section("Configuration Summary")
+    
+    print(f"{WHITE}╔══════════════════════════════════════════════════════════════╗")
+    print(f"║                    {BOLD}Configuration Summary{NC}{WHITE}                    ║")
+    print(f"╠══════════════════════════════════════════════════════════════════╣")
+    
+    # Truncate database URL for display
+    db_url = settings.DATABASE_URL
+    if len(db_url) > 45:
+        db_url = db_url[:42] + "..."
+    print(f"║ {CYAN}Database:{NC} {db_url:<45} ║")
+    
+    # Format admin user info
+    admin_info = f"{settings.ADMIN_USERNAME} ({settings.ADMIN_EMAIL})"
+    if len(admin_info) > 45:
+        admin_info = admin_info[:42] + "..."
+    print(f"║ {CYAN}Admin User:{NC} {admin_info:<45} ║")
+    
+    # Format service token
+    token_display = f"{settings.SERVICE_TOKEN[:10]}..."
+    print(f"║ {CYAN}Service Token:{NC} {token_display:<45} ║")
+    
+    print(f"╚══════════════════════════════════════════════════════════════════╝")
 
 async def reset_db():
     """Completely reset the PostgreSQL database schema."""
+    print_section("Database Reset")
+    
     try:
         async with engine.begin() as conn:
-            print("\n🗑️  Dropping entire 'public' schema with CASCADE...")
+            print_progress("Dropping entire 'public' schema with CASCADE")
             await conn.execute(text("DROP SCHEMA public CASCADE"))
-            print("✅ Public schema dropped successfully.")
+            print_success("Public schema dropped successfully")
             
-            print("🏗️  Recreating 'public' schema...")
+            print_progress("Recreating 'public' schema")
             await conn.execute(text("CREATE SCHEMA public"))
-            print("✅ Public schema recreated successfully.")
+            print_success("Public schema recreated successfully")
             
-            print("📐 Creating all database tables from unified models...")
+            print_progress("Creating all database tables from unified models")
             await conn.run_sync(Base.metadata.create_all)
-            print("✅ All database tables created successfully.")
+            print_success("All database tables created successfully")
             
-        print("\n✅ Database schema reset complete.")
+        print_success("Database schema reset complete")
     except Exception as e:
-        print(f"❌ Database reset failed: {e}")
-        print("   This may indicate a connection issue or insufficient database privileges.")
-        print("   Ensure PostgreSQL is running and the database user has CREATE/DROP privileges.")
+        print_error(f"Database reset failed: {e}")
+        print(f"   {WHITE}This may indicate a connection issue or insufficient database privileges.{NC}")
+        print(f"   {WHITE}Ensure PostgreSQL is running and the database user has CREATE/DROP privileges.{NC}")
         raise
 
 async def create_admin_user():
     """Create default admin user using settings from .env file."""
+    print_section("Admin User Creation")
+    
     try:
         async with async_session() as session:
             existing_admin = await get_user_by_username(session, settings.ADMIN_USERNAME)
             if existing_admin:
-                print(f"⚠️  Admin user '{settings.ADMIN_USERNAME}' already exists.")
+                print_warning(f"Admin user '{settings.ADMIN_USERNAME}' already exists")
                 return
             
+            print_progress(f"Creating admin user '{settings.ADMIN_USERNAME}'")
             admin = User(
                 username=settings.ADMIN_USERNAME,
                 email=settings.ADMIN_EMAIL,
@@ -119,9 +190,9 @@ async def create_admin_user():
             )
             session.add(admin)
             await session.commit()
-            print(f"👤 Admin user '{settings.ADMIN_USERNAME}' created successfully.")
+            print_success(f"Admin user '{settings.ADMIN_USERNAME}' created successfully")
     except Exception as e:
-        print(f"❌ Admin user creation failed: {e}")
+        print_error(f"Admin user creation failed: {e}")
         raise
 
 async def main():
@@ -129,11 +200,18 @@ async def main():
     parser = argparse.ArgumentParser(description="Initialize Bella's Reef database")
     parser.add_argument("--check", action="store_true", help="Validate configuration only")
     parser.add_argument("--dry-run", action="store_true", help="Check config and print summary")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output with detailed progress")
+    parser.add_argument("--silent", "-s", action="store_true", help="Suppress all output except errors")
     
     args = parser.parse_args()
     
-    print("🗄️  Bella's Reef Database Initialization")
-    print("=" * 50)
+    # Suppress output if silent mode
+    if args.silent:
+        # Redirect stdout to devnull for silent mode
+        import os
+        sys.stdout = open(os.devnull, 'w')
+    
+    print_banner()
     
     if not check_env_file():
         sys.exit(1)
@@ -144,27 +222,51 @@ async def main():
     print_config_summary()
     
     if args.check or args.dry_run:
-        print("\n✅ Dry run complete. No database changes made.")
+        print_success("Dry run complete. No database changes made")
         return
     
-    print(f"\n⚠️  DESTRUCTIVE OPERATION WARNING!")
-    print(f"   This will COMPLETELY RESET the database at:")
-    print(f"   -> {settings.DATABASE_URL}")
-    print(f"   All existing data in the 'public' schema will be PERMANENTLY LOST.")
+    print_section("Destructive Operation Warning")
     
-    response = input("\n   Continue with schema reset? (y/N): ").strip().lower()
-    if response not in ['y', 'yes']:
-        print("❌ Database initialization cancelled.")
+    print_warning("DESTRUCTIVE OPERATION WARNING!")
+    print(f"   {RED}This will COMPLETELY RESET the database at:{NC}")
+    print(f"   {CYAN}→ {settings.DATABASE_URL}{NC}")
+    print(f"   {RED}All existing data in the 'public' schema will be PERMANENTLY LOST!{NC}")
+    
+    print(f"\n{YELLOW}💡 Tip:{NC} Consider backing up your database before proceeding:")
+    print(f"   {CYAN}pg_dump -h localhost -U your_user your_db > backup_$(date +%Y%m%d_%H%M%S).sql{NC}")
+    
+    print(f"\n{YELLOW}   Are you absolutely sure you want to continue?{NC}")
+    print(f"   {WHITE}Type '{BOLD}YES{NC}' to confirm: {NC}", end="")
+    
+    response = input().strip()
+    if response != "YES":
+        print_error("Database initialization cancelled")
         sys.exit(0)
     
     try:
         await reset_db()
         await create_admin_user()
-        print("\n🎉 Database initialization complete!")
-        print("   You can now start the application services.")
+        
+        print_section("Success")
+        print(f"{GREEN}╔══════════════════════════════════════════════════════════════╗")
+        print(f"║                    {BOLD}🎉 SUCCESS! 🎉{NC}{GREEN}                    ║")
+        print(f"╚══════════════════════════════════════════════════════════════════╝{NC}")
+        print(f"\n{GREEN}✓{NC} Database initialized successfully!")
+        print(f"{GREEN}✓{NC} Admin user '{settings.ADMIN_USERNAME}' created!")
+        print(f"\n{BLUE}Next Steps:{NC}")
+        print(f"   1. Start the core service: {CYAN}./scripts/start_api_core.sh{NC}")
+        print(f"   2. Start other services: {CYAN}./scripts/start_all.sh{NC}")
         
     except Exception as e:
-        print(f"\n❌ Database initialization failed during execution.")
+        print(f"\n{RED}╔══════════════════════════════════════════════════════════════╗")
+        print(f"║                    {BOLD}❌ ERROR ❌{NC}{RED}                    ║")
+        print(f"╚══════════════════════════════════════════════════════════════════╝{NC}")
+        print(f"\n{RED}✗{NC} {BOLD}Database initialization failed:{NC}")
+        print(f"   {WHITE}Error:{NC} {e}")
+        print(f"\n{YELLOW}💡 Troubleshooting:{NC}")
+        print(f"   • Check PostgreSQL is running")
+        print(f"   • Verify database credentials in .env")
+        print(f"   • Ensure database user has CREATE/DROP privileges")
         sys.exit(1)
 
 if __name__ == "__main__":
