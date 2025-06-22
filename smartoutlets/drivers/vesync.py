@@ -40,13 +40,14 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         self._device = None
     
     @classmethod
-    async def discover_devices(cls, email: str, password: str) -> List[Dict[str, Any]]:
+    async def discover_devices(cls, email: str, password: str, time_zone: str = "America/New_York") -> List[Dict[str, Any]]:
         """
         Discover VeSync devices using cloud credentials.
         
         Args:
             email (str): VeSync account email
             password (str): VeSync account password
+            time_zone (str): IANA timezone for VeSync API communications
             
         Returns:
             List[Dict]: List of discovered VeSync devices
@@ -60,8 +61,8 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         try:
             loop = asyncio.get_running_loop()
             
-            # Create VeSync manager and login
-            manager = VeSync(email, password)
+            # Create VeSync manager and login with timezone
+            manager = VeSync(email, password, time_zone=time_zone)
             login_success = await loop.run_in_executor(None, manager.login)
             
             if not login_success:
@@ -115,14 +116,15 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         if self._manager is None:
             email = self.auth_info.get('email')
             password = self.auth_info.get('password')
+            time_zone = self.auth_info.get('time_zone', 'America/New_York')
             
             if not email or not password:
                 raise ValueError("VeSync authentication requires email and password")
             
             loop = asyncio.get_running_loop()
             
-            # Create manager instance
-            self._manager = VeSync(email, password)
+            # Create manager instance with timezone
+            self._manager = VeSync(email, password, time_zone=time_zone)
             
             # Login and check result
             login_success = await loop.run_in_executor(None, self._manager.login)

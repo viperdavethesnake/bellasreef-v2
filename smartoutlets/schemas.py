@@ -9,7 +9,8 @@ from typing import Optional, Dict, Any, List
 from uuid import UUID
 from datetime import datetime
 
-from pydantic import BaseModel, Field, constr, EmailStr, SecretStr
+from pydantic import BaseModel, Field, constr, EmailStr, SecretStr, field_validator
+import pytz
 from .enums import OutletRole, SmartOutletDriverType
 
 
@@ -135,10 +136,18 @@ class VeSyncDiscoveryRequest(BaseModel):
     Attributes:
         email (str): VeSync account email
         password (str): VeSync account password
+        time_zone (str): IANA timezone for VeSync API communications
     """
     
     email: str = Field(..., description="VeSync account email")
     password: str = Field(..., description="VeSync account password")
+    time_zone: str = Field(..., description="IANA timezone for VeSync API communications")
+
+    @field_validator('time_zone')
+    def validate_timezone(cls, v):
+        if v not in pytz.all_timezones:
+            raise ValueError(f"'{v}' is not a valid IANA time zone.")
+        return v
 
 
 class DiscoveredDevice(BaseModel):
@@ -198,8 +207,16 @@ class VeSyncAccountBase(BaseModel):
 
     Attributes:
         email (EmailStr): VeSync account email address
+        time_zone (str): IANA timezone for VeSync API communications
     """
     email: EmailStr
+    time_zone: str = Field(..., description="IANA timezone for VeSync API communications")
+
+    @field_validator('time_zone')
+    def validate_timezone(cls, v):
+        if v not in pytz.all_timezones:
+            raise ValueError(f"'{v}' is not a valid IANA time zone.")
+        return v
 
 
 class VeSyncAccountCreate(VeSyncAccountBase):
@@ -208,6 +225,7 @@ class VeSyncAccountCreate(VeSyncAccountBase):
 
     Attributes:
         email (EmailStr): VeSync account email address
+        time_zone (str): IANA timezone for VeSync API communications
         password (SecretStr): VeSync account password (encrypted in storage)
         is_active (bool): Whether the account is active
     """
@@ -223,10 +241,18 @@ class VeSyncAccountUpdate(BaseModel):
         email (Optional[EmailStr]): VeSync account email address
         password (Optional[SecretStr]): VeSync account password (encrypted in storage)
         is_active (Optional[bool]): Whether the account is active
+        time_zone (Optional[str]): IANA timezone for VeSync API communications
     """
     email: Optional[EmailStr] = None
     password: Optional[SecretStr] = None
     is_active: Optional[bool] = None
+    time_zone: Optional[str] = Field(None, description="IANA timezone for VeSync API communications")
+
+    @field_validator('time_zone')
+    def validate_timezone(cls, v):
+        if v is not None and v not in pytz.all_timezones:
+            raise ValueError(f"'{v}' is not a valid IANA time zone.")
+        return v
 
 
 class VeSyncAccountRead(VeSyncAccountBase):

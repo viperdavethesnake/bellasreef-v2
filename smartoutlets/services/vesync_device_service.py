@@ -52,8 +52,8 @@ class VeSyncDeviceService:
         if not password:
             raise OutletAuthenticationError(f"Could not decrypt password for account {account.email}")
         
-        # Create manager
-        manager = VeSync(account.email, password)
+        # Create manager with stored timezone
+        manager = VeSync(account.email, password, time_zone=account.time_zone)
         
         # Login
         login_success = await asyncio.to_thread(manager.login)

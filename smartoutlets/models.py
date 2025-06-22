@@ -114,6 +114,9 @@ class VeSyncAccount(Base):
     email = Column(String, nullable=False, unique=True, index=True, comment="VeSync account email")
     password_encrypted = Column(LargeBinary, nullable=False, comment="Encrypted VeSync account password")
     
+    # Timezone configuration
+    time_zone = Column(String, nullable=False, comment="IANA timezone for VeSync API communications")
+    
     # Status and sync information
     is_active = Column(Boolean, default=True, nullable=False, comment="Whether the account is active")
     last_sync_status = Column(String, default="Pending", comment="Last synchronization status")

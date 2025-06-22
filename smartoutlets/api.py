@@ -409,7 +409,11 @@ async def discover_vesync_devices(request: VeSyncDiscoveryRequest):
     """
     try:
         from .drivers.vesync import VeSyncDriver
-        devices = await VeSyncDriver.discover_devices(request.email, request.password.get_secret_value())
+        devices = await VeSyncDriver.discover_devices(
+            request.email, 
+            request.password.get_secret_value(),
+            time_zone=request.time_zone
+        )
         return devices
     except OutletAuthenticationError as e:
         raise HTTPException(
@@ -469,7 +473,8 @@ async def create_vesync_account(account: VeSyncAccountCreate, db: AsyncSession =
     db_account = VeSyncAccount(
         email=account.email,
         password_encrypted=encrypted_password.encode(),
-        is_active=account.is_active
+        is_active=account.is_active,
+        time_zone=account.time_zone
     )
 
     db.add(db_account)
@@ -515,7 +520,7 @@ async def verify_vesync_account(account_id: int, db: AsyncSession = Depends(get_
             detail="Could not decrypt password for verification.",
         )
 
-    manager = VeSync(db_account.email, password)
+    manager = VeSync(db_account.email, password, time_zone=db_account.time_zone)
     login_success = False
     error_detail = None
 
