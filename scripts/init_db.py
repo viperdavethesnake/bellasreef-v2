@@ -1,21 +1,9 @@
 #!/usr/bin/env python3
 """
-Database initialization script for Bella's Reef.
+Database initialization script for Bella's Reef. (v2)
 
-IMPROVEMENTS:
-- Robust error checking for missing core/.env file and required settings
-- CLI flags for dry-run and configuration checking
-- Flexible path handling (runs from project root or scripts directory)
-- Clear user feedback with status icons and messages
-- Proper exit codes for error conditions
-- Async operation with Pydantic v2 settings
-- Comprehensive validation before database operations
-- Complete PostgreSQL schema reset using DROP SCHEMA public CASCADE
-
-USAGE:
-    python scripts/init_db.py          # Normal initialization
-    python scripts/init_db.py --check  # Validate config only
-    python scripts/init_db.py --dry-run # Check config and print summary
+This script is updated to work with the unified project structure,
+loading configuration from a single .env file at the project root.
 """
 
 import argparse
@@ -30,34 +18,26 @@ sys.path.insert(0, str(project_root))
 
 from shared.core.config import settings
 from shared.db.database import engine, async_session, Base
-
-# Debug: Print tables before model imports
-print("[DEBUG] Tables registered BEFORE model imports:", list(Base.metadata.tables.keys()))
-
 from shared.db.models import (
-    User, Device, History, Alert, AlertEvent, 
+    User, Device, History, Alert, AlertEvent,
     Schedule, DeviceAction, Probe, ProbeHistory,
     SmartOutlet, VeSyncAccount
 )
 from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username
-
-# Debug: Print tables after all model imports
-print("[DEBUG] Tables registered AFTER model imports:", list(Base.metadata.tables.keys()))
-
 from sqlalchemy import text
 
 def check_env_file() -> bool:
-    """Check if core/.env file exists and print status."""
-    env_path = project_root / "core" / ".env"
+    """Check if the root .env file exists and print status."""
+    # This now correctly points to the project root .env file.
+    env_path = project_root / ".env"
     if not env_path.exists():
-        print("❌ Error: core/.env file not found!")
+        print("❌ Error: Project root .env file not found!")
         print(f"   Expected location: {env_path}")
-        print("   Please copy core/env.example to core/.env and configure your settings.")
-        print("   Then run: python3 $SCRIPT_DIR/init_db.py")
+        print("   Please copy env.example to .env and configure your settings.")
         return False
     
-    print(f"✅ Found core/.env file: {env_path}")
+    print(f"✅ Found project .env file: {env_path}")
     return True
 
 def validate_required_settings() -> bool:
@@ -73,14 +53,15 @@ def validate_required_settings() -> bool:
     
     missing_settings = []
     for name, value in required_settings.items():
-        if not value or value.strip() == "":
+        if not value or "changeme" in value or "your_secure_password" in value:
             missing_settings.append(name)
     
     if missing_settings:
-        print("❌ Error: Missing required settings in core/.env file:")
+        # Corrected error message to refer to the root .env file.
+        print("❌ Error: Missing or default required settings in your .env file:")
         for setting in missing_settings:
             print(f"   - {setting}")
-        print("   Please check your core/.env file and ensure all required values are set.")
+        print("   Please check your .env file and ensure all required values are set.")
         return False
     
     print("✅ All required settings are configured.")
@@ -89,50 +70,32 @@ def validate_required_settings() -> bool:
 def print_config_summary():
     """Print a summary of the current configuration."""
     print("\n📋 Configuration Summary:")
-    print(f"   Database URL: {settings.DATABASE_URL}")
-    print(f"   Admin User: {settings.ADMIN_USERNAME} ({settings.ADMIN_EMAIL})")
-    print(f"   Service Token: {settings.SERVICE_TOKEN[:10]}...")
-    print(f"   Service Port: {settings.SERVICE_PORT}")
-    print(f"   Token Expiry: {settings.ACCESS_TOKEN_EXPIRE_MINUTES} minutes")
+    print(f"   Database URL:   {settings.DATABASE_URL}")
+    print(f"   Admin User:     {settings.ADMIN_USERNAME} ({settings.ADMIN_EMAIL})")
+    print(f"   Service Token:  {settings.SERVICE_TOKEN[:10]}...")
+    # Updated to show multiple service ports for clarity
+    print("   Service Ports:")
+    print(f"     - Core:         {settings.SERVICE_PORT_CORE}")
+    print(f"     - Temp:         {settings.SERVICE_PORT_TEMP}")
+    print(f"     - SmartOutlets: {settings.SERVICE_PORT_SMARTOUTLETS}")
 
 async def reset_db():
-    """
-    Completely reset the PostgreSQL database schema.
-    
-    This function performs a complete schema reset by:
-    1. Dropping the entire 'public' schema with CASCADE (removes all tables, constraints, sequences, etc.)
-    2. Recreating the 'public' schema
-    3. Creating all tables using SQLAlchemy Base.metadata.create_all
-    
-    This ensures a complete, dependency-safe reset regardless of foreign key constraints.
-    """
+    """Completely reset the PostgreSQL database schema."""
     try:
         async with engine.begin() as conn:
-            print("🗑️  Dropping entire 'public' schema with CASCADE...")
-            print("   This will remove ALL tables, constraints, sequences, and dependent objects.")
-            
-            # Drop the entire public schema with CASCADE
-            # This removes all tables, constraints, sequences, functions, etc. regardless of dependencies
+            print("\n🗑️  Dropping entire 'public' schema with CASCADE...")
             await conn.execute(text("DROP SCHEMA public CASCADE"))
             print("✅ Public schema dropped successfully.")
             
             print("🏗️  Recreating 'public' schema...")
-            # Recreate the public schema
             await conn.execute(text("CREATE SCHEMA public"))
             print("✅ Public schema recreated successfully.")
             
-            print("📐 Creating all database tables...")
-            # Debug: Print before table creation
-            print("[DEBUG] Creating tables with create_all...")
-            # Create all tables using SQLAlchemy metadata
-            # This includes all probe-related tables for the temperature service (probes, probe_history)
+            print("📐 Creating all database tables from unified models...")
             await conn.run_sync(Base.metadata.create_all)
-            print("[DEBUG] Tables created!")
             print("✅ All database tables created successfully.")
             
-        print("✅ Database schema reset complete.")
-        print("   All tables, constraints, and sequences have been recreated from scratch.")
-        
+        print("\n✅ Database schema reset complete.")
     except Exception as e:
         print(f"❌ Database reset failed: {e}")
         print("   This may indicate a connection issue or insufficient database privileges.")
@@ -140,13 +103,9 @@ async def reset_db():
         raise
 
 async def create_admin_user():
-    """
-    Create default admin user using settings from .env file.
-    Uses Pydantic v2 settings for admin credentials.
-    """
+    """Create default admin user using settings from .env file."""
     try:
         async with async_session() as session:
-            # Check if admin user already exists
             existing_admin = await get_user_by_username(session, settings.ADMIN_USERNAME)
             if existing_admin:
                 print(f"⚠️  Admin user '{settings.ADMIN_USERNAME}' already exists.")
@@ -155,7 +114,7 @@ async def create_admin_user():
             admin = User(
                 username=settings.ADMIN_USERNAME,
                 email=settings.ADMIN_EMAIL,
-                phone_number="",  # Optional field, leave empty
+                phone_number="",
                 hashed_password=get_password_hash(settings.ADMIN_PASSWORD),
                 is_active=True,
                 is_admin=True
@@ -168,9 +127,7 @@ async def create_admin_user():
         raise
 
 async def main():
-    """
-    Main function to initialize database and create admin user.
-    """
+    """Main function to initialize database and create admin user."""
     parser = argparse.ArgumentParser(description="Initialize Bella's Reef database")
     parser.add_argument("--check", action="store_true", help="Validate configuration only")
     parser.add_argument("--dry-run", action="store_true", help="Check config and print summary")
@@ -180,56 +137,37 @@ async def main():
     print("🗄️  Bella's Reef Database Initialization")
     print("=" * 50)
     
-    # Check .env file
     if not check_env_file():
         sys.exit(1)
     
-    # Validate required settings
     if not validate_required_settings():
         sys.exit(1)
     
-    # Print configuration summary
     print_config_summary()
     
-    # Handle CLI flags
-    if args.check:
-        print("\n✅ Configuration validation complete.")
-        return
-    
-    if args.dry_run:
+    if args.check or args.dry_run:
         print("\n✅ Dry run complete. No database changes made.")
         return
     
-    # Confirm before proceeding with database changes
     print(f"\n⚠️  DESTRUCTIVE OPERATION WARNING!")
-    print(f"   This will COMPLETELY RESET the database schema:")
-    print(f"   - DROP SCHEMA public CASCADE (removes ALL data)")
-    print(f"   - CREATE SCHEMA public (recreates empty schema)")
-    print(f"   - Recreate all tables from scratch")
-    print(f"   - All existing data will be PERMANENTLY LOST")
-    print(f"")
-    print(f"   Database: {settings.DATABASE_URL}")
-    print(f"")
+    print(f"   This will COMPLETELY RESET the database at:")
+    print(f"   -> {settings.DATABASE_URL}")
+    print(f"   All existing data in the 'public' schema will be PERMANENTLY LOST.")
     
-    response = input("   Continue with schema reset? (y/N): ").strip().lower()
+    response = input("\n   Continue with schema reset? (y/N): ").strip().lower()
     if response not in ['y', 'yes']:
         print("❌ Database initialization cancelled.")
         sys.exit(0)
     
     try:
-        print("\n🔄 Starting complete database schema reset...")
         await reset_db()
         await create_admin_user()
         print("\n🎉 Database initialization complete!")
-        print("   Database schema has been completely reset and recreated.")
-        print("   Admin user has been created with credentials from .env file.")
-        print("   You can now start the application with: uvicorn app.main:app --reload")
+        print("   You can now start the application services.")
         
     except Exception as e:
-        print(f"\n❌ Database initialization failed: {e}")
-        print("   Please check your database connection and permissions.")
+        print(f"\n❌ Database initialization failed during execution.")
         sys.exit(1)
 
 if __name__ == "__main__":
     asyncio.run(main())
-
