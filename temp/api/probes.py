@@ -73,3 +73,25 @@ async def delete_probe_device(device_id: int, db: AsyncSession = Depends(get_db)
 
     await device_crud.remove(db, device_id=device_id)
     return None
+
+@router.patch(
+    "/{device_id}",
+    response_model=device_schema.Device,
+    dependencies=[Depends(get_current_user_or_service)],
+    summary="Update a Registered Probe"
+)
+async def update_probe_device(
+    device_id: int,
+    device_update: device_schema.DeviceUpdate,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Update a registered temperature probe's properties, such as its name,
+    polling status, or polling interval.
+    """
+    device = await device_crud.get(db, device_id=device_id)
+    if not device or device.device_type != 'temperature_sensor':
+        raise HTTPException(status_code=404, detail="Temperature sensor device not found.")
+
+    updated_device = await device_crud.update(db, db_obj=device, obj_in=device_update)
+    return updated_device
