@@ -10,7 +10,7 @@ from shared.crud.user import create_user, get_user_by_username, get_user_by_emai
 from shared.db.database import get_db
 from shared.schemas.user import UserCreate, Token
 
-router = APIRouter(prefix="/auth", tags=["authentication"])
+router = APIRouter(tags=["authentication"])
 
 @router.post("/login", response_model=Token)
 async def login(

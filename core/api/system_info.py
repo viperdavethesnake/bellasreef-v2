@@ -6,7 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/v1", tags=["system"])
+router = APIRouter(tags=["system"])
 
 
 class HostInfo(BaseModel):

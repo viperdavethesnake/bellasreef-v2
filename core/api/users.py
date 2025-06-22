@@ -5,7 +5,7 @@ from shared.crud.user import get_user_by_username
 from shared.db.database import get_db
 from shared.schemas.user import User
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(tags=["users"])
 
 @router.get("/me", response_model=User)
 async def get_current_user_info(
