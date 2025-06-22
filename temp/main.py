@@ -7,7 +7,8 @@ if not settings.TEMP_ENABLED:
     sys.exit(0)
 
 from .api import probes
-from .deps import get_api_key
+from core.api.deps import get_current_user
+from shared.schemas.user import User
 
 app = FastAPI(
     title="Bella's Reef - Temperature Service",
@@ -23,5 +24,5 @@ def health_check():
 
 # This is a sample root endpoint with authentication
 @app.get("/")
-def read_root(api_key: str = Depends(get_api_key)):
+def read_root(current_user: User = Depends(get_current_user)):
     return {"message": "Welcome to the Temperature Service"}
