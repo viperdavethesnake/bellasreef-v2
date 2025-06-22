@@ -1,6 +1,6 @@
-# Bella's Reef - Unified Project Dependencies (v5)
+# Bella's Reef - Unified Project Dependencies (v6)
 # This is the single source of truth for all Python packages.
-# Corrected 'kasa' to 'python-kasa' and added missing dependencies.
+# Added environment markers for Raspberry Pi-specific hardware libraries.
 
 # --- Core FastAPI & Web ---
 fastapi
@@ -21,15 +21,14 @@ python-jose[cryptography]
 cryptography>=41.0.0
 email-validator
 
-# --- Hardware & Drivers ---
-# General
-RPi.GPIO
-psutil
-# PWM
-adafruit-circuitpython-pca9685
-# Temperature
-w1thermsensor
-# Smart Outlets
+# --- Hardware & Drivers (Platform Specific) ---
+# The following libraries will ONLY be installed on Linux systems (like Raspberry Pi)
+RPi.GPIO ; sys_platform == 'linux'
+psutil ; sys_platform == 'linux'
+adafruit-circuitpython-pca9685 ; sys_platform == 'linux'
+w1thermsensor ; sys_platform == 'linux'
+
+# --- Smart Outlet Drivers (Cross-Platform) ---
 python-kasa
 aioshelly>=1.0.0
 pyvesync
