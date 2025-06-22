@@ -125,56 +125,45 @@ class VeSyncDeviceService:
     
     async def get_device_state(self, account: VeSyncAccount, vesync_device_id: str) -> Dict[str, Any]:
         """
-        Get the current state of a specific device.
-        
-        Args:
-            account: VeSync account
-            vesync_device_id: VeSync device ID
-            
-        Returns:
-            Dict[str, Any]: Device state information
-            
-        Raises:
-            OutletAuthenticationError: If credentials are invalid
-            OutletConnectionError: If device not found or state fetch fails
+        Get the current state of a specific device, safely parsing nested data.
         """
         try:
             manager = await self._get_manager(account)
-            
-            # Find device in outlets
-            if hasattr(manager, 'outlets') and manager.outlets:
-                for outlet in manager.outlets:
-                    if outlet.cid == vesync_device_id:
-                        # Update device state
-                        await asyncio.to_thread(outlet.update)
-                        return {
-                            'is_on': outlet.is_on,
-                            'is_online': getattr(outlet, 'is_online', True),
-                            'power_w': getattr(outlet, 'power', None),
-                            'voltage_v': getattr(outlet, 'voltage', None),
-                            'current_a': getattr(outlet, 'current', None),
-                            'energy_kwh': getattr(outlet, 'energy', None),
-                            'temperature_c': getattr(outlet, 'temperature', None)
-                        }
-            
-            # Find device in switches
-            if hasattr(manager, 'switches') and manager.switches:
-                for switch in manager.switches:
-                    if switch.cid == vesync_device_id:
-                        # Update device state
-                        await asyncio.to_thread(switch.update)
-                        return {
-                            'is_on': switch.is_on,
-                            'is_online': getattr(switch, 'is_online', True),
-                            'power_w': getattr(switch, 'power', None),
-                            'voltage_v': getattr(switch, 'voltage', None),
-                            'current_a': getattr(switch, 'current', None),
-                            'energy_kwh': getattr(switch, 'energy', None),
-                            'temperature_c': getattr(switch, 'temperature', None)
-                        }
-            
-            raise OutletConnectionError(f"Device {vesync_device_id} not found")
-            
+            await asyncio.to_thread(manager.update)
+
+            # Combine outlets and switches for easier searching
+            all_devices = manager.outlets + manager.switches
+            target_device = None
+            for device in all_devices:
+                if device.cid == vesync_device_id:
+                    target_device = device
+                    break
+
+            if not target_device:
+                raise OutletConnectionError(f"Device {vesync_device_id} not found in VeSync account")
+
+            # Safely extract all attributes using getattr, providing default values
+            is_on = getattr(target_device, 'is_on', False)
+            is_online = getattr(target_device, 'is_online', True) # Default to True if discovered
+            power_w = getattr(target_device, 'power', None)
+            voltage_v = getattr(target_device, 'voltage', None)
+            current_a = getattr(target_device, 'current', None)
+            temperature_c = getattr(target_device, 'temperature', None)
+
+            # Safely extract nested energy data. The 'energy' attribute is a dict.
+            energy_data = getattr(target_device, 'energy', {})
+            energy_kwh = energy_data.get('total_energy_kwh') if isinstance(energy_data, dict) else None
+
+            return {
+                'is_on': is_on,
+                'is_online': is_online,
+                'power_w': power_w,
+                'voltage_v': voltage_v,
+                'current_a': current_a,
+                'energy_kwh': energy_kwh,
+                'temperature_c': temperature_c
+            }
+
         except OutletAuthenticationError:
             raise
         except Exception as e:
