@@ -19,7 +19,6 @@ from shared.crud.history import (
     get_hourly_history_stats
 )
 from shared.db.models import History, HistoryHourlyAggregate
-from shared.schemas.device import DeviceResponse
 from shared.utils.logger import get_logger
 
 logger = get_logger(__name__)
