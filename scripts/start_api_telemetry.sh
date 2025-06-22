@@ -164,7 +164,7 @@ start_service() {
     echo -e "${CYAN}🏥 Health Check: http://${TELEMETRY_HOST}:${TELEMETRY_PORT}/health${NC}"
     echo ""
     
-    exec uvicorn telemetry.api.history:app \
+    exec uvicorn telemetry.main:app \
         --host "$TELEMETRY_HOST" \
         --port "$TELEMETRY_PORT" \
         --reload \
