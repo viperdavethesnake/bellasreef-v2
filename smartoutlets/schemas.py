@@ -209,8 +209,10 @@ class VeSyncAccountCreate(VeSyncAccountBase):
     Attributes:
         email (EmailStr): VeSync account email address
         password (SecretStr): VeSync account password (encrypted in storage)
+        is_active (bool): Whether the account is active
     """
     password: SecretStr
+    is_active: bool = Field(..., description="Whether the account is active")
 
 
 class VeSyncAccountUpdate(BaseModel):
