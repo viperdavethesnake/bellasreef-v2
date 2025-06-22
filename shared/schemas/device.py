@@ -7,7 +7,7 @@ class DeviceBase(BaseModel):
     device_type: str = Field(..., min_length=1, max_length=50)
     address: str = Field(..., min_length=1, max_length=100)
     poll_enabled: bool = Field(default=True)
-    poll_interval: int = Field(default=60, ge=1, le=3600)  # 1 second to 1 hour
+    poll_interval: int = Field(default=60, ge=1, le=86400)  # 1 second to 1 day
     unit: Optional[str] = Field(None, max_length=20, description="Unit of measurement (e.g., 'C', 'F', 'ppt', 'ms/cm', 'pH', 'W', 'state')")
     min_value: Optional[float] = Field(None, description="Minimum expected value for future alerting")
     max_value: Optional[float] = Field(None, description="Maximum expected value for future alerting")
@@ -22,7 +22,7 @@ class DeviceUpdate(BaseModel):
     device_type: Optional[str] = Field(None, min_length=1, max_length=50)
     address: Optional[str] = Field(None, min_length=1, max_length=100)
     poll_enabled: Optional[bool] = None
-    poll_interval: Optional[int] = Field(None, ge=1, le=3600)
+    poll_interval: Optional[int] = Field(None, ge=1, le=86400)
     unit: Optional[str] = Field(None, max_length=20)
     min_value: Optional[float] = None
     max_value: Optional[float] = None

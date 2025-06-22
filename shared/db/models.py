@@ -33,20 +33,25 @@ class Device(Base):
     __tablename__ = "devices"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, index=True)
-    device_type = Column(String, nullable=False, index=True)  # e.g., 'temperature_sensor', 'outlet', 'pump'
-    address = Column(String, nullable=False)  # Device identifier (I2C address, GPIO pin, etc.)
-    poll_enabled = Column(Boolean, default=True, index=True)
-    poll_interval = Column(Integer, default=60)  # Polling interval in seconds
-    unit = Column(String, nullable=True)  # Unit of measurement (e.g., "C", "F", "ppt", "ms/cm", "pH", "W", "state")
-    min_value = Column(Float, nullable=True)  # Minimum expected value (for future alerting)
-    max_value = Column(Float, nullable=True)  # Maximum expected value (for future alerting)
-    config = Column(JSON, nullable=True)  # Device-specific configuration
+    name = Column(String(100), nullable=False, index=True, unique=True)
+    device_type = Column(String(50), nullable=False, index=True)
+    address = Column(String(100), nullable=False)
+    unit = Column(String(20), nullable=True)
+    min_value = Column(Float, nullable=True)
+    max_value = Column(Float, nullable=True)
+    config = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True, index=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    # Polling and status tracking fields
+    poll_enabled = Column(Boolean, default=True, nullable=False, index=True)
+    poll_interval = Column(Integer, default=60, nullable=False) # Default to 60 seconds
     last_polled = Column(DateTime(timezone=True), nullable=True)
     last_error = Column(Text, nullable=True)
+
+    probes = relationship("Probe", back_populates="device")
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
     history = relationship("History", back_populates="device", cascade="all, delete-orphan")
