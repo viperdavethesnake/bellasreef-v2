@@ -114,8 +114,8 @@ register_exception_handlers(app)
 # Include SmartOutlet API routes
 app.include_router(router, prefix="/api/smartoutlets", tags=["smartoutlets"])
 
-# Include VeSync Account Management routes
-app.include_router(vesync_router, prefix="/api/smartoutlets", tags=["smartoutlets"])
+# Include VeSync Account Management routes with its own specific prefix
+app.include_router(vesync_router, prefix="/api/smartoutlets/vesync/accounts", tags=["VeSync Accounts"])
 
 # =============================================================================
 # Root Endpoint
