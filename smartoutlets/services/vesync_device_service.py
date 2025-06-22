@@ -97,7 +97,7 @@ class VeSyncDeviceService:
                         device_name=outlet.device_name,
                         device_type="outlet",
                         model=outlet.device_type,
-                        is_online=outlet.is_online,
+                        is_online=getattr(outlet, 'is_online', True),
                         is_on=outlet.is_on,
                         power_w=getattr(outlet, 'power', None)
                     ))
@@ -110,7 +110,7 @@ class VeSyncDeviceService:
                         device_name=switch.device_name,
                         device_type="switch",
                         model=switch.device_type,
-                        is_online=switch.is_online,
+                        is_online=getattr(switch, 'is_online', True),
                         is_on=switch.is_on,
                         power_w=getattr(switch, 'power', None)
                     ))
