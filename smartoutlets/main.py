@@ -23,7 +23,7 @@ from sqlalchemy import text
 from shared.db.database import engine, Base, async_session
 from shared.utils.logger import get_logger
 from .config import settings
-from .api import router
+from .api import router, vesync_router
 from .handlers import register_exception_handlers
 from .manager import SmartOutletManager
 
@@ -113,6 +113,9 @@ register_exception_handlers(app)
 
 # Include SmartOutlet API routes
 app.include_router(router, prefix="/api/smartoutlets", tags=["smartoutlets"])
+
+# Include VeSync Account Management routes
+app.include_router(vesync_router, prefix="/api/smartoutlets", tags=["smartoutlets"])
 
 # =============================================================================
 # Root Endpoint

@@ -392,34 +392,110 @@ async def discover_vesync_devices(request: VeSyncDiscoveryRequest):
     Discover VeSync devices using cloud credentials.
 
     Args:
-        request: VeSync discovery request with email and password
+        request: VeSync discovery request with credentials
 
     Returns:
         List[DiscoveredDevice]: List of discovered VeSync devices
 
     Raises:
-        HTTPException: 401 if credentials are invalid, 503 if discovery fails
+        HTTPException: If discovery fails or credentials are invalid
     """
     try:
-        devices = await discovery_service.run_vesync_discovery(
-            email=request.email,
-            password=request.password
-        )
-        
-        # Convert to Pydantic models
-        discovered_devices = []
-        for device_data in devices:
-            discovered_devices.append(DiscoveredDevice(**device_data))
-        
-        return discovered_devices
-        
+        from .drivers.vesync import VeSyncDriver
+        devices = await VeSyncDriver.discover_devices(request.email, request.password.get_secret_value())
+        return devices
     except OutletAuthenticationError as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(e)
+            detail=f"VeSync authentication failed for {request.email}"
         )
-    except OutletConnectionError as e:
+    except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=str(e)
-        ) 
+            detail=f"VeSync discovery failed: {str(e)}"
+        )
+
+
+# =============================================================================
+# VeSync Account Management Router
+# =============================================================================
+
+vesync_router = APIRouter(
+    prefix="/vesync/accounts",
+    tags=["VeSync Accounts"],
+    responses={404: {"description": "Not found"}},
+)
+
+
+@vesync_router.post("/", response_model=schemas.VeSyncAccountRead, status_code=status.HTTP_201_CREATED)
+async def create_vesync_account(account: schemas.VeSyncAccountCreate, db: AsyncSession = Depends(get_db_session)):
+    """
+    Create a new VeSync account.
+
+    Args:
+        account: VeSync account creation data
+        db: Database session
+
+    Returns:
+        VeSyncAccountRead: Created account data
+
+    Raises:
+        HTTPException: If account with same email already exists
+    """
+    # TODO: Logic for create
+    pass
+
+
+@vesync_router.get("/", response_model=List[schemas.VeSyncAccountRead])
+async def read_vesync_accounts(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
+    """
+    List all VeSync accounts.
+
+    Args:
+        skip: Number of records to skip
+        limit: Maximum number of records to return
+        db: Database session
+
+    Returns:
+        List[VeSyncAccountRead]: List of account data
+    """
+    # TODO: Logic for read/list
+    pass
+
+
+@vesync_router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_vesync_account(account_id: int, db: AsyncSession = Depends(get_db_session)):
+    """
+    Delete a VeSync account.
+
+    Args:
+        account_id: The ID of the account to delete
+        db: Database session
+
+    Returns:
+        None
+
+    Raises:
+        HTTPException: If account not found
+    """
+    # TODO: Logic for delete
+    pass
+
+
+@vesync_router.post("/{account_id}/verify", response_model=schemas.VeSyncAccountRead)
+async def verify_vesync_account(account_id: int, db: AsyncSession = Depends(get_db_session)):
+    """
+    Verify/test VeSync account credentials.
+
+    Args:
+        account_id: The ID of the account to verify
+        db: Database session
+
+    Returns:
+        VeSyncAccountRead: Updated account data with verification status
+
+    Raises:
+        HTTPException: If account not found or verification fails
+    """
+    # TODO: Logic for verify/test login
+    pass 
