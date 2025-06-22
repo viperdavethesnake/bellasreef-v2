@@ -149,7 +149,7 @@ class VeSyncDeviceService:
                         await asyncio.to_thread(outlet.update)
                         return {
                             'is_on': outlet.is_on,
-                            'is_online': outlet.is_online,
+                            'is_online': getattr(outlet, 'is_online', True),
                             'power_w': getattr(outlet, 'power', None),
                             'voltage_v': getattr(outlet, 'voltage', None),
                             'current_a': getattr(outlet, 'current', None),
@@ -165,7 +165,7 @@ class VeSyncDeviceService:
                         await asyncio.to_thread(switch.update)
                         return {
                             'is_on': switch.is_on,
-                            'is_online': switch.is_online,
+                            'is_online': getattr(switch, 'is_online', True),
                             'power_w': getattr(switch, 'power', None),
                             'voltage_v': getattr(switch, 'voltage', None),
                             'current_a': getattr(switch, 'current', None),
