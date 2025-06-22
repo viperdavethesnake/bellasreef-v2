@@ -63,4 +63,20 @@ class OutletAuthenticationError(SmartOutletError):
     """
     
     def __init__(self, message: str):
-        super().__init__(message, code="outlet_authentication_error") 
+        super().__init__(message, code="outlet_authentication_error")
+
+
+class DiscoveryInProgressError(SmartOutletError):
+    """
+    Raised when a discovery task is already in progress.
+    """
+    def __init__(self, message: str = "A discovery task is already in progress."):
+        super().__init__(message, code="discovery_in_progress")
+
+
+class DiscoveryFailedError(SmartOutletError):
+    """
+    Raised when a discovery task fails.
+    """
+    def __init__(self, message: str):
+        super().__init__(message, code="discovery_failed") 
