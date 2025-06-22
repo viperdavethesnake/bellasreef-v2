@@ -65,24 +65,18 @@ class VeSyncDeviceService:
     
     async def discover_devices(self, account: VeSyncAccount) -> List[DiscoveredVeSyncDevice]:
         """
-        Discover all devices available for the VeSync account with robust logging.
+        Discover all devices available for the VeSync account.
         """
         try:
             manager = await self._get_manager(account)
             await asyncio.to_thread(manager.update)
     
-            logger.info(f"VeSync manager updated. Found {len(manager.outlets)} outlets and {len(manager.switches)} switches.")
-            
             processed_devices = []
-            
-            # --- Robust Outlet Processing Loop ---
+    
+            # Process Outlets
             if manager.outlets:
-                logger.info("--- Processing Outlets ---")
-                for i, outlet in enumerate(manager.outlets, 1):
+                for outlet in manager.outlets:
                     try:
-                        logger.info(f"Processing outlet #{i}: Name='{getattr(outlet, 'device_name', 'N/A')}', CID='{getattr(outlet, 'cid', 'N/A')}'")
-                        
-                        # This block will now log an error if any single device fails validation
                         device_data = DiscoveredVeSyncDevice(
                             vesync_device_id=getattr(outlet, 'cid', None),
                             device_name=getattr(outlet, 'device_name', 'Unknown Outlet'),
@@ -93,19 +87,13 @@ class VeSyncDeviceService:
                             power_w=getattr(outlet, 'power', None)
                         )
                         processed_devices.append(device_data)
-                        logger.info(f"    -> Successfully processed outlet #{i}")
-    
                     except Exception as e:
-                        logger.error(f"    -> FAILED to process outlet #{i}. Error: {e}", exc_info=True)
-                logger.info("--- Finished Processing Outlets ---")
+                        logger.error(f"Failed to process a discovered outlet. Error: {e}", exc_info=True)
     
-            # --- Robust Switch Processing Loop ---
+            # Process Switches
             if manager.switches:
-                logger.info("--- Processing Switches ---")
-                for i, switch in enumerate(manager.switches, 1):
+                for switch in manager.switches:
                     try:
-                        logger.info(f"Processing switch #{i}: Name='{getattr(switch, 'device_name', 'N/A')}', CID='{getattr(switch, 'cid', 'N/A')}'")
-                        
                         device_data = DiscoveredVeSyncDevice(
                             vesync_device_id=getattr(switch, 'cid', None),
                             device_name=getattr(switch, 'device_name', 'Unknown Switch'),
@@ -116,14 +104,11 @@ class VeSyncDeviceService:
                             power_w=getattr(switch, 'power', None)
                         )
                         processed_devices.append(device_data)
-                        logger.info(f"    -> Successfully processed switch #{i}")
-
                     except Exception as e:
-                        logger.error(f"    -> FAILED to process switch #{i}. Error: {e}", exc_info=True)
-                logger.info("--- Finished Processing Switches ---")
-
+                        logger.error(f"Failed to process a discovered switch. Error: {e}", exc_info=True)
+    
             return processed_devices
-            
+    
         except Exception as e:
             logger.error(f"VeSync device discovery failed at a high level: {e}")
             raise OutletConnectionError(f"Device discovery failed: {str(e)}")
