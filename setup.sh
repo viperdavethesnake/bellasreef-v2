@@ -119,14 +119,14 @@ check_requirements() {
     fi
     print_success "pip3 found"
     
-    print_step "3" "Checking virtualenv installation"
-    if ! command -v virtualenv &> /dev/null; then
-        print_warning "virtualenv not found. Installing..."
-        pip3 install virtualenv
-        print_success "virtualenv installed"
-    else
-        print_success "virtualenv found"
+    print_step "3" "Checking venv module availability"
+    if ! python3 -c "import venv" &> /dev/null; then
+        print_error "Python venv module is not available. Please install python3-venv."
+        echo -e "${WHITE}   On Ubuntu/Debian: ${CYAN}sudo apt install python3-venv${NC}"
+        echo -e "${WHITE}   On macOS: ${CYAN}brew install python3${NC}"
+        exit 1
     fi
+    print_success "Python venv module available"
     
     print_success "All system requirements satisfied"
 }
@@ -140,8 +140,8 @@ create_virtual_environment() {
         rm -rf bellasreef-venv
     fi
     
-    print_progress "Creating virtual environment"
-    virtualenv bellasreef-venv
+    print_progress "Creating virtual environment using python3 -m venv"
+    python3 -m venv bellasreef-venv
     print_progress_done
     print_success "Virtual environment created successfully"
 }
