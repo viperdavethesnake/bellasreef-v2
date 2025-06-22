@@ -44,4 +44,4 @@ exec uvicorn core.main:app \
     --host "$CORE_HOST" \
     --port "$CORE_PORT" \
     --reload \
-    --log-level "${LOG_LEVEL:-INFO}"
+    --log-level "${LOG_LEVEL:-INFO,,}"

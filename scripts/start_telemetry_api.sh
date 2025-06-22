@@ -51,7 +51,7 @@ python3 -m uvicorn telemetry.main:app \
     --host "${SERVICE_HOST:-0.0.0.0}" \
     --port "$TELEMETRY_PORT" \
     --reload \
-    --log-level "${LOG_LEVEL:-INFO}" \
+    --log-level "${LOG_LEVEL:-INFO,,}" \
     --access-log
 
 echo "✅ Telemetry API Service started successfully!"

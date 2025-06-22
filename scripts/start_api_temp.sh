@@ -44,4 +44,4 @@ exec uvicorn temp.main:app \
     --host "$TEMP_HOST" \
     --port "$TEMP_PORT" \
     --reload \
-    --log-level "${LOG_LEVEL:-INFO}"
+    --log-level "${LOG_LEVEL:-INFO,,}"

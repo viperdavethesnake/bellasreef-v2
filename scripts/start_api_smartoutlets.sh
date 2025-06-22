@@ -44,4 +44,4 @@ exec uvicorn smartoutlets.main:app \
     --host "$SMARTOUTLETS_HOST" \
     --port "$SMARTOUTLETS_PORT" \
     --reload \
-    --log-level "${LOG_LEVEL:-INFO}"
+    --log-level "${LOG_LEVEL:-INFO,,}"
