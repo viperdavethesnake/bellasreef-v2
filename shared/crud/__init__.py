@@ -18,10 +18,10 @@ from .history import (
 )
 
 # This defines the public API of the 'crud' module, making the instances
-# directly importable via 'from shared.crud import device'.
+# directly importable via 'from shared.crud import device, history'.
 __all__ = [
     "device",
-    "history",
+    "history",  # This is the HistoryCRUD instance from device.py
     "alert",
     "alert_event",
     "schedule",
