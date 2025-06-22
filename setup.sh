@@ -4,6 +4,7 @@
 #
 # Description: Sets up the Bella's Reef project environment, including
 #              virtual environment, dependencies, and configuration.
+#              Optimized for Raspberry Pi and Debian/Ubuntu systems.
 # Date: 2025-06-22
 # Author: Bella's Reef Development Team
 
@@ -41,6 +42,7 @@ print_banner() {
     echo "║                    🐠 Bella's Reef Setup 🐠                 ║"
     echo "║                                                              ║"
     echo "║              Project Environment Configuration               ║"
+    echo "║                    (Raspberry Pi Optimized)                 ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
 }
@@ -101,32 +103,83 @@ print_step() {
 # FUNCTIONS
 # =============================================================================
 
+detect_system() {
+    # Detect the system type and provide appropriate instructions.
+    print_subsection "System Detection"
+    
+    if [ -f "/etc/os-release" ]; then
+        . /etc/os-release
+        echo -e "${WHITE}📋 Detected System: ${CYAN}${PRETTY_NAME:-$NAME}${NC}"
+        
+        if [[ "$ID" == "debian" || "$ID" == "ubuntu" || "$ID" == "raspbian" ]]; then
+            print_success "Debian/Ubuntu-based system detected"
+            DEBIAN_BASED=true
+        else
+            print_warning "Non-Debian system detected. Some features may not work as expected."
+            DEBIAN_BASED=false
+        fi
+    else
+        print_warning "Could not detect system type. Assuming Debian-based."
+        DEBIAN_BASED=true
+    fi
+}
+
 check_requirements() {
     # Check if required tools are installed.
     print_section_header "🔍 System Requirements Check"
     
     print_step "1" "Checking Python installation"
     if ! command -v python3 &> /dev/null; then
-        print_error "Python 3 is not installed. Please install Python 3.8 or higher."
+        print_error "Python 3 is not installed."
+        if [ "${DEBIAN_BASED:-true}" = "true" ]; then
+            echo -e "${WHITE}   Install with: ${CYAN}sudo apt update && sudo apt install python3 python3-pip python3-venv${NC}"
+        fi
         exit 1
     fi
     print_success "Python 3 found"
     
     print_step "2" "Checking pip installation"
     if ! command -v pip3 &> /dev/null; then
-        print_error "pip3 is not installed. Please install pip3."
+        print_error "pip3 is not installed."
+        if [ "${DEBIAN_BASED:-true}" = "true" ]; then
+            echo -e "${WHITE}   Install with: ${CYAN}sudo apt install python3-pip${NC}"
+        fi
         exit 1
     fi
     print_success "pip3 found"
     
     print_step "3" "Checking venv module availability"
     if ! python3 -c "import venv" &> /dev/null; then
-        print_error "Python venv module is not available. Please install python3-venv."
-        echo -e "${WHITE}   On Ubuntu/Debian: ${CYAN}sudo apt install python3-venv${NC}"
-        echo -e "${WHITE}   On macOS: ${CYAN}brew install python3${NC}"
+        print_error "Python venv module is not available."
+        if [ "${DEBIAN_BASED:-true}" = "true" ]; then
+            echo -e "${WHITE}   Install with: ${CYAN}sudo apt install python3-venv${NC}"
+            echo -e "${WHITE}   Or install all Python components: ${CYAN}sudo apt install python3-full${NC}"
+        fi
         exit 1
     fi
     print_success "Python venv module available"
+    
+    print_step "4" "Checking system packages"
+    if [ "${DEBIAN_BASED:-true}" = "true" ]; then
+        # Check for common system dependencies that might be needed
+        local missing_packages=()
+        
+        if ! command -v curl &> /dev/null; then
+            missing_packages+=("curl")
+        fi
+        
+        if ! command -v git &> /dev/null; then
+            missing_packages+=("git")
+        fi
+        
+        if [ ${#missing_packages[@]} -gt 0 ]; then
+            print_warning "Some recommended packages are missing: ${missing_packages[*]}"
+            echo -e "${WHITE}   Install with: ${CYAN}sudo apt install ${missing_packages[*]}${NC}"
+            echo -e "${WHITE}   Continuing anyway...${NC}"
+        else
+            print_success "All recommended system packages found"
+        fi
+    fi
     
     print_success "All system requirements satisfied"
 }
@@ -215,6 +268,13 @@ print_success_message() {
     echo -e "  • Check the ${CYAN}mydocs/${NC} directory for detailed guides"
     echo -e "  • API documentation available at service URLs"
     echo ""
+    if [ "${DEBIAN_BASED:-true}" = "true" ]; then
+        echo -e "${WHITE}🖥️  Raspberry Pi Tips:${NC}"
+        echo -e "  • Consider running services as systemd units for auto-start"
+        echo -e "  • Monitor system resources: ${CYAN}htop${NC} or ${CYAN}top${NC}"
+        echo -e "  • Check logs: ${CYAN}journalctl -u bellasreef-*${NC} (if using systemd)"
+    fi
+    echo ""
     echo -e "${GREEN}${BOLD}🐠 Welcome to Bella's Reef! 🐠${NC}"
 }
 
@@ -230,6 +290,7 @@ main() {
     cd "$SCRIPT_DIR"
     
     # Run setup steps
+    detect_system
     check_requirements
     create_virtual_environment
     activate_venv
