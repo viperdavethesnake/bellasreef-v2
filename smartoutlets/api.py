@@ -8,23 +8,30 @@ are documented for OpenAPI/Swagger UI.
 
 from uuid import uuid4
 from typing import List
+import asyncio
+from datetime import datetime
+import pytz
 
-from fastapi import APIRouter, Depends, HTTPException, status, Query, Header
+from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from pyvesync import VeSync
+from pyvesync.helpers import VeSyncLoginError
 
 from shared.db.database import async_session
 from shared.utils.logger import get_logger
 from .manager import SmartOutletManager
-from .models import SmartOutlet
+from .models import SmartOutlet, VeSyncAccount
 from .schemas import (
     SmartOutletCreate, SmartOutletRead, SmartOutletState, SmartOutletUpdate,
-    VeSyncDiscoveryRequest, DiscoveredDevice, DiscoveryTaskResponse, DiscoveryResults
+    VeSyncDiscoveryRequest, DiscoveredDevice, DiscoveryTaskResponse, DiscoveryResults,
+    VeSyncAccountCreate, VeSyncAccountRead
 )
 from .exceptions import OutletNotFoundError, OutletConnectionError, OutletAuthenticationError
 from .handlers import register_exception_handlers
 from .discovery_service import DiscoveryService
 from .config import settings
+from .crypto_utils import encrypt_vesync_password, decrypt_vesync_password
 
 router = APIRouter()
 
@@ -420,6 +427,15 @@ async def discover_vesync_devices(request: VeSyncDiscoveryRequest):
 # VeSync Account Management Router
 # =============================================================================
 
+async def get_vesync_account_or_404(account_id: int, db: AsyncSession) -> VeSyncAccount:
+    """Helper to fetch a VeSync account by ID or raise HTTPException 404."""
+    result = await db.execute(select(VeSyncAccount).filter(VeSyncAccount.id == account_id))
+    db_account = result.scalars().first()
+    if db_account is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="VeSync account not found")
+    return db_account
+
+
 vesync_router = APIRouter(
     prefix="/vesync/accounts",
     tags=["VeSync Accounts"],
@@ -427,75 +443,100 @@ vesync_router = APIRouter(
 )
 
 
-@vesync_router.post("/", response_model=schemas.VeSyncAccountRead, status_code=status.HTTP_201_CREATED)
-async def create_vesync_account(account: schemas.VeSyncAccountCreate, db: AsyncSession = Depends(get_db_session)):
+@vesync_router.post("/", response_model=VeSyncAccountRead, status_code=status.HTTP_201_CREATED)
+async def create_vesync_account(account: VeSyncAccountCreate, db: AsyncSession = Depends(get_db_session)):
     """
     Create a new VeSync account.
-
-    Args:
-        account: VeSync account creation data
-        db: Database session
-
-    Returns:
-        VeSyncAccountRead: Created account data
-
-    Raises:
-        HTTPException: If account with same email already exists
     """
-    # TODO: Logic for create
-    pass
+    # Check if an account with this email already exists
+    existing_account_result = await db.execute(
+        select(VeSyncAccount).filter(VeSyncAccount.email == account.email)
+    )
+    if existing_account_result.scalars().first():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="An account with this email already exists.",
+        )
+
+    # Encrypt the password before storing
+    encrypted_password = encrypt_vesync_password(account.password.get_secret_value())
+    if not encrypted_password:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to encrypt password.",
+        )
+
+    db_account = VeSyncAccount(
+        email=account.email,
+        password_encrypted=encrypted_password.encode(),
+        is_active=account.is_active
+    )
+
+    db.add(db_account)
+    await db.commit()
+    await db.refresh(db_account)
+    return db_account
 
 
-@vesync_router.get("/", response_model=List[schemas.VeSyncAccountRead])
+@vesync_router.get("/", response_model=List[VeSyncAccountRead])
 async def read_vesync_accounts(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
     """
-    List all VeSync accounts.
-
-    Args:
-        skip: Number of records to skip
-        limit: Maximum number of records to return
-        db: Database session
-
-    Returns:
-        List[VeSyncAccountRead]: List of account data
+    Retrieve all VeSync accounts.
     """
-    # TODO: Logic for read/list
-    pass
+    result = await db.execute(select(VeSyncAccount).offset(skip).limit(limit))
+    accounts = result.scalars().all()
+    return accounts
 
 
 @vesync_router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_vesync_account(account_id: int, db: AsyncSession = Depends(get_db_session)):
     """
     Delete a VeSync account.
-
-    Args:
-        account_id: The ID of the account to delete
-        db: Database session
-
-    Returns:
-        None
-
-    Raises:
-        HTTPException: If account not found
     """
-    # TODO: Logic for delete
-    pass
+    db_account = await get_vesync_account_or_404(account_id, db)
+    await db.delete(db_account)
+    await db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@vesync_router.post("/{account_id}/verify", response_model=schemas.VeSyncAccountRead)
+@vesync_router.post("/{account_id}/verify", response_model=VeSyncAccountRead)
 async def verify_vesync_account(account_id: int, db: AsyncSession = Depends(get_db_session)):
     """
-    Verify/test VeSync account credentials.
-
-    Args:
-        account_id: The ID of the account to verify
-        db: Database session
-
-    Returns:
-        VeSyncAccountRead: Updated account data with verification status
-
-    Raises:
-        HTTPException: If account not found or verification fails
+    Verify the credentials for a VeSync account by attempting to log in.
     """
-    # TODO: Logic for verify/test login
-    pass 
+    db_account = await get_vesync_account_or_404(account_id, db)
+
+    password = decrypt_vesync_password(db_account.password_encrypted.decode())
+    if not password:
+        db_account.last_sync_status = "Decryption Failed"
+        await db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Could not decrypt password for verification.",
+        )
+
+    manager = VeSync(db_account.email, password)
+    login_success = False
+    error_detail = None
+
+    try:
+        # This is a synchronous call, run it in a thread to avoid blocking the event loop
+        login_success = await asyncio.to_thread(manager.login)
+        if not login_success:
+             error_detail = manager.error_msg or "Unknown login error"
+    except VeSyncLoginError as e:
+        error_detail = str(e)
+    except Exception as e:
+        # Catch any other unexpected exceptions during login
+        error_detail = f"An unexpected error occurred: {e}"
+
+    # Update the account status in the database
+    db_account.last_synced_at = datetime.now(pytz.utc)
+    if login_success:
+        db_account.last_sync_status = "Success"
+    else:
+        db_account.last_sync_status = f"Login Failed: {error_detail}"
+
+    await db.commit()
+    await db.refresh(db_account)
+    return db_account 
