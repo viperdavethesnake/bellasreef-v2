@@ -1,10 +1,11 @@
-# Bella's Reef - Unified Project Dependencies (v2)
+# Bella's Reef - Unified Project Dependencies (v4)
 # This is the single source of truth for all Python packages.
-# Includes pinned versions for passlib and bcrypt to resolve version conflicts.
+# Added python-multipart and tenacity for required dependencies.
 
 # --- Core FastAPI & Web ---
 fastapi
 uvicorn[standard]
+python-multipart
 pydantic>=2.5.0
 pydantic-settings
 
@@ -15,7 +16,6 @@ psycopg2-binary
 
 # --- Security & Auth (Pinned versions to fix compatibility issue) ---
 bcrypt==4.0.1
-# Using version 1.7.4 which is available on piwheels
 passlib==1.7.4
 python-jose[cryptography]
 cryptography>=41.0.0
@@ -38,6 +38,7 @@ pyvesync
 aiohttp
 pytz
 httpx>=0.25.0
+tenacity
 
 # --- Worker/Scheduler (Future Use) ---
 # apscheduler==3.10.4
