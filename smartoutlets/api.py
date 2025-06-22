@@ -359,7 +359,7 @@ async def get_local_discovery_results(
     Returns:
         DiscoveryResults: Discovery results
     """
-    results = discovery_service.get_discovery_results(task_id)
+    results = await discovery_service.get_discovery_results(task_id)
     if results is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

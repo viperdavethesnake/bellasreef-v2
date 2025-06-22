@@ -52,20 +52,22 @@ class ShellyDriver(AbstractSmartOutletDriver):
             List[Dict]: List of discovered Shelly devices
         """
         logger = logging.getLogger("ShellyDriver.discovery")
-        
+        devices = []
         try:
-            # Use aioshelly to discover devices
-            discovered_devices = await aioshelly.discover()
+            # Use aioshelly's COAP context for discovery
+            coap_context = aioshelly.get_coap_context()
+            discovered_devices = await coap_context.discover()
+            await coap_context.close()
             
-            devices = []
-            for device_info in discovered_devices:
+            for dev in discovered_devices:
+                ip_address = dev['ip']
                 try:
                     # Extract device information
                     device_data = {
                         "driver_type": "shelly",
-                        "driver_device_id": device_info.get('mac', f"shelly_{device_info.get('ip', 'unknown')}"),
-                        "ip_address": device_info.get('ip'),
-                        "name": device_info.get('name', f"Shelly Device {device_info.get('ip', 'unknown')}")
+                        "driver_device_id": dev.get('mac', f"shelly_{dev.get('ip', 'unknown')}"),
+                        "ip_address": ip_address,
+                        "name": dev.get('name', f"Shelly Device {ip_address}")
                     }
                     devices.append(device_data)
                     
