@@ -163,6 +163,27 @@ async def list_outlets(
     return [SmartOutletRead.model_validate(outlet) for outlet in outlets]
 
 
+@router.delete(
+    "/outlets/{outlet_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a smart outlet",
+    tags=["Smart Outlets"],
+)
+async def delete_outlet(
+    outlet_id: str,
+    manager: SmartOutletManager = Depends(get_smart_outlet_manager),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Delete a smart outlet from the system.
+    """
+    try:
+        await manager.delete_outlet(outlet_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except OutletNotFoundError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e))
+
+
 @router.patch(
     "/outlets/{outlet_id}",
     response_model=SmartOutletRead,

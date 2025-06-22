@@ -13,7 +13,7 @@ from sqlalchemy import select
 
 from shared.core.config import settings, is_driver_enabled
 from .drivers import AbstractSmartOutletDriver, KasaDriver, ShellyDriver, VeSyncDriver
-from .exceptions import DriverNotImplementedError, OutletNotFoundError, OutletConnectionError
+from .exceptions import DriverNotImplementedError, OutletNotFoundError, OutletConnectionError, OutletDisabledError
 from shared.db.models import SmartOutlet
 from .schemas import SmartOutletState, SmartOutletUpdate, SmartOutletRead
 
@@ -120,6 +120,25 @@ class SmartOutletManager:
             
             return SmartOutletRead.model_validate(outlet)
     
+    async def delete_outlet(self, outlet_id: str) -> None:
+        """
+        Delete an outlet from the database and unregister it.
+        """
+        async with self._db_session_factory() as session:
+            outlet = await session.get(SmartOutlet, outlet_id)
+            if not outlet:
+                raise OutletNotFoundError(f"Outlet with ID {outlet_id} not found")
+
+            # Delete from database
+            await session.delete(outlet)
+            await session.commit()
+
+            # Unregister from active drivers
+            if outlet_id in self._active_drivers:
+                del self._active_drivers[outlet_id]
+
+            self._logger.info(f"Successfully deleted outlet {outlet_id}")
+    
     async def _get_driver_instance(self, outlet_id: str) -> AbstractSmartOutletDriver:
         """
         Get or create a driver instance for the specified outlet.
@@ -144,6 +163,10 @@ class SmartOutletManager:
             
             if not outlet:
                 raise OutletNotFoundError(f"Outlet with ID {outlet_id} not found")
+            
+            if not outlet.enabled:
+                self._logger.warning(f"Operation attempted on disabled outlet {outlet_id}")
+                raise OutletDisabledError()
             
             # Check if driver type is enabled
             if not is_driver_enabled(outlet.driver_type):

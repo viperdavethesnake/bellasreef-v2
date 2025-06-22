@@ -66,6 +66,14 @@ class OutletAuthenticationError(SmartOutletError):
         super().__init__(message, code="outlet_authentication_error")
 
 
+class OutletDisabledError(SmartOutletError):
+    """
+    Raised when an operation is attempted on a disabled outlet.
+    """
+    def __init__(self, message: str = "The operation cannot be completed because the outlet is disabled."):
+        super().__init__(message, code="outlet_disabled")
+
+
 class DiscoveryInProgressError(SmartOutletError):
     """
     Raised when a discovery task is already in progress.

@@ -17,7 +17,8 @@ from .exceptions import (
     OutletConnectionError,
     OutletTimeoutError,
     OutletAuthenticationError,
-    DriverNotImplementedError
+    DriverNotImplementedError,
+    OutletDisabledError
 )
 
 
@@ -79,6 +80,14 @@ async def driver_not_implemented_handler(request: Request, exc: DriverNotImpleme
     )
 
 
+async def outlet_disabled_handler(request: Request, exc: OutletDisabledError) -> JSONResponse:
+    """Handle OutletDisabledError - return 409 Conflict."""
+    return JSONResponse(
+        status_code=status.HTTP_409_CONFLICT,
+        content=create_error_response(exc)
+    )
+
+
 async def generic_smart_outlet_handler(request: Request, exc: SmartOutletError) -> JSONResponse:
     """Handle generic SmartOutletError - return 500 Internal Server Error."""
     return JSONResponse(
@@ -99,4 +108,5 @@ def register_exception_handlers(app):
     app.add_exception_handler(OutletTimeoutError, outlet_timeout_handler)
     app.add_exception_handler(OutletAuthenticationError, outlet_authentication_handler)
     app.add_exception_handler(DriverNotImplementedError, driver_not_implemented_handler)
+    app.add_exception_handler(OutletDisabledError, outlet_disabled_handler)
     app.add_exception_handler(SmartOutletError, generic_smart_outlet_handler) 
