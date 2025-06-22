@@ -8,11 +8,13 @@ import asyncio
 import uuid
 from typing import Dict, List, Optional, Any
 from datetime import datetime, timedelta
+import aioshelly
 
+from shared.utils.logger import get_logger
 from .drivers.kasa import KasaDriver
 from .drivers.shelly import ShellyDriver
 from .drivers.vesync import VeSyncDriver
-from .exceptions import OutletConnectionError, OutletAuthenticationError
+from .exceptions import OutletConnectionError, OutletAuthenticationError, DiscoveryInProgressError, DiscoveryFailedError
 
 
 class DiscoveryService:
@@ -27,6 +29,7 @@ class DiscoveryService:
         """Initialize the discovery service."""
         self._discovery_results: Dict[str, Dict[str, Any]] = {}
         self._discovery_tasks: Dict[str, asyncio.Task] = {}
+        self._logger = get_logger(__name__)
     
     def _cleanup_old_results(self, max_age_hours: int = 24):
         """
