@@ -81,19 +81,17 @@ class DeviceCRUD:
         return db_obj
     
     async def update_poll_status(
-        self, 
-        db: AsyncSession, 
-        device_id: int, 
-        last_polled: datetime,
+        self,
+        db: AsyncSession,
+        device_id: int,
         last_error: Optional[str] = None
     ) -> Optional[Device]:
-        device = await self.get(db, device_id)
+        """Updates a device's last_polled timestamp and optional error message."""
+        device = await self.get(db, device_id=device_id)
         if device:
-            device.last_polled = last_polled
+            device.last_polled = datetime.now(timezone.utc)
             device.last_error = last_error
-            device.updated_at = datetime.now(timezone.utc)
             db.add(device)
-            await db.flush()  # Explicit flush since autoflush=False
             await db.commit()
             await db.refresh(device)
         return device

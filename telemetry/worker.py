@@ -103,17 +103,19 @@ class TelemetryWorker:
                 raise ValueError(f"Unexpected data type from API: {type(data)}")
 
             await history_crud.create(session, obj_in=history_entry)
-            await device_crud.update_poll_status(session, device_id=device.id, success=True)
+            await device_crud.update_poll_status(session, device_id=device.id, last_error=None)
             logger.info(f"Successfully recorded history for {device.name}")
 
         except httpx.RequestError as e:
             error_msg = f"Network error polling {device.name}: {e}"
             logger.error(error_msg)
-            await device_crud.update_poll_status(session, device_id=device.id, success=False, error_message=error_msg)
+            await device_crud.update_poll_status(session, device_id=device.id, last_error=error_msg)
         except Exception as e:
-            error_msg = f"An unexpected error occurred polling {device.name}: {e}"
-            logger.error(error_msg, exc_info=True)
-            await device_crud.update_poll_status(session, device_id=device.id, success=False, error_message=error_msg)
+            error_msg = f"Failed to poll device {device.name}: {str(e)}"
+            logger.error(error_msg)
+            
+            # Update device polling status on failure
+            await device_crud.update_poll_status(session, device_id=device.id, last_error=error_msg)
 
     async def _run_polling_cycle(self):
         """Runs one full cycle of polling all enabled devices."""
