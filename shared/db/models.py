@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, Integer, String, DateTime, Index, ForeignKey, JSON, Float, Text, ARRAY, LargeBinary
+from sqlalchemy import Boolean, Column, Integer, String, DateTime, Index, ForeignKey, JSON, Float, Text, ARRAY, LargeBinary, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
@@ -52,12 +52,14 @@ class Device(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    alerts = relationship("Alert", back_populates="device")
+    alerts = relationship("Alert", back_populates="device", cascade="all, delete-orphan")
+    device_actions = relationship("DeviceAction", back_populates="device", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index('ix_devices_poll_enabled_active', 'poll_enabled', 'is_active'),
         Index('ix_devices_type_active', 'device_type', 'is_active'),
         Index('ix_devices_unit', 'unit'),  # Index for unit-based queries
+        UniqueConstraint('name', name='_device_name_uc'),
     )
 
 class History(Base):
