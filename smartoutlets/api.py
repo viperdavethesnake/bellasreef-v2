@@ -16,7 +16,6 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query, Header, Re
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pyvesync import VeSync
-from pyvesync.helpers import VeSyncLoginError
 
 from shared.db.database import async_session
 from shared.utils.logger import get_logger
@@ -524,11 +523,9 @@ async def verify_vesync_account(account_id: int, db: AsyncSession = Depends(get_
         login_success = await asyncio.to_thread(manager.login)
         if not login_success:
              error_detail = manager.error_msg or "Unknown login error"
-    except VeSyncLoginError as e:
-        error_detail = str(e)
     except Exception as e:
-        # Catch any other unexpected exceptions during login
-        error_detail = f"An unexpected error occurred: {e}"
+        # Catch any exceptions during login and check manager.error_msg first
+        error_detail = manager.error_msg or f"Login failed: {str(e)}"
 
     # Update the account status in the database
     db_account.last_synced_at = datetime.now(pytz.utc)
