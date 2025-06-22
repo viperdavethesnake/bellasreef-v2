@@ -19,7 +19,7 @@ sys.path.insert(0, str(project_root))
 from shared.core.config import settings
 from shared.db.database import engine, async_session, Base
 from shared.db.models import (
-    User, Device, Alert, DeviceAction, History, SmartOutlet, VeSyncAccount
+    User, Device, Alert, DeviceAction, History, HistoryHourlyAggregate, SmartOutlet, VeSyncAccount
 )
 from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username

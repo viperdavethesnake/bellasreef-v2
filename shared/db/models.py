@@ -45,6 +45,7 @@ class Device(Base):
 
     # Relationships
     history = relationship("History", back_populates="device", cascade="all, delete-orphan")
+    history_hourly = relationship("HistoryHourlyAggregate", back_populates="device", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="device", cascade="all, delete-orphan")
     device_actions = relationship("DeviceAction", back_populates="device", cascade="all, delete-orphan")
 
@@ -58,6 +59,30 @@ class History(Base):
     json_value = Column(JSON, nullable=True)
     history_metadata = Column(JSON, nullable=True)
     device = relationship("Device", back_populates="history")
+
+
+class HistoryHourlyAggregate(Base):
+    __tablename__ = "history_hourly_aggregates"
+    id = Column(Integer, primary_key=True, index=True)
+    device_id = Column(Integer, ForeignKey("devices.id"), nullable=False, index=True)
+    
+    # This timestamp will be truncated to the beginning of the hour
+    hour_timestamp = Column(DateTime(timezone=True), nullable=False, index=True)
+    
+    # The aggregated values
+    avg_value = Column(Float, nullable=False)
+    min_value = Column(Float, nullable=False)
+    max_value = Column(Float, nullable=False)
+    sample_count = Column(Integer, nullable=False)  # How many raw points were used
+
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    # Ensure each device can only have one entry per hour
+    __table_args__ = (
+        Index('ix_device_hour', 'device_id', 'hour_timestamp', unique=True),
+    )
+    
+    device = relationship("Device", back_populates="history_hourly")
 
 
 class Alert(Base):
