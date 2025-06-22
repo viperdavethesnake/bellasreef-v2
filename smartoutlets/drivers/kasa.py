@@ -201,7 +201,8 @@ class KasaDriver(AbstractSmartOutletDriver):
                     is_on=is_on,
                     power_w=power_w,
                     voltage_v=voltage_v,
-                    current_a=current_a
+                    current_a=current_a,
+                    is_online=True
                 )
             except TimeoutError as e:
                 self._logger.error(f"Timeout getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
