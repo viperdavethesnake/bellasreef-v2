@@ -99,7 +99,7 @@ print_service_config() {
     echo -e "  • Host: ${CYAN}${host}${NC}"
     echo -e "  • Port: ${CYAN}${port}${NC}"
     echo -e "  • Debug: ${CYAN}${debug}${NC}"
-    echo -e "  • Log Level: ${CYAN}${LOG_LEVEL:-INFO,,}${NC}"
+    echo -e "  • Log Level: ${CYAN}$(echo "${LOG_LEVEL:-INFO}" | tr '[:upper:]' '[:lower:]')${NC}"
 }
 
 # =============================================================================
@@ -168,7 +168,7 @@ start_service() {
         --host "$CORE_HOST" \
         --port "$CORE_PORT" \
         --reload \
-        --log-level "${LOG_LEVEL:-INFO,,}"
+        --log-level "$(echo "${LOG_LEVEL:-INFO}" | tr '[:upper:]' '[:lower:]')"
 }
 
 # =============================================================================

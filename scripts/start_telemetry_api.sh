@@ -99,7 +99,7 @@ print_service_config() {
     echo -e "  • Host: ${CYAN}${host}${NC}"
     echo -e "  • Port: ${CYAN}${port}${NC}"
     echo -e "  • Debug: ${CYAN}${debug}${NC}"
-    echo -e "  • Log Level: ${CYAN}${LOG_LEVEL:-INFO,,}${NC}"
+    echo -e "  • Log Level: ${CYAN}$(echo "${LOG_LEVEL:-INFO}" | tr '[:upper:]' '[:lower:]')${NC}"
 }
 
 # =============================================================================
@@ -159,7 +159,7 @@ start_service() {
     #Start the telemetry service using uvicorn.#
     print_subsection "Starting Service"
     print_success "Launching Telemetry API Service..."
-    echo -e "${GREEN}${BOLD}📊 Telemetry API Service is starting on http://${TELEMETRY_HOST}:${TELEMETRY_PORT}${NC}"
+    echo -e "${GREEN}${BOLD}🚀 Telemetry API Service is starting on http://${TELEMETRY_HOST}:${TELEMETRY_PORT}${NC}"
     echo -e "${CYAN}📖 API Documentation: http://${TELEMETRY_HOST}:${TELEMETRY_PORT}/docs${NC}"
     echo -e "${CYAN}🏥 Health Check: http://${TELEMETRY_HOST}:${TELEMETRY_PORT}/health${NC}"
     echo ""
@@ -168,7 +168,7 @@ start_service() {
         --host "$TELEMETRY_HOST" \
         --port "$TELEMETRY_PORT" \
         --reload \
-        --log-level "${LOG_LEVEL:-INFO,,}"
+        --log-level "$(echo "${LOG_LEVEL:-INFO}" | tr '[:upper:]' '[:lower:]')"
 }
 
 # =============================================================================
