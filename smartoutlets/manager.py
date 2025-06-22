@@ -49,25 +49,22 @@ class SmartOutletManager:
         if not settings.SMART_OUTLETS_ENABLED:
             raise RuntimeError("SmartOutlets module is disabled via config.")
     
-    @description("Retrieves a list of all smart outlets from the database, optionally filtered.",
-    tags=["Smart Outlets"]
-)
-async def get_all_outlets(
-    self, include_disabled: bool = False, driver_type: Optional[str] = None
-) -> List[SmartOutlet]:
-    """
-    Get all outlets from the database.
-    """
-    async with self._db_session_factory() as session:
-        query = select(SmartOutlet)
-        if not include_disabled:
-            query = query.where(SmartOutlet.enabled == True)
+    async def get_all_outlets(
+        self, include_disabled: bool = False, driver_type: Optional[str] = None
+    ) -> List[SmartOutlet]:
+        """
+        Get all outlets from the database.
+        """
+        async with self._db_session_factory() as session:
+            query = select(SmartOutlet)
+            if not include_disabled:
+                query = query.where(SmartOutlet.enabled == True)
 
-        if driver_type:
-            query = query.where(SmartOutlet.driver_type == driver_type)
+            if driver_type:
+                query = query.where(SmartOutlet.driver_type == driver_type)
 
-        result = await session.execute(query)
-        return result.scalars().all()
+            result = await session.execute(query)
+            return result.scalars().all()
     
     async def update_outlet(self, outlet_id: str, update_data: SmartOutletUpdate) -> SmartOutletRead:
         """
