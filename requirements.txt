@@ -1,0 +1,42 @@
+# Bella's Reef - Unified Project Dependencies
+# This is the single source of truth for all Python packages.
+
+# --- Core FastAPI & Web ---
+fastapi
+uvicorn[standard]
+pydantic>=2.5.0
+pydantic-settings
+
+# --- Database ---
+sqlalchemy
+asyncpg
+psycopg2-binary
+
+# --- Security & Auth ---
+passlib[bcrypt]
+python-jose[cryptography]
+cryptography>=41.0.0
+email-validator
+
+# --- Hardware & Drivers ---
+# General
+RPi.GPIO
+psutil
+# PWM
+adafruit-circuitpython-pca9685
+# Temperature
+w1thermsensor
+# Smart Outlets
+kasa
+aioshelly>=1.0.0
+pyvesync
+
+# --- General Utilities ---
+aiohttp
+pytz
+httpx>=0.25.0
+
+# --- Worker/Scheduler (Future Use) ---
+# apscheduler==3.10.4 # Pinning specific version as it can be sensitive
+# celery==5.3.4
+
