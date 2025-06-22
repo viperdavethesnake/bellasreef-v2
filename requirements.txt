@@ -15,7 +15,8 @@ psycopg2-binary
 
 # --- Security & Auth (Pinned versions to fix compatibility issue) ---
 bcrypt==4.0.1
-passlib==5.3.1
+# Using version 1.7.4 which is available on piwheels
+passlib==1.7.4
 python-jose[cryptography]
 cryptography>=41.0.0
 email-validator
