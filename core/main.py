@@ -24,9 +24,6 @@ from shared.db.database import engine, Base, async_session
 from shared.db.models import User
 from shared.utils import get_logger
 from core.api import health, auth, users, deps, system_info
-from smartoutlets.manager import SmartOutletManager
-from smartoutlets.api import router as smartoutlets_router
-from smartoutlets.handlers import register_exception_handlers
 
 # =============================================================================
 # Application Lifecycle
@@ -100,26 +97,6 @@ app.add_middleware(
 )
 
 # =============================================================================
-# Exception Handlers
-# =============================================================================
-
-# Register SmartOutlet exception handlers
-register_exception_handlers(app)
-
-# =============================================================================
-# Dependency Injection
-# =============================================================================
-
-async def get_smart_outlet_manager() -> SmartOutletManager:
-    """
-    FastAPI dependency to provide SmartOutletManager instance.
-    
-    Returns:
-        SmartOutletManager: Configured manager instance
-    """
-    return SmartOutletManager(async_session, get_logger("smartoutlets"))
-
-# =============================================================================
 # API Routes
 # =============================================================================
 
@@ -135,9 +112,6 @@ app.include_router(users.router, prefix="/api/users", tags=["users"])
 # System information endpoints
 app.include_router(system_info.router, prefix="/api", tags=["system"])
 
-# SmartOutlet endpoints
-app.include_router(smartoutlets_router, prefix="/api/smartoutlets", tags=["smartoutlets"])
-
 # =============================================================================
 # Root Endpoint
 # =============================================================================
@@ -152,8 +126,7 @@ async def root():
         "endpoints": {
             "health": "/api/health",
             "auth": "/api/auth",
-            "users": "/api/users",
-            "smartoutlets": "/api/smartoutlets"
+            "users": "/api/users"
         }
     }
 
