@@ -11,7 +11,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 # Activate the virtual environment
-source .venv/bin/activate
+source bellasreef-venv/bin/activate
 
 echo "🚀 Starting SmartOutlets Service..."
 echo "URL: http://0.0.0.0:8005" # From SERVICE_PORT_SMARTOUTLETS in .env

@@ -1,5 +1,6 @@
-# Bella's Reef - Unified Project Dependencies
+# Bella's Reef - Unified Project Dependencies (v2)
 # This is the single source of truth for all Python packages.
+# Includes pinned versions for passlib and bcrypt to resolve version conflicts.
 
 # --- Core FastAPI & Web ---
 fastapi
@@ -12,8 +13,9 @@ sqlalchemy
 asyncpg
 psycopg2-binary
 
-# --- Security & Auth ---
-passlib[bcrypt]
+# --- Security & Auth (Pinned versions to fix compatibility issue) ---
+bcrypt==4.0.1
+passlib==5.3.1
 python-jose[cryptography]
 cryptography>=41.0.0
 email-validator
@@ -37,6 +39,5 @@ pytz
 httpx>=0.25.0
 
 # --- Worker/Scheduler (Future Use) ---
-# apscheduler==3.10.4 # Pinning specific version as it can be sensitive
+# apscheduler==3.10.4
 # celery==5.3.4
-

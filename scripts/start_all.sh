@@ -11,7 +11,7 @@ set -e
 cd "$(dirname "$0")/.."
 
 # Activate the virtual environment
-source .venv/bin/activate
+source  bellasreef-venv/bin/activate
 
 # Function to start a service
 start_service() {
