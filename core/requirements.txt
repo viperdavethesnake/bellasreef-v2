@@ -9,6 +9,7 @@
 # === Core Backend Framework ===
 fastapi>=0.104.0
 uvicorn[standard]>=0.30.1,<0.31.0
+pytz>=2023.3
 
 # === Database & Async Support ===
 sqlalchemy>=2.0.0
