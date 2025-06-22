@@ -35,7 +35,7 @@ async def create_probe(
     current_user: User = Depends(get_current_user)
 ):
     """Create a new probe configuration in the database."""
-    db_probe = await probe_crud.get_probe_by_hardware_id(db, hardware_id=probe.hardware_id)
+    db_probe = await probe_crud.get_probe(db, hardware_id=probe.hardware_id)
     if db_probe:
         raise HTTPException(status_code=400, detail="Probe with this hardware ID already exists.")
     return await probe_crud.create_probe(db=db, probe=probe)
