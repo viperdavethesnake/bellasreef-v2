@@ -10,7 +10,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from shared.db.database import get_async_session
+from shared.db.database import get_db
 from shared.crud.history import (
     get_raw_history,
     get_hourly_history,
@@ -32,7 +32,7 @@ async def get_device_raw_history(
     device_id: int,
     hours: int = Query(default=24, ge=1, le=168, description="Hours to look back (1-168)"),
     limit: int = Query(default=1000, ge=1, le=10000, description="Maximum records to return"),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_db)
 ):
     """
     Get raw, high-resolution historical data for a device.
@@ -82,7 +82,7 @@ async def get_device_hourly_history(
     device_id: int,
     start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
     end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_db)
 ):
     """
     Get hourly aggregated historical data for a device.
@@ -147,7 +147,7 @@ async def get_device_hourly_history(
 async def get_device_raw_history_stats(
     device_id: int,
     hours: int = Query(default=24, ge=1, le=168, description="Hours to look back"),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_db)
 ):
     """
     Get statistics about raw historical data for a device.
@@ -177,7 +177,7 @@ async def get_device_hourly_history_stats(
     device_id: int,
     start_date: str = Query(..., description="Start date in YYYY-MM-DD format"),
     end_date: str = Query(..., description="End date in YYYY-MM-DD format"),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_db)
 ):
     """
     Get statistics about hourly aggregated data for a device.
