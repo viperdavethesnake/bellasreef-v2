@@ -37,7 +37,7 @@ UNDERLINE='\033[4m'
 # =============================================================================
 
 print_banner() {
-    """Print the main banner for the script."""
+    #Print the main banner for the script.#
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    🐠 Bella's Reef v2 🐠                    ║"
@@ -48,7 +48,7 @@ print_banner() {
 }
 
 print_section_header() {
-    """Print a section header with visual styling."""
+    #Print a section header with visual styling.#
     local title="$1"
     echo -e "\n${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}${BOLD}  ${title}${NC}"
@@ -56,44 +56,44 @@ print_section_header() {
 }
 
 print_subsection() {
-    """Print a subsection header."""
+    #Print a subsection header.#
     local title="$1"
     echo -e "\n${PURPLE}${BOLD}▶ ${title}${NC}"
 }
 
 print_info() {
-    """Print an informational message."""
+    #Print an informational message.#
     echo -e "${CYAN}ℹ ${1}${NC}"
 }
 
 print_success() {
-    """Print a success message."""
+    #Print a success message.#
     echo -e "${GREEN}✅ ${1}${NC}"
 }
 
 print_warning() {
-    """Print a warning message."""
+    #Print a warning message.#
     echo -e "${YELLOW}⚠️  ${1}${NC}"
 }
 
 print_error() {
-    """Print an error message."""
+    #Print an error message.#
     echo -e "${RED}❌ ${1}${NC}"
 }
 
 print_progress() {
-    """Print a progress message with dots animation."""
+    #Print a progress message with dots animation.#
     local message="$1"
     echo -n -e "${CYAN}⏳ ${message}${NC}"
 }
 
 print_progress_done() {
-    """Complete a progress message."""
+    #Complete a progress message.#
     echo -e "${GREEN} ✓${NC}"
 }
 
 print_service_status() {
-    """Print service status with visual indicators."""
+    #Print service status with visual indicators.#
     local service="$1"
     local status="$2"
     local port="$3"
@@ -119,7 +119,7 @@ print_service_status() {
 # =============================================================================
 
 activate_venv() {
-    """Activate virtual environment if not already active."""
+    #Activate virtual environment if not already active.#
     print_subsection "Virtual Environment Setup"
     
     if [ -z "${VIRTUAL_ENV:-}" ]; then
@@ -132,7 +132,7 @@ activate_venv() {
 }
 
 load_environment() {
-    """Load environment configuration from .env file."""
+    #Load environment configuration from .env file.#
     print_subsection "Environment Configuration"
     
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
@@ -147,7 +147,7 @@ load_environment() {
 }
 
 check_service_health() {
-    """Check if a service is healthy by testing its health endpoint."""
+    #Check if a service is healthy by testing its health endpoint.#
     local service_name="$1"
     local port="$2"
     local max_attempts=10
@@ -171,7 +171,7 @@ check_service_health() {
 }
 
 start_api_services() {
-    """Start all API services in the background."""
+    #Start all API services in the background.#
     print_section_header "🚀 Starting API Services"
     
     print_subsection "Launching Services"
@@ -191,7 +191,7 @@ start_api_services() {
 }
 
 wait_for_services() {
-    """Wait for API services to be ready and perform health checks."""
+    #Wait for API services to be ready and perform health checks.#
     print_section_header "🏥 Service Health Checks"
     
     print_info "Waiting for services to initialize..."
@@ -240,7 +240,7 @@ wait_for_services() {
 }
 
 start_workers() {
-    """Start background workers."""
+    #Start background workers.#
     print_section_header "⚙️  Starting Background Workers"
     
     print_subsection "Launching Workers"
@@ -254,7 +254,7 @@ start_workers() {
 }
 
 print_success_message() {
-    """Print success message with helpful information."""
+    #Print success message with helpful information.#
     print_section_header "🎉 Startup Complete"
     
     echo -e "${GREEN}${BOLD}All services and workers have been successfully launched!${NC}"
@@ -278,7 +278,7 @@ print_success_message() {
 # =============================================================================
 
 main() {
-    """Main function to orchestrate the startup of all services."""
+    #Main function to orchestrate the startup of all services.#
     print_banner
     
     # Change to project root

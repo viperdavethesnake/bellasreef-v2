@@ -36,7 +36,7 @@ BOLD='\033[1m'
 # =============================================================================
 
 print_banner() {
-    """Print the service banner."""
+    #Print the service banner.#
     echo -e "${YELLOW}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                  🔌 SmartOutlets API Service 🔌             ║"
@@ -45,7 +45,7 @@ print_banner() {
 }
 
 print_section_header() {
-    """Print a section header with visual styling."""
+    #Print a section header with visual styling.#
     local title="$1"
     echo -e "\n${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}${BOLD}  ${title}${NC}"
@@ -53,44 +53,44 @@ print_section_header() {
 }
 
 print_subsection() {
-    """Print a subsection header."""
+    #Print a subsection header.#
     local title="$1"
     echo -e "\n${PURPLE}${BOLD}▶ ${title}${NC}"
 }
 
 print_info() {
-    """Print an informational message."""
+    #Print an informational message.#
     echo -e "${CYAN}ℹ ${1}${NC}"
 }
 
 print_success() {
-    """Print a success message."""
+    #Print a success message.#
     echo -e "${GREEN}✅ ${1}${NC}"
 }
 
 print_warning() {
-    """Print a warning message."""
+    #Print a warning message.#
     echo -e "${YELLOW}⚠️  ${1}${NC}"
 }
 
 print_error() {
-    """Print an error message."""
+    #Print an error message.#
     echo -e "${RED}❌ ${1}${NC}"
 }
 
 print_progress() {
-    """Print a progress message with dots animation."""
+    #Print a progress message with dots animation.#
     local message="$1"
     echo -n -e "${CYAN}⏳ ${message}${NC}"
 }
 
 print_progress_done() {
-    """Complete a progress message."""
+    #Complete a progress message.#
     echo -e "${GREEN} ✓${NC}"
 }
 
 print_service_config() {
-    """Print service configuration information."""
+    #Print service configuration information.#
     local host="$1"
     local port="$2"
     local debug="$3"
@@ -107,7 +107,7 @@ print_service_config() {
 # =============================================================================
 
 check_environment() {
-    """Check if .env file exists and load environment variables."""
+    #Check if .env file exists and load environment variables.#
     print_subsection "Environment Validation"
     
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
@@ -122,7 +122,7 @@ check_environment() {
 }
 
 check_service_enabled() {
-    """Check if smartoutlets service is enabled in configuration."""
+    #Check if smartoutlets service is enabled in configuration.#
     print_subsection "Service Status Check"
     
     if [ "${SMART_OUTLETS_ENABLED:-true}" != "true" ]; then
@@ -135,7 +135,7 @@ check_service_enabled() {
 }
 
 activate_venv() {
-    """Activate the virtual environment."""
+    #Activate the virtual environment.#
     print_subsection "Virtual Environment Setup"
     
     print_progress "Activating virtual environment"
@@ -144,19 +144,19 @@ activate_venv() {
 }
 
 set_service_config() {
-    """Set default values for service configuration."""
+    #Set default values for service configuration.#
     SMART_OUTLETS_HOST="${SERVICE_HOST:-0.0.0.0}"
     SMART_OUTLETS_PORT="${SERVICE_PORT_SMARTOUTLETS:-8005}"
 }
 
 print_configuration() {
-    """Print service configuration information."""
+    #Print service configuration information.#
     print_subsection "Service Configuration"
     print_service_config "$SMART_OUTLETS_HOST" "$SMART_OUTLETS_PORT" "${DEBUG:-false}"
 }
 
 start_service() {
-    """Start the smartoutlets service using uvicorn."""
+    #Start the smartoutlets service using uvicorn.#
     print_subsection "Starting Service"
     print_success "Launching SmartOutlets API Service..."
     echo -e "${GREEN}${BOLD}🔌 SmartOutlets API Service is starting on http://${SMART_OUTLETS_HOST}:${SMART_OUTLETS_PORT}${NC}"
@@ -176,7 +176,7 @@ start_service() {
 # =============================================================================
 
 main() {
-    """Main function to start the smartoutlets API service."""
+    #Main function to start the smartoutlets API service.#
     print_banner
     
     # Change to project root

@@ -35,7 +35,7 @@ BOLD='\033[1m'
 # =============================================================================
 
 print_banner() {
-    """Print the setup banner."""
+    # Print the setup banner.
     echo -e "${GREEN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                    🐠 Bella's Reef Setup 🐠                 ║"
@@ -46,7 +46,7 @@ print_banner() {
 }
 
 print_section_header() {
-    """Print a section header with visual styling."""
+    # Print a section header with visual styling.
     local title="$1"
     echo -e "\n${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}${BOLD}  ${title}${NC}"
@@ -54,44 +54,44 @@ print_section_header() {
 }
 
 print_subsection() {
-    """Print a subsection header."""
+    # Print a subsection header.
     local title="$1"
     echo -e "\n${PURPLE}${BOLD}▶ ${title}${NC}"
 }
 
 print_info() {
-    """Print an informational message."""
+    # Print an informational message.
     echo -e "${CYAN}ℹ ${1}${NC}"
 }
 
 print_success() {
-    """Print a success message."""
+    # Print a success message.
     echo -e "${GREEN}✅ ${1}${NC}"
 }
 
 print_warning() {
-    """Print a warning message."""
+    # Print a warning message.
     echo -e "${YELLOW}⚠️  ${1}${NC}"
 }
 
 print_error() {
-    """Print an error message."""
+    # Print an error message.
     echo -e "${RED}❌ ${1}${NC}"
 }
 
 print_progress() {
-    """Print a progress message with dots animation."""
+    # Print a progress message with dots animation.
     local message="$1"
     echo -n -e "${CYAN}⏳ ${message}${NC}"
 }
 
 print_progress_done() {
-    """Complete a progress message."""
+    # Complete a progress message.
     echo -e "${GREEN} ✓${NC}"
 }
 
 print_step() {
-    """Print a setup step with visual indicator."""
+    # Print a setup step with visual indicator.
     local step="$1"
     local description="$2"
     echo -e "${WHITE}${BOLD}${step}. ${description}${NC}"
@@ -102,7 +102,7 @@ print_step() {
 # =============================================================================
 
 check_requirements() {
-    """Check if required tools are installed."""
+    # Check if required tools are installed.
     print_section_header "🔍 System Requirements Check"
     
     print_step "1" "Checking Python installation"
@@ -132,7 +132,7 @@ check_requirements() {
 }
 
 create_virtual_environment() {
-    """Create and activate virtual environment."""
+    # Create and activate virtual environment.
     print_section_header "🐍 Virtual Environment Setup"
     
     if [ -d "bellasreef-venv" ]; then
@@ -147,7 +147,7 @@ create_virtual_environment() {
 }
 
 activate_venv() {
-    """Activate the virtual environment."""
+    # Activate the virtual environment.
     print_subsection "Virtual Environment Activation"
     
     print_progress "Activating virtual environment"
@@ -157,7 +157,7 @@ activate_venv() {
 }
 
 install_dependencies() {
-    """Install Python dependencies."""
+    # Install Python dependencies.
     print_section_header "📦 Dependency Installation"
     
     print_progress "Installing Python dependencies"
@@ -167,7 +167,7 @@ install_dependencies() {
 }
 
 setup_environment() {
-    """Set up environment configuration."""
+    # Set up environment configuration.
     print_section_header "⚙️  Environment Configuration"
     
     if [ ! -f ".env" ]; then
@@ -187,7 +187,7 @@ setup_environment() {
 }
 
 initialize_database() {
-    """Initialize the database."""
+    # Initialize the database.
     print_section_header "🗄️  Database Initialization"
     
     if [ -f "scripts/init_db.py" ]; then
@@ -201,7 +201,7 @@ initialize_database() {
 }
 
 print_success_message() {
-    """Print setup completion message."""
+    # Print setup completion message.
     print_section_header "🎉 Setup Complete"
     
     echo -e "${GREEN}${BOLD}Bella's Reef setup completed successfully!${NC}"
@@ -223,7 +223,7 @@ print_success_message() {
 # =============================================================================
 
 main() {
-    """Main function to set up the Bella's Reef project."""
+    # Main function to set up the Bella's Reef project.
     print_banner
     
     # Change to project root

@@ -36,7 +36,7 @@ BOLD='\033[1m'
 # =============================================================================
 
 print_banner() {
-    """Print the worker banner."""
+    #Print the worker banner.#
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                  📡 Telemetry Worker 📡                     ║"
@@ -45,7 +45,7 @@ print_banner() {
 }
 
 print_section_header() {
-    """Print a section header with visual styling."""
+    #Print a section header with visual styling.#
     local title="$1"
     echo -e "\n${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}${BOLD}  ${title}${NC}"
@@ -53,44 +53,44 @@ print_section_header() {
 }
 
 print_subsection() {
-    """Print a subsection header."""
+    #Print a subsection header.#
     local title="$1"
     echo -e "\n${PURPLE}${BOLD}▶ ${title}${NC}"
 }
 
 print_info() {
-    """Print an informational message."""
+    #Print an informational message.#
     echo -e "${CYAN}ℹ ${1}${NC}"
 }
 
 print_success() {
-    """Print a success message."""
+    #Print a success message.#
     echo -e "${GREEN}✅ ${1}${NC}"
 }
 
 print_warning() {
-    """Print a warning message."""
+    #Print a warning message.#
     echo -e "${YELLOW}⚠️  ${1}${NC}"
 }
 
 print_error() {
-    """Print an error message."""
+    #Print an error message.#
     echo -e "${RED}❌ ${1}${NC}"
 }
 
 print_progress() {
-    """Print a progress message with dots animation."""
+    #Print a progress message with dots animation.#
     local message="$1"
     echo -n -e "${CYAN}⏳ ${message}${NC}"
 }
 
 print_progress_done() {
-    """Complete a progress message."""
+    #Complete a progress message.#
     echo -e "${GREEN} ✓${NC}"
 }
 
 print_worker_config() {
-    """Print worker configuration information."""
+    #Print worker configuration information.#
     local interval="$1"
     local debug="$2"
     
@@ -104,7 +104,7 @@ print_worker_config() {
 # =============================================================================
 
 check_environment() {
-    """Check if .env file exists and load environment variables."""
+    #Check if .env file exists and load environment variables.#
     print_subsection "Environment Validation"
     
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
@@ -119,7 +119,7 @@ check_environment() {
 }
 
 check_service_enabled() {
-    """Check if telemetry service is enabled in configuration."""
+    #Check if telemetry service is enabled in configuration.#
     print_subsection "Service Status Check"
     
     if [ "${TELEMETRY_ENABLED:-true}" != "true" ]; then
@@ -132,7 +132,7 @@ check_service_enabled() {
 }
 
 activate_venv() {
-    """Activate the virtual environment."""
+    #Activate the virtual environment.#
     print_subsection "Virtual Environment Setup"
     
     print_progress "Activating virtual environment"
@@ -141,13 +141,13 @@ activate_venv() {
 }
 
 print_configuration() {
-    """Print worker configuration information."""
+    #Print worker configuration information.#
     print_subsection "Worker Configuration"
     print_worker_config "${TELEMETRY_POLLING_INTERVAL:-60}" "${DEBUG:-false}"
 }
 
 start_worker() {
-    """Start the telemetry worker."""
+    #Start the telemetry worker.#
     print_subsection "Starting Worker"
     print_success "Launching Telemetry Worker..."
     echo -e "${GREEN}${BOLD}📡 Telemetry Worker is starting with ${TELEMETRY_POLLING_INTERVAL:-60}s polling interval${NC}"
@@ -161,7 +161,7 @@ start_worker() {
 # =============================================================================
 
 main() {
-    """Main function to start the telemetry worker."""
+    #Main function to start the telemetry worker.#
     print_banner
     
     # Change to project root

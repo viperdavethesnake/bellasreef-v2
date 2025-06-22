@@ -18,7 +18,7 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # =============================================================================
 
 check_environment() {
-    """Check if .env file exists and load environment variables."""
+    #Check if .env file exists and load environment variables.#
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
         echo "❌ Error: .env file not found in project root!"
         echo "   Please copy env.example to .env and configure your settings."
@@ -30,7 +30,7 @@ check_environment() {
 }
 
 get_auth_token() {
-    """Get authentication token from the core service."""
+    #Get authentication token from the core service.#
     echo "🔐 Getting authentication token..."
     
     local response
@@ -49,14 +49,14 @@ get_auth_token() {
 }
 
 test_health_endpoint() {
-    """Test the health endpoint."""
+    #Test the health endpoint.#
     echo ""
     echo "🏥 Testing health endpoint..."
     curl -s "http://localhost:${SERVICE_PORT_SMARTOUTLETS:-8005}/health" | jq .
 }
 
 test_discover_outlets() {
-    """Test the discover outlets endpoint."""
+    #Test the discover outlets endpoint.#
     echo ""
     echo "🔍 Testing discover outlets endpoint..."
     curl -s -H "Authorization: Bearer $TOKEN" \
@@ -64,7 +64,7 @@ test_discover_outlets() {
 }
 
 test_get_outlets() {
-    """Test the get outlets endpoint."""
+    #Test the get outlets endpoint.#
     echo ""
     echo "🔌 Testing get outlets endpoint..."
     curl -s -H "Authorization: Bearer $TOKEN" \
@@ -72,7 +72,7 @@ test_get_outlets() {
 }
 
 print_summary() {
-    """Print test summary."""
+    #Print test summary.#
     echo ""
     echo "✅ SmartOutlets API service tests completed!"
     echo "📖 API Documentation: http://localhost:${SERVICE_PORT_SMARTOUTLETS:-8005}/docs"
@@ -83,7 +83,7 @@ print_summary() {
 # =============================================================================
 
 main() {
-    """Main function to test the smartoutlets API service."""
+    #Main function to test the smartoutlets API service.#
     echo "🧪 Testing SmartOutlets API Service..."
     echo "   - Host: localhost"
     echo "   - Port: ${SERVICE_PORT_SMARTOUTLETS:-8005}"

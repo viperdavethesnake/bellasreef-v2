@@ -35,7 +35,7 @@ BOLD='\033[1m'
 # =============================================================================
 
 print_banner() {
-    """Print the test banner."""
+    #Print the test banner.#
     echo -e "${CYAN}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                 🌡️  Temperature API Test Suite 🌡️           ║"
@@ -44,7 +44,7 @@ print_banner() {
 }
 
 print_section_header() {
-    """Print a section header with visual styling."""
+    #Print a section header with visual styling.#
     local title="$1"
     echo -e "\n${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}${BOLD}  ${title}${NC}"
@@ -52,44 +52,44 @@ print_section_header() {
 }
 
 print_subsection() {
-    """Print a subsection header."""
+    #Print a subsection header.#
     local title="$1"
     echo -e "\n${PURPLE}${BOLD}▶ ${title}${NC}"
 }
 
 print_info() {
-    """Print an informational message."""
+    #Print an informational message.#
     echo -e "${CYAN}ℹ ${1}${NC}"
 }
 
 print_success() {
-    """Print a success message."""
+    #Print a success message.#
     echo -e "${GREEN}✅ ${1}${NC}"
 }
 
 print_warning() {
-    """Print a warning message."""
+    #Print a warning message.#
     echo -e "${YELLOW}⚠️  ${1}${NC}"
 }
 
 print_error() {
-    """Print an error message."""
+    #Print an error message.#
     echo -e "${RED}❌ ${1}${NC}"
 }
 
 print_progress() {
-    """Print a progress message with dots animation."""
+    #Print a progress message with dots animation.#
     local message="$1"
     echo -n -e "${CYAN}⏳ ${message}${NC}"
 }
 
 print_progress_done() {
-    """Complete a progress message."""
+    #Complete a progress message.#
     echo -e "${GREEN} ✓${NC}"
 }
 
 print_test_config() {
-    """Print test configuration information."""
+    #Print test configuration information.#
     local host="$1"
     local port="$2"
     
@@ -100,7 +100,7 @@ print_test_config() {
 }
 
 print_test_result() {
-    """Print test result with visual indicator."""
+    #Print test result with visual indicator.#
     local test_name="$1"
     local result="$2"
     
@@ -122,7 +122,7 @@ print_test_result() {
 # =============================================================================
 
 check_environment() {
-    """Check if .env file exists and load environment variables."""
+    #Check if .env file exists and load environment variables.#
     print_subsection "Environment Validation"
     
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
@@ -137,7 +137,7 @@ check_environment() {
 }
 
 get_auth_token() {
-    """Get authentication token from the core service."""
+    #Get authentication token from the core service.#
     print_subsection "Authentication"
     print_progress "Getting authentication token"
     
@@ -159,7 +159,7 @@ get_auth_token() {
 }
 
 test_health_endpoint() {
-    """Test the health endpoint."""
+    #Test the health endpoint.#
     print_subsection "Health Endpoint Test"
     print_progress "Testing health endpoint"
     
@@ -178,7 +178,7 @@ test_health_endpoint() {
 }
 
 test_discover_probes() {
-    """Test the discover probes endpoint."""
+    #Test the discover probes endpoint.#
     print_subsection "Probe Discovery Test"
     print_progress "Testing probe discovery endpoint"
     
@@ -198,7 +198,7 @@ test_discover_probes() {
 }
 
 test_get_probes() {
-    """Test the get probes endpoint."""
+    #Test the get probes endpoint.#
     print_subsection "Probe List Test"
     print_progress "Testing probe list endpoint"
     
@@ -218,7 +218,7 @@ test_get_probes() {
 }
 
 print_summary() {
-    """Print test summary."""
+    #Print test summary.#
     print_section_header "🎉 Test Summary"
     
     echo -e "${GREEN}${BOLD}Temperature API service tests completed!${NC}"
@@ -234,7 +234,7 @@ print_summary() {
 # =============================================================================
 
 main() {
-    """Main function to test the temperature API service."""
+    #Main function to test the temperature API service.#
     print_banner
     
     # Print test configuration
