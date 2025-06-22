@@ -65,59 +65,67 @@ class VeSyncDeviceService:
     
     async def discover_devices(self, account: VeSyncAccount) -> List[DiscoveredVeSyncDevice]:
         """
-        Discover all devices available for the VeSync account.
-        
-        Args:
-            account: VeSync account to discover devices for
-            
-        Returns:
-            List[DiscoveredVeSyncDevice]: List of discovered devices
-            
-        Raises:
-            OutletAuthenticationError: If credentials are invalid
-            OutletConnectionError: If discovery fails
+        Discover all devices available for the VeSync account with robust logging.
         """
         try:
             manager = await self._get_manager(account)
             await asyncio.to_thread(manager.update)
+    
+            logger.info(f"VeSync manager updated. Found {len(manager.outlets)} outlets and {len(manager.switches)} switches.")
             
-            # Get all devices from VeSync
-            devices = []
+            processed_devices = []
             
-            # Get outlets
-            if hasattr(manager, 'outlets') and manager.outlets:
-                for outlet in manager.outlets:
-                    # Safely append outlet data, providing defaults for any missing attributes
-                    devices.append(DiscoveredVeSyncDevice(
-                        vesync_device_id=getattr(outlet, 'cid', None),
-                        device_name=getattr(outlet, 'device_name', 'Unknown Outlet'),
-                        device_type="outlet",
-                        model=getattr(outlet, 'device_type', 'unknown_model'),
-                        is_online=getattr(outlet, 'is_online', True),
-                        is_on=getattr(outlet, 'is_on', False),
-                        power_w=getattr(outlet, 'power', None)
-                    ))
+            # --- Robust Outlet Processing Loop ---
+            if manager.outlets:
+                logger.info("--- Processing Outlets ---")
+                for i, outlet in enumerate(manager.outlets, 1):
+                    try:
+                        logger.info(f"Processing outlet #{i}: Name='{getattr(outlet, 'device_name', 'N/A')}', CID='{getattr(outlet, 'cid', 'N/A')}'")
+                        
+                        # This block will now log an error if any single device fails validation
+                        device_data = DiscoveredVeSyncDevice(
+                            vesync_device_id=getattr(outlet, 'cid', None),
+                            device_name=getattr(outlet, 'device_name', 'Unknown Outlet'),
+                            device_type="outlet",
+                            model=getattr(outlet, 'device_type', 'unknown_model'),
+                            is_online=getattr(outlet, 'is_online', True),
+                            is_on=getattr(outlet, 'is_on', False),
+                            power_w=getattr(outlet, 'power', None)
+                        )
+                        processed_devices.append(device_data)
+                        logger.info(f"    -> Successfully processed outlet #{i}")
+    
+                    except Exception as e:
+                        logger.error(f"    -> FAILED to process outlet #{i}. Error: {e}", exc_info=True)
+                logger.info("--- Finished Processing Outlets ---")
+    
+            # --- Robust Switch Processing Loop ---
+            if manager.switches:
+                logger.info("--- Processing Switches ---")
+                for i, switch in enumerate(manager.switches, 1):
+                    try:
+                        logger.info(f"Processing switch #{i}: Name='{getattr(switch, 'device_name', 'N/A')}', CID='{getattr(switch, 'cid', 'N/A')}'")
+                        
+                        device_data = DiscoveredVeSyncDevice(
+                            vesync_device_id=getattr(switch, 'cid', None),
+                            device_name=getattr(switch, 'device_name', 'Unknown Switch'),
+                            device_type="switch",
+                            model=getattr(switch, 'device_type', 'unknown_model'),
+                            is_online=getattr(switch, 'is_online', True),
+                            is_on=getattr(switch, 'is_on', False),
+                            power_w=getattr(switch, 'power', None)
+                        )
+                        processed_devices.append(device_data)
+                        logger.info(f"    -> Successfully processed switch #{i}")
+
+                    except Exception as e:
+                        logger.error(f"    -> FAILED to process switch #{i}. Error: {e}", exc_info=True)
+                logger.info("--- Finished Processing Switches ---")
+
+            return processed_devices
             
-            # Get switches (if any)
-            if hasattr(manager, 'switches') and manager.switches:
-                for switch in manager.switches:
-                    # Safely append switch data, providing defaults for any missing attributes
-                    devices.append(DiscoveredVeSyncDevice(
-                        vesync_device_id=getattr(switch, 'cid', None),
-                        device_name=getattr(switch, 'device_name', 'Unknown Switch'),
-                        device_type="switch",
-                        model=getattr(switch, 'device_type', 'unknown_model'),
-                        is_online=getattr(switch, 'is_online', True),
-                        is_on=getattr(switch, 'is_on', False),
-                        power_w=getattr(switch, 'power', None)
-                    ))
-            
-            return devices
-            
-        except OutletAuthenticationError:
-            raise
         except Exception as e:
-            logger.error(f"VeSync device discovery failed: {e}")
+            logger.error(f"VeSync device discovery failed at a high level: {e}")
             raise OutletConnectionError(f"Device discovery failed: {str(e)}")
     
     async def get_device_state(self, account: VeSyncAccount, vesync_device_id: str) -> Dict[str, Any]:
