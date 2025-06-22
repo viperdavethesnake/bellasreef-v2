@@ -48,15 +48,11 @@ class Device(Base):
     last_polled = Column(DateTime(timezone=True), nullable=True)
     last_error = Column(Text, nullable=True)
 
-    probes = relationship("Probe", back_populates="device")
-
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     # Relationships
-    history = relationship("History", back_populates="device", cascade="all, delete-orphan")
-    alerts = relationship("Alert", back_populates="device", cascade="all, delete-orphan")
-    device_actions = relationship("DeviceAction", back_populates="device", cascade="all, delete-orphan")
+    alerts = relationship("Alert", back_populates="device")
 
     __table_args__ = (
         Index('ix_devices_poll_enabled_active', 'poll_enabled', 'is_active'),
@@ -187,32 +183,6 @@ class DeviceAction(Base):
         Index('ix_device_actions_status_scheduled', 'status', 'scheduled_time'),
         Index('ix_device_actions_device_status', 'device_id', 'status'),
         Index('ix_device_actions_scheduled_time', 'scheduled_time'),  # For efficient querying
-    )
-
-class Probe(Base):
-    __tablename__ = 'probes'
-    id = Column(Integer, primary_key=True, index=True)
-    hardware_id = Column(String, unique=True, index=True, nullable=False)
-    nickname = Column(String)
-    role = Column(String)
-    enabled = Column(Boolean, default=True)
-    poller_id = Column(String, index=True)
-    read_interval_seconds = Column(Integer, default=60)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-    history = relationship("ProbeHistory", back_populates="probe")
-
-class ProbeHistory(Base):
-    __tablename__ = 'probe_history'
-    id = Column(Integer, primary_key=True, index=True)
-    probe_id = Column(Integer, ForeignKey('probes.id'), nullable=False, index=True)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now())
-    value = Column(Float)
-    probe_metadata = Column(JSON)
-    probe = relationship("Probe", back_populates="history")
-
-    __table_args__ = (
-        Index('ix_probe_history_probe_timestamp', 'probe_id', 'timestamp'),
     )
 
 # SmartOutlet Models
