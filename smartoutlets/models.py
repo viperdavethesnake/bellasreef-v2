@@ -10,9 +10,10 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Column, String, Boolean, DateTime, Text, UniqueConstraint, Integer, LargeBinary
+from sqlalchemy import Column, String, Boolean, DateTime, Text, UniqueConstraint, Integer, LargeBinary, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 # Use shared Base for cross-service table registration!
 from shared.db.database import Base
 
@@ -56,6 +57,9 @@ class SmartOutlet(Base):
     driver_type = Column(String(50), nullable=False, comment="Type of smart outlet driver (kasa, shelly, vesync)")
     driver_device_id = Column(String(255), nullable=False, comment="Device ID from the driver")
     
+    # VeSync account relationship (for VeSync devices only)
+    vesync_account_id = Column(Integer, ForeignKey('vesync_accounts.id'), nullable=True, comment="Associated VeSync account ID")
+    
     # Device information
     name = Column(String(255), nullable=False, comment="Human-readable name for the outlet")
     nickname = Column(String(255), nullable=True, comment="Optional nickname for the outlet")
@@ -80,6 +84,9 @@ class SmartOutlet(Base):
     __table_args__ = (
         UniqueConstraint('driver_type', 'driver_device_id', name='uq_driver_device'),
     )
+    
+    # Relationships
+    vesync_account = relationship("VeSyncAccount", back_populates="devices")
     
     def __repr__(self):
         """
@@ -115,6 +122,9 @@ class VeSyncAccount(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="Creation timestamp")
     updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="Last update timestamp")
+    
+    # Relationships
+    devices = relationship("SmartOutlet", back_populates="vesync_account")
     
     def __repr__(self):
         """

@@ -24,13 +24,14 @@ from .models import SmartOutlet, VeSyncAccount
 from .schemas import (
     SmartOutletCreate, SmartOutletRead, SmartOutletState, SmartOutletUpdate,
     VeSyncDiscoveryRequest, DiscoveredDevice, DiscoveryTaskResponse, DiscoveryResults,
-    VeSyncAccountCreate, VeSyncAccountRead
+    VeSyncAccountCreate, VeSyncAccountRead, DiscoveredVeSyncDevice, VeSyncDeviceCreate, SmartOutletWithState
 )
 from .exceptions import OutletNotFoundError, OutletConnectionError, OutletAuthenticationError
 from .handlers import register_exception_handlers
 from .discovery_service import DiscoveryService
 from .config import settings
 from .crypto_utils import encrypt_vesync_password, decrypt_vesync_password
+from .services.vesync_device_service import vesync_device_service
 
 router = APIRouter()
 
@@ -536,4 +537,238 @@ async def verify_vesync_account(account_id: int, db: AsyncSession = Depends(get_
 
     await db.commit()
     await db.refresh(db_account)
-    return db_account 
+    return db_account
+
+
+# =============================================================================
+# VeSync Device Management Endpoints
+# =============================================================================
+
+@vesync_router.get("/{account_id}/devices/discover", response_model=List[DiscoveredVeSyncDevice])
+async def discover_vesync_devices_for_account(account_id: int, db: AsyncSession = Depends(get_db_session)):
+    """
+    Discover all devices available for a VeSync account that are not yet managed locally.
+    """
+    # Get the VeSync account
+    account = await get_vesync_account_or_404(account_id, db)
+    
+    # Discover all devices from VeSync cloud
+    cloud_devices = await vesync_device_service.discover_devices(account)
+    
+    # Get list of already managed devices for this account
+    managed_devices_result = await db.execute(
+        select(SmartOutlet).filter(
+            SmartOutlet.vesync_account_id == account_id,
+            SmartOutlet.driver_type == "vesync"
+        )
+    )
+    managed_devices = managed_devices_result.scalars().all()
+    managed_device_ids = {device.driver_device_id for device in managed_devices}
+    
+    # Return only devices not already managed
+    unmanaged_devices = [
+        device for device in cloud_devices 
+        if device.vesync_device_id not in managed_device_ids
+    ]
+    
+    return unmanaged_devices
+
+
+@vesync_router.post("/{account_id}/devices", response_model=SmartOutletRead, status_code=status.HTTP_201_CREATED)
+async def add_vesync_device(account_id: int, device_data: VeSyncDeviceCreate, db: AsyncSession = Depends(get_db_session)):
+    """
+    Add a discovered VeSync device to the local management system.
+    """
+    # Get the VeSync account
+    account = await get_vesync_account_or_404(account_id, db)
+    
+    # Verify the device exists in VeSync cloud
+    cloud_devices = await vesync_device_service.discover_devices(account)
+    device_exists = any(device.vesync_device_id == device_data.vesync_device_id for device in cloud_devices)
+    
+    if not device_exists:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Device {device_data.vesync_device_id} not found in VeSync account"
+        )
+    
+    # Check if device is already managed
+    existing_device = await db.execute(
+        select(SmartOutlet).filter(
+            SmartOutlet.driver_device_id == device_data.vesync_device_id,
+            SmartOutlet.driver_type == "vesync"
+        )
+    )
+    if existing_device.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Device {device_data.vesync_device_id} is already managed"
+        )
+    
+    # Create new SmartOutlet record
+    outlet = SmartOutlet(
+        id=uuid4(),
+        driver_type="vesync",
+        driver_device_id=device_data.vesync_device_id,
+        vesync_account_id=account_id,
+        name=device_data.name,
+        nickname=device_data.nickname,
+        ip_address="cloud",  # VeSync devices are cloud-based
+        location=device_data.location,
+        role=device_data.role.value,
+        enabled=True,
+        poller_enabled=True,
+        scheduler_enabled=True
+    )
+    
+    db.add(outlet)
+    await db.commit()
+    await db.refresh(outlet)
+    
+    return SmartOutletRead.model_validate(outlet)
+
+
+@vesync_router.get("/{account_id}/devices", response_model=List[SmartOutletRead])
+async def list_vesync_devices(account_id: int, db: AsyncSession = Depends(get_db_session)):
+    """
+    List all managed VeSync devices for a specific account.
+    """
+    # Verify account exists
+    await get_vesync_account_or_404(account_id, db)
+    
+    # Get managed devices for this account
+    result = await db.execute(
+        select(SmartOutlet).filter(
+            SmartOutlet.vesync_account_id == account_id,
+            SmartOutlet.driver_type == "vesync"
+        )
+    )
+    devices = result.scalars().all()
+    
+    return [SmartOutletRead.model_validate(device) for device in devices]
+
+
+@vesync_router.get("/{account_id}/devices/{device_id}", response_model=SmartOutletWithState)
+async def get_vesync_device_state(account_id: int, device_id: str, db: AsyncSession = Depends(get_db_session)):
+    """
+    Get the current state and details of a specific VeSync device.
+    """
+    # Get the VeSync account
+    account = await get_vesync_account_or_404(account_id, db)
+    
+    # Get the device from database
+    device_result = await db.execute(
+        select(SmartOutlet).filter(
+            SmartOutlet.id == device_id,
+            SmartOutlet.vesync_account_id == account_id,
+            SmartOutlet.driver_type == "vesync"
+        )
+    )
+    device = device_result.scalar_one_or_none()
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VeSync device not found"
+        )
+    
+    # Get real-time state from VeSync
+    try:
+        state = await vesync_device_service.get_device_state(account, device.driver_device_id)
+        
+        # Combine database data with real-time state
+        device_data = SmartOutletRead.model_validate(device).model_dump()
+        device_data.update(state)
+        
+        return SmartOutletWithState(**device_data)
+        
+    except (OutletAuthenticationError, OutletConnectionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
+
+
+@vesync_router.post("/{account_id}/devices/{device_id}/turn_on", response_model=SmartOutletWithState)
+async def turn_on_vesync_device(account_id: int, device_id: str, db: AsyncSession = Depends(get_db_session)):
+    """
+    Turn on a specific VeSync device.
+    """
+    # Get the VeSync account
+    account = await get_vesync_account_or_404(account_id, db)
+    
+    # Get the device from database
+    device_result = await db.execute(
+        select(SmartOutlet).filter(
+            SmartOutlet.id == device_id,
+            SmartOutlet.vesync_account_id == account_id,
+            SmartOutlet.driver_type == "vesync"
+        )
+    )
+    device = device_result.scalar_one_or_none()
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VeSync device not found"
+        )
+    
+    # Turn on the device
+    try:
+        await vesync_device_service.turn_device_on(account, device.driver_device_id)
+        
+        # Get updated state
+        state = await vesync_device_service.get_device_state(account, device.driver_device_id)
+        
+        # Combine database data with real-time state
+        device_data = SmartOutletRead.model_validate(device).model_dump()
+        device_data.update(state)
+        
+        return SmartOutletWithState(**device_data)
+        
+    except (OutletAuthenticationError, OutletConnectionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        )
+
+
+@vesync_router.post("/{account_id}/devices/{device_id}/turn_off", response_model=SmartOutletWithState)
+async def turn_off_vesync_device(account_id: int, device_id: str, db: AsyncSession = Depends(get_db_session)):
+    """
+    Turn off a specific VeSync device.
+    """
+    # Get the VeSync account
+    account = await get_vesync_account_or_404(account_id, db)
+    
+    # Get the device from database
+    device_result = await db.execute(
+        select(SmartOutlet).filter(
+            SmartOutlet.id == device_id,
+            SmartOutlet.vesync_account_id == account_id,
+            SmartOutlet.driver_type == "vesync"
+        )
+    )
+    device = device_result.scalar_one_or_none()
+    if not device:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="VeSync device not found"
+        )
+    
+    # Turn off the device
+    try:
+        await vesync_device_service.turn_device_off(account, device.driver_device_id)
+        
+        # Get updated state
+        state = await vesync_device_service.get_device_state(account, device.driver_device_id)
+        
+        # Combine database data with real-time state
+        device_data = SmartOutletRead.model_validate(device).model_dump()
+        device_data.update(state)
+        
+        return SmartOutletWithState(**device_data)
+        
+    except (OutletAuthenticationError, OutletConnectionError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(e)
+        ) 

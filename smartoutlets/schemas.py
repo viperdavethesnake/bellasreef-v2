@@ -248,4 +248,61 @@ class VeSyncAccountRead(VeSyncAccountBase):
     created_at: datetime
 
     class Config:
-        from_attributes = True 
+        from_attributes = True
+
+
+# VeSync Device Management Schemas
+
+class DiscoveredVeSyncDevice(BaseModel):
+    """
+    Schema for discovered VeSync devices from cloud.
+    
+    Attributes:
+        vesync_device_id (str): Unique VeSync device identifier
+        device_name (str): Device name from VeSync
+        device_type (str): Type of device (outlet, switch, etc.)
+        model (str): Device model
+        is_online (bool): Whether device is currently online
+        is_on (bool): Current power state
+        power_w (Optional[float]): Current power consumption in watts
+    """
+    vesync_device_id: str = Field(..., description="Unique VeSync device identifier")
+    device_name: str = Field(..., description="Device name from VeSync")
+    device_type: str = Field(..., description="Type of device (outlet, switch, etc.)")
+    model: str = Field(..., description="Device model")
+    is_online: bool = Field(..., description="Whether device is currently online")
+    is_on: bool = Field(..., description="Current power state")
+    power_w: Optional[float] = Field(None, description="Current power consumption in watts")
+
+
+class VeSyncDeviceCreate(BaseModel):
+    """
+    Schema for creating a VeSync device from discovered device.
+    
+    Attributes:
+        vesync_device_id (str): Unique VeSync device identifier
+        name (str): User-friendly name for the device
+        nickname (Optional[str]): Optional nickname
+        location (Optional[str]): Physical location
+        role (OutletRole): Role of the outlet
+    """
+    vesync_device_id: str = Field(..., description="Unique VeSync device identifier")
+    name: str = Field(..., description="User-friendly name for the device")
+    nickname: Optional[str] = Field(None, description="Optional nickname")
+    location: Optional[str] = Field(None, description="Physical location")
+    role: OutletRole = Field(default=OutletRole.GENERAL, description="Role of the outlet")
+
+
+class SmartOutletWithState(SmartOutletRead):
+    """
+    Schema for SmartOutlet with real-time state information.
+    
+    Extends SmartOutletRead with current state data from VeSync API.
+    """
+    is_on: bool = Field(..., description="Current power state")
+    power_w: Optional[float] = Field(None, description="Current power consumption in watts")
+    voltage_v: Optional[float] = Field(None, description="Current voltage in volts")
+    current_a: Optional[float] = Field(None, description="Current amperage in amps")
+    energy_kwh: Optional[float] = Field(None, description="Total energy consumption in kWh")
+    temperature_c: Optional[float] = Field(None, description="Device temperature in Celsius")
+    is_online: bool = Field(..., description="Whether device is currently online") 
