@@ -82,6 +82,12 @@ class Settings(BaseSettings):
     OUTLET_MAX_RETRIES: int = 3
 
     # =============================================================================
+    # TELEMETRY SERVICE SETTINGS
+    # =============================================================================
+    TELEMETRY_ENABLED: bool = True
+    SERVICE_PORT_TELEMETRY: int = 8006
+
+    # =============================================================================
     # FIELD VALIDATORS
     # =============================================================================
     @field_validator("SERVICE_TOKEN", "SECRET_KEY", "ENCRYPTION_KEY")

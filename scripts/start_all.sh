@@ -26,6 +26,7 @@ echo "-> Starting API Services..."
 ./scripts/start_core.sh &
 ./scripts/start_temp.sh &
 ./scripts/start_smartoutlets.sh &
+./scripts/start_telemetry_api.sh &
 
 # A brief pause to let the APIs initialize before starting workers
 sleep 2
