@@ -31,7 +31,7 @@ class VeSyncDeviceService:
     
     def __init__(self):
         """Initialize the VeSync device service."""
-        self._managers: Dict[int, VeSync] = {}
+        pass
     
     async def _get_manager(self, account: VeSyncAccount) -> VeSync:
         """
@@ -46,9 +46,6 @@ class VeSyncDeviceService:
         Raises:
             OutletAuthenticationError: If credentials are invalid
         """
-        if account.id in self._managers:
-            return self._managers[account.id]
-        
         # Decrypt password
         password = decrypt_vesync_password(account.password_encrypted.decode())
         if not password:
@@ -64,8 +61,6 @@ class VeSyncDeviceService:
             # We will raise a clear, generic authentication error if login returns false.
             raise OutletAuthenticationError(f"VeSync login failed for {account.email}. Please check your credentials.")
         
-        # Store manager for reuse
-        self._managers[account.id] = manager
         return manager
     
     async def discover_devices(self, account: VeSyncAccount) -> List[DiscoveredVeSyncDevice]:
