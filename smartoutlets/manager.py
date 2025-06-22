@@ -11,10 +11,10 @@ from typing import Callable, Dict, Type, List
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
-from .config import settings, is_driver_enabled
+from shared.core.config import settings, is_driver_enabled
 from .drivers import AbstractSmartOutletDriver, KasaDriver, ShellyDriver, VeSyncDriver
 from .exceptions import DriverNotImplementedError, OutletNotFoundError, OutletConnectionError
-from .models import SmartOutlet
+from shared.db.models import SmartOutlet
 from .schemas import SmartOutletState, SmartOutletUpdate, SmartOutletRead
 
 

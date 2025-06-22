@@ -36,11 +36,11 @@ print("[DEBUG] Tables registered BEFORE model imports:", list(Base.metadata.tabl
 
 from shared.db.models import (
     User, Device, History, Alert, AlertEvent, 
-    Schedule, DeviceAction, Probe, ProbeHistory
+    Schedule, DeviceAction, Probe, ProbeHistory,
+    SmartOutlet, VeSyncAccount
 )
 from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username
-from smartoutlets.models import SmartOutlet, VeSyncAccount
 
 # Debug: Print tables after all model imports
 print("[DEBUG] Tables registered AFTER model imports:", list(Base.metadata.tables.keys()))

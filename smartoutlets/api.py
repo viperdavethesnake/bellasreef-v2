@@ -20,7 +20,7 @@ from pyvesync import VeSync
 from shared.db.database import async_session
 from shared.utils.logger import get_logger
 from .manager import SmartOutletManager
-from .models import SmartOutlet, VeSyncAccount
+from shared.db.models import SmartOutlet, VeSyncAccount
 from .schemas import (
     SmartOutletCreate, SmartOutletRead, SmartOutletState, SmartOutletUpdate,
     VeSyncDiscoveryRequest, DiscoveredDevice, DiscoveryTaskResponse, DiscoveryResults,
@@ -29,34 +29,16 @@ from .schemas import (
 from .exceptions import OutletNotFoundError, OutletConnectionError, OutletAuthenticationError
 from .handlers import register_exception_handlers
 from .discovery_service import DiscoveryService
-from .config import settings
+from shared.core.config import settings
 from .crypto_utils import encrypt_vesync_password, decrypt_vesync_password
 from .services.vesync_device_service import vesync_device_service
+from core.api.deps import get_current_user
+from shared.schemas.user import User
 
 router = APIRouter()
 
 # Global discovery service instance
 discovery_service = DiscoveryService()
-
-
-def require_api_key(api_key: str = Header(..., description="API key for authentication")):
-    """
-    Demo authentication dependency for API routes.
-
-    This is a placeholder implementation showing how API authentication
-    will integrate with the project-wide security system in the future.
-
-    Args:
-        api_key: API key from request header
-
-    Raises:
-        HTTPException: 403 if API key is invalid
-    """
-    if api_key != settings.SERVICE_TOKEN:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Invalid API key"
-        )
 
 
 async def get_smart_outlet_manager() -> SmartOutletManager:
@@ -85,7 +67,6 @@ async def get_db_session() -> AsyncSession:
     "/outlets/",
     response_model=SmartOutletRead,
     status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(require_api_key)],
     summary="Create a new smart outlet",
     description="Creates a new smart outlet record in the database and registers it with the manager.",
     tags=["Smart Outlets"]
@@ -93,7 +74,8 @@ async def get_db_session() -> AsyncSession:
 async def create_outlet(
     outlet_data: SmartOutletCreate,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    session: AsyncSession = Depends(get_db_session)
+    session: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Create a new smart outlet.
@@ -102,6 +84,7 @@ async def create_outlet(
         outlet_data: Smart outlet creation data
         manager: SmartOutletManager instance
         session: Database session
+        current_user: Current authenticated user
 
     Returns:
         SmartOutletRead: Created outlet data
@@ -162,7 +145,8 @@ async def create_outlet(
 )
 async def list_outlets(
     include_disabled: bool = Query(False, description="Include disabled outlets"),
-    manager: SmartOutletManager = Depends(get_smart_outlet_manager)
+    manager: SmartOutletManager = Depends(get_smart_outlet_manager),
+    current_user: User = Depends(get_current_user)
 ):
     """
     List all smart outlets.
@@ -170,6 +154,7 @@ async def list_outlets(
     Args:
         include_disabled: Whether to include disabled outlets
         manager: SmartOutletManager instance
+        current_user: Current authenticated user
 
     Returns:
         List[SmartOutletRead]: List of outlet data
@@ -189,7 +174,8 @@ async def list_outlets(
 async def update_outlet(
     outlet_id: str,
     update_data: SmartOutletUpdate,
-    manager: SmartOutletManager = Depends(get_smart_outlet_manager)
+    manager: SmartOutletManager = Depends(get_smart_outlet_manager),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Update an existing smart outlet configuration.
@@ -198,6 +184,7 @@ async def update_outlet(
         outlet_id: The ID of the outlet to update
         update_data: Update data containing allowed fields
         manager: SmartOutletManager instance
+        current_user: Current authenticated user
 
     Returns:
         SmartOutletRead: Updated outlet data
@@ -214,7 +201,8 @@ async def update_outlet(
 )
 async def get_outlet_state(
     outlet_id: str,
-    manager: SmartOutletManager = Depends(get_smart_outlet_manager)
+    manager: SmartOutletManager = Depends(get_smart_outlet_manager),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Get the current state of a smart outlet.
@@ -222,6 +210,7 @@ async def get_outlet_state(
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
+        current_user: Current authenticated user
 
     Returns:
         SmartOutletState: Current outlet state
@@ -238,7 +227,8 @@ async def get_outlet_state(
 )
 async def turn_on_outlet(
     outlet_id: str,
-    manager: SmartOutletManager = Depends(get_smart_outlet_manager)
+    manager: SmartOutletManager = Depends(get_smart_outlet_manager),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Turn on a smart outlet.
@@ -246,6 +236,7 @@ async def turn_on_outlet(
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
+        current_user: Current authenticated user
 
     Returns:
         dict: Success response
@@ -269,7 +260,8 @@ async def turn_on_outlet(
 )
 async def turn_off_outlet(
     outlet_id: str,
-    manager: SmartOutletManager = Depends(get_smart_outlet_manager)
+    manager: SmartOutletManager = Depends(get_smart_outlet_manager),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Turn off a smart outlet.
@@ -277,6 +269,7 @@ async def turn_off_outlet(
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
+        current_user: Current authenticated user
 
     Returns:
         dict: Success response
@@ -300,27 +293,21 @@ async def turn_off_outlet(
 )
 async def toggle_outlet(
     outlet_id: str,
-    manager: SmartOutletManager = Depends(get_smart_outlet_manager)
+    manager: SmartOutletManager = Depends(get_smart_outlet_manager),
+    current_user: User = Depends(get_current_user)
 ):
     """
-    Toggle a smart outlet (turn off if on, turn on if off).
+    Toggle a smart outlet.
 
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
+        current_user: Current authenticated user
 
     Returns:
         SmartOutletState: Current outlet state after toggle
     """
-    success = await manager.toggle_outlet(outlet_id)
-    if success:
-        # Return the current state after toggle
-        return await manager.get_outlet_status(outlet_id)
-    else:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to toggle outlet {outlet_id}"
-        )
+    return await manager.toggle_outlet(outlet_id)
 
 
 # Discovery Endpoints
@@ -333,15 +320,24 @@ async def toggle_outlet(
     description="Initiates asynchronous discovery of Shelly and Kasa devices on the local network.",
     tags=["Discovery"]
 )
-async def start_local_discovery():
+async def start_local_discovery(
+    current_user: User = Depends(get_current_user)
+):
     """
-    Start local device discovery for Shelly and Kasa devices.
+    Start local device discovery.
+
+    Args:
+        current_user: Current authenticated user
 
     Returns:
-        DiscoveryTaskResponse: Task ID for tracking the discovery process
+        DiscoveryTaskResponse: Discovery task information
     """
-    task_id = await discovery_service.run_local_discovery()
-    return DiscoveryTaskResponse(task_id=task_id)
+    task_id = discovery_service.start_local_discovery()
+    return DiscoveryTaskResponse(
+        task_id=task_id,
+        status="started",
+        message="Local device discovery started"
+    )
 
 
 @router.get(
@@ -351,40 +347,27 @@ async def start_local_discovery():
     description="Retrieves the results of a local device discovery task by task ID.",
     tags=["Discovery"]
 )
-async def get_local_discovery_results(task_id: str):
+async def get_local_discovery_results(
+    task_id: str,
+    current_user: User = Depends(get_current_user)
+):
     """
-    Get results from a local discovery task.
+    Get local discovery results.
 
     Args:
-        task_id: The task ID to retrieve results for
+        task_id: The discovery task ID
+        current_user: Current authenticated user
 
     Returns:
-        DiscoveryResults: Discovery results and status
-
-    Raises:
-        HTTPException: 404 if task not found
+        DiscoveryResults: Discovery results
     """
-    results = await discovery_service.get_discovery_results(task_id)
-    
-    if not results:
+    results = discovery_service.get_discovery_results(task_id)
+    if results is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Discovery task {task_id} not found"
         )
-    
-    # Convert results to Pydantic models
-    discovered_devices = []
-    for device_data in results.get('results', []):
-        discovered_devices.append(DiscoveredDevice(**device_data))
-    
-    return DiscoveryResults(
-        task_id=task_id,
-        status=results['status'],
-        created_at=results['created_at'],
-        completed_at=results.get('completed_at'),
-        results=discovered_devices,
-        error=results.get('error')
-    )
+    return results
 
 
 @router.post(
@@ -394,35 +377,54 @@ async def get_local_discovery_results(task_id: str):
     description="Discovers VeSync smart outlets using provided cloud credentials.",
     tags=["Discovery"]
 )
-async def discover_vesync_devices(request: VeSyncDiscoveryRequest):
+async def discover_vesync_devices(
+    request: VeSyncDiscoveryRequest,
+    current_user: User = Depends(get_current_user)
+):
     """
-    Discover VeSync devices using cloud credentials.
+    Discover VeSync cloud devices.
 
     Args:
         request: VeSync discovery request with credentials
+        current_user: Current authenticated user
 
     Returns:
-        List[DiscoveredDevice]: List of discovered VeSync devices
-
-    Raises:
-        HTTPException: If discovery fails or credentials are invalid
+        List[DiscoveredDevice]: List of discovered devices
     """
     try:
-        from .drivers.vesync import VeSyncDriver
-        devices = await VeSyncDriver.discover_devices(
-            request.email, 
+        # Create VeSync manager with provided credentials
+        manager = VeSync(
+            request.email,
             request.password.get_secret_value(),
-            time_zone=request.time_zone
+            time_zone=request.time_zone or "America/New_York"
         )
+        
+        # Login to VeSync
+        if not manager.login():
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid VeSync credentials"
+            )
+        
+        # Get all devices
+        devices = []
+        for device in manager.get_devices():
+            if hasattr(device, 'device_name') and hasattr(device, 'device_id'):
+                devices.append(DiscoveredDevice(
+                    device_id=device.device_id,
+                    device_name=device.device_name,
+                    device_type="vesync",
+                    ip_address="",  # Cloud devices don't have local IP
+                    capabilities=["on_off", "power_monitoring"] if hasattr(device, 'power') else ["on_off"]
+                ))
+        
         return devices
-    except OutletAuthenticationError as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"VeSync authentication failed for {request.email}"
-        )
+        
     except Exception as e:
+        logger = get_logger(__name__)
+        logger.error(f"VeSync discovery failed: {e}")
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"VeSync discovery failed: {str(e)}"
         )
 
@@ -448,7 +450,11 @@ vesync_router = APIRouter(
 
 
 @vesync_router.post("/", response_model=VeSyncAccountRead, status_code=status.HTTP_201_CREATED)
-async def create_vesync_account(account: VeSyncAccountCreate, db: AsyncSession = Depends(get_db_session)):
+async def create_vesync_account(
+    account: VeSyncAccountCreate, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Create a new VeSync account.
     """
@@ -484,7 +490,12 @@ async def create_vesync_account(account: VeSyncAccountCreate, db: AsyncSession =
 
 
 @vesync_router.get("/", response_model=List[VeSyncAccountRead])
-async def read_vesync_accounts(skip: int = 0, limit: int = 100, db: AsyncSession = Depends(get_db_session)):
+async def read_vesync_accounts(
+    skip: int = 0, 
+    limit: int = 100, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Retrieve all VeSync accounts.
     """
@@ -494,7 +505,11 @@ async def read_vesync_accounts(skip: int = 0, limit: int = 100, db: AsyncSession
 
 
 @vesync_router.delete("/{account_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_vesync_account(account_id: int, db: AsyncSession = Depends(get_db_session)):
+async def delete_vesync_account(
+    account_id: int, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Delete a VeSync account.
     """
@@ -505,7 +520,11 @@ async def delete_vesync_account(account_id: int, db: AsyncSession = Depends(get_
 
 
 @vesync_router.post("/{account_id}/verify", response_model=VeSyncAccountRead)
-async def verify_vesync_account(account_id: int, db: AsyncSession = Depends(get_db_session)):
+async def verify_vesync_account(
+    account_id: int, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Verify the credentials for a VeSync account by attempting to log in.
     """
@@ -550,7 +569,11 @@ async def verify_vesync_account(account_id: int, db: AsyncSession = Depends(get_
 # =============================================================================
 
 @vesync_router.get("/{account_id}/devices/discover", response_model=List[DiscoveredVeSyncDevice])
-async def discover_vesync_devices_for_account(account_id: int, db: AsyncSession = Depends(get_db_session)):
+async def discover_vesync_devices_for_account(
+    account_id: int, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Discover all devices available for a VeSync account that are not yet managed locally.
     """
@@ -580,7 +603,12 @@ async def discover_vesync_devices_for_account(account_id: int, db: AsyncSession 
 
 
 @vesync_router.post("/{account_id}/devices", response_model=SmartOutletRead, status_code=status.HTTP_201_CREATED)
-async def add_vesync_device(account_id: int, device_data: VeSyncDeviceCreate, db: AsyncSession = Depends(get_db_session)):
+async def add_vesync_device(
+    account_id: int, 
+    device_data: VeSyncDeviceCreate, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Add a discovered VeSync device to the local management system.
     """
@@ -634,14 +662,18 @@ async def add_vesync_device(account_id: int, device_data: VeSyncDeviceCreate, db
 
 
 @vesync_router.get("/{account_id}/devices", response_model=List[SmartOutletRead])
-async def list_vesync_devices(account_id: int, db: AsyncSession = Depends(get_db_session)):
+async def list_vesync_devices(
+    account_id: int, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
-    List all managed VeSync devices for a specific account.
+    List all devices managed for a specific VeSync account.
     """
-    # Verify account exists
+    # Verify the account exists
     await get_vesync_account_or_404(account_id, db)
     
-    # Get managed devices for this account
+    # Get all devices for this account
     result = await db.execute(
         select(SmartOutlet).filter(
             SmartOutlet.vesync_account_id == account_id,
@@ -649,12 +681,16 @@ async def list_vesync_devices(account_id: int, db: AsyncSession = Depends(get_db
         )
     )
     devices = result.scalars().all()
-    
     return [SmartOutletRead.model_validate(device) for device in devices]
 
 
 @vesync_router.get("/{account_id}/devices/{device_id}", response_model=SmartOutletWithState)
-async def get_vesync_device_state(account_id: int, device_id: str, db: AsyncSession = Depends(get_db_session)):
+async def get_vesync_device_state(
+    account_id: int, 
+    device_id: str, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Get the current state and details of a specific VeSync device.
     """
@@ -694,7 +730,12 @@ async def get_vesync_device_state(account_id: int, device_id: str, db: AsyncSess
 
 
 @vesync_router.post("/{account_id}/devices/{device_id}/turn_on", response_model=SmartOutletWithState)
-async def turn_on_vesync_device(account_id: int, device_id: str, db: AsyncSession = Depends(get_db_session)):
+async def turn_on_vesync_device(
+    account_id: int, 
+    device_id: str, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Turn on a specific VeSync device.
     """
@@ -737,7 +778,12 @@ async def turn_on_vesync_device(account_id: int, device_id: str, db: AsyncSessio
 
 
 @vesync_router.post("/{account_id}/devices/{device_id}/turn_off", response_model=SmartOutletWithState)
-async def turn_off_vesync_device(account_id: int, device_id: str, db: AsyncSession = Depends(get_db_session)):
+async def turn_off_vesync_device(
+    account_id: int, 
+    device_id: str, 
+    db: AsyncSession = Depends(get_db_session),
+    current_user: User = Depends(get_current_user)
+):
     """
     Turn off a specific VeSync device.
     """

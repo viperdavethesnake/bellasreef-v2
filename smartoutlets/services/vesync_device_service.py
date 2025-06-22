@@ -8,12 +8,14 @@ including discovery, state management, and control operations.
 import asyncio
 from typing import List, Optional, Dict, Any
 from pyvesync import VeSync
+from datetime import datetime
+import pytz
 
 from shared.utils.logger import get_logger
-from ..crypto_utils import decrypt_vesync_password
-from ..models import VeSyncAccount, SmartOutlet
-from ..schemas import DiscoveredVeSyncDevice, SmartOutletWithState
+from shared.db.models import VeSyncAccount, SmartOutlet
 from ..exceptions import OutletAuthenticationError, OutletConnectionError
+from ..schemas import DiscoveredVeSyncDevice, SmartOutletWithState
+from ..crypto_utils import decrypt_vesync_password
 
 
 logger = get_logger(__name__)

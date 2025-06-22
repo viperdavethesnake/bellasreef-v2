@@ -1,6 +1,6 @@
 import sys
 from fastapi import FastAPI, Depends
-from .config import settings
+from shared.core.config import settings
 
 if not settings.TEMP_ENABLED:
     print("Temperature Service is disabled. Set TEMP_ENABLED=true in temp/.env to enable.")

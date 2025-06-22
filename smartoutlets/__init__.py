@@ -5,7 +5,7 @@ This module provides smart outlet management capabilities for Bella's Reef.
 """
 
 from .manager import SmartOutletManager
-from .models import SmartOutlet, SmartOutletState
+from shared.db.models import SmartOutlet, SmartOutletState
 from .schemas import SmartOutletCreate, SmartOutletRead, SmartOutletUpdate
 from .enums import OutletRole, SmartOutletDriverType
 from .exceptions import (

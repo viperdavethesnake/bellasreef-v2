@@ -12,7 +12,7 @@ from typing import Dict, Optional, Coroutine, Any
 
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-from ..config import settings
+from shared.core.config import settings
 from ..exceptions import OutletConnectionError, OutletTimeoutError
 from ..models import SmartOutletState
 

@@ -15,7 +15,7 @@ from typing import Dict, Any
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from db_encryption import EncryptedJSON
-from config import settings
+from shared.core.config import settings
 
 
 def test_encryption_decryption():

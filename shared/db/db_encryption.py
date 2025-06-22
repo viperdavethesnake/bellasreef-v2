@@ -17,7 +17,7 @@ from sqlalchemy.types import TypeEngine
 
 # Handle both package and standalone imports
 try:
-    from .config import settings
+    from shared.core.config import settings
 except ImportError:
     # For standalone usage, create a mock settings object
     class MockSettings:

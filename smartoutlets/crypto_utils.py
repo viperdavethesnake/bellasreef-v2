@@ -14,7 +14,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
 from shared.utils.logger import get_logger
-from .config import settings
+from shared.core.config import settings
 
 
 logger = get_logger(__name__)

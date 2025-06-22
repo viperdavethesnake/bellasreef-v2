@@ -22,7 +22,7 @@ from sqlalchemy import text
 
 from shared.db.database import engine, Base, async_session
 from shared.utils.logger import get_logger
-from .config import settings
+from shared.core.config import settings
 from .api import router, vesync_router
 from .handlers import register_exception_handlers
 from .manager import SmartOutletManager
