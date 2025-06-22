@@ -6,7 +6,7 @@ with support for multiple driver types (Kasa, Shelly, VeSync).
 """
 
 import logging
-from typing import Callable, Dict, Type, List
+from typing import Callable, Dict, Type, List, Optional
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -49,23 +49,25 @@ class SmartOutletManager:
         if not settings.SMART_OUTLETS_ENABLED:
             raise RuntimeError("SmartOutlets module is disabled via config.")
     
-    async def get_all_outlets(self, include_disabled: bool = False) -> List[SmartOutlet]:
-        """
-        Get all outlets from the database.
-        
-        Args:
-            include_disabled: Whether to include disabled outlets
-            
-        Returns:
-            List[SmartOutlet]: List of outlet instances
-        """
-        async with self._db_session_factory() as session:
-            query = select(SmartOutlet)
-            if not include_disabled:
-                query = query.where(SmartOutlet.enabled == True)
-            
-            result = await session.execute(query)
-            return list(result.scalars().all())
+    @description("Retrieves a list of all smart outlets from the database, optionally filtered.",
+    tags=["Smart Outlets"]
+)
+async def get_all_outlets(
+    self, include_disabled: bool = False, driver_type: Optional[str] = None
+) -> List[SmartOutlet]:
+    """
+    Get all outlets from the database.
+    """
+    async with self._db_session_factory() as session:
+        query = select(SmartOutlet)
+        if not include_disabled:
+            query = query.where(SmartOutlet.enabled == True)
+
+        if driver_type:
+            query = query.where(SmartOutlet.driver_type == driver_type)
+
+        result = await session.execute(query)
+        return result.scalars().all()
     
     async def update_outlet(self, outlet_id: str, update_data: SmartOutletUpdate) -> SmartOutletRead:
         """
@@ -232,7 +234,7 @@ class SmartOutletManager:
                 self._logger.warning(f"Failed to turn on outlet {outlet_id}")
             
             return success
-        except (OutletNotFoundError, DriverNotImplementedError):
+        except (OutletNotFoundError, DriverNotImplementedError, OutletDisabledError):
             raise
         except Exception as e:
             self._logger.error(f"Connection error turning on outlet {outlet_id}: {e}")
@@ -263,7 +265,7 @@ class SmartOutletManager:
                 self._logger.warning(f"Failed to turn off outlet {outlet_id}")
             
             return success
-        except (OutletNotFoundError, DriverNotImplementedError):
+        except (OutletNotFoundError, DriverNotImplementedError, OutletDisabledError):
             raise
         except Exception as e:
             self._logger.error(f"Connection error turning off outlet {outlet_id}: {e}")
@@ -294,7 +296,7 @@ class SmartOutletManager:
                 self._logger.warning(f"Failed to toggle outlet {outlet_id}")
             
             return success
-        except (OutletNotFoundError, DriverNotImplementedError):
+        except (OutletNotFoundError, DriverNotImplementedError, OutletDisabledError):
             raise
         except Exception as e:
             self._logger.error(f"Connection error toggling outlet {outlet_id}: {e}")
@@ -332,7 +334,7 @@ class SmartOutletManager:
             
             self._logger.debug(f"Retrieved state for outlet {outlet_id}: {state}")
             return state
-        except (OutletNotFoundError, DriverNotImplementedError):
+        except (OutletNotFoundError, DriverNotImplementedError, OutletDisabledError):
             raise
         except Exception as e:
             self._logger.error(f"Connection error getting state for outlet {outlet_id}: {e}")

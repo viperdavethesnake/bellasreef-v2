@@ -7,7 +7,7 @@ are documented for OpenAPI/Swagger UI.
 """
 
 from uuid import uuid4
-from typing import List
+from typing import List, Optional
 import asyncio
 from datetime import datetime
 import pytz
@@ -145,6 +145,7 @@ async def create_outlet(
 )
 async def list_outlets(
     include_disabled: bool = Query(False, description="Include disabled outlets"),
+    driver_type: Optional[str] = Query(None, description="Filter by driver type (e.g., kasa, vesync)"),
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
     current_user: User = Depends(get_current_user)
 ):
@@ -153,13 +154,16 @@ async def list_outlets(
 
     Args:
         include_disabled: Whether to include disabled outlets
+        driver_type: Optional driver type to filter by
         manager: SmartOutletManager instance
         current_user: Current authenticated user
 
     Returns:
         List[SmartOutletRead]: List of outlet data
     """
-    outlets = await manager.get_all_outlets(include_disabled=include_disabled)
+    outlets = await manager.get_all_outlets(
+        include_disabled=include_disabled, driver_type=driver_type
+    )
     return [SmartOutletRead.model_validate(outlet) for outlet in outlets]
 
 
