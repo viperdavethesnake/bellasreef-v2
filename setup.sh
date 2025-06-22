@@ -9,7 +9,8 @@ set -e # Exit immediately if a command exits with a non-zero status.
 
 # --- Configuration ---
 PYTHON_CMD="python3"
-VENV_DIR=".venv"
+# CHANGE THIS LINE to set the desired virtual environment name
+VENV_DIR="bellasreef-venv"
 REQUIREMENTS_FILE="requirements.txt"
 
 # --- Main Script ---
@@ -59,7 +60,7 @@ echo "---------------------------------------------------------"
 echo "Next Steps:"
 echo ""
 echo "1. Activate the environment in your terminal:"
-echo "   source .venv/bin/activate"
+echo "   source $VENV_DIR/bin/activate"
 echo ""
 echo "2. Initialize the database (run this once):"
 echo "   python scripts/init_db.py"
