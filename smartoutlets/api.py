@@ -332,11 +332,9 @@ async def start_local_discovery(
     Returns:
         DiscoveryTaskResponse: Discovery task information
     """
-    task_id = discovery_service.start_local_discovery()
+    task_id = await discovery_service.run_local_discovery()
     return DiscoveryTaskResponse(
-        task_id=task_id,
-        status="started",
-        message="Local device discovery started"
+        task_id=task_id
     )
 
 
