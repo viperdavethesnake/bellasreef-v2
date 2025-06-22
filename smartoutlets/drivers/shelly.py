@@ -19,7 +19,7 @@ from aioshelly.exceptions import (
 )
 
 from .base import AbstractSmartOutletDriver
-from ..models import SmartOutletState
+from ..schemas import SmartOutletState
 from ..exceptions import OutletConnectionError, OutletTimeoutError, OutletAuthenticationError
 
 

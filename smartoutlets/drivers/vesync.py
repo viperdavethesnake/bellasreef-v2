@@ -12,9 +12,10 @@ from typing import Dict, Optional, List, Any
 from pyvesync import VeSync
 import requests
 
+from shared.core.config import settings
 from .base import AbstractSmartOutletDriver
-from ..models import SmartOutletState
 from ..exceptions import OutletConnectionError, OutletTimeoutError, OutletAuthenticationError
+from ..schemas import SmartOutletState
 
 
 class VeSyncDriver(AbstractSmartOutletDriver):

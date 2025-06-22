@@ -14,7 +14,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 
 from shared.core.config import settings
 from ..exceptions import OutletConnectionError, OutletTimeoutError
-from ..models import SmartOutletState
+from ..schemas import SmartOutletState
 
 
 class AbstractSmartOutletDriver(ABC):
