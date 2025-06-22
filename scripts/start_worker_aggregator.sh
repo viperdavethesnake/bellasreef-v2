@@ -1,33 +1,83 @@
 #!/bin/bash
 #
-# Start Script for the Telemetry Aggregator Service
+# Bella's Reef - Telemetry Aggregator Worker Startup
 #
-# This script activates the project-wide venv and starts the
-# standalone aggregator worker process in continuous mode.
+# Description: Activates the project-wide venv and starts the telemetry aggregator
+#              worker for data roll-up and pruning.
+# Date: 2025-06-22
+# Author: Bella's Reef Development Team
 
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 
-# Navigate to the project root from the scripts directory
-cd "$(dirname "$0")/.."
+# Script directory for relative path resolution
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Check if .env file exists
-if [ ! -f ".env" ]; then
-    echo "❌ Error: .env file not found in project root!"
-    echo "   Please copy env.example to .env and configure your settings."
-    exit 1
-fi
+# =============================================================================
+# FUNCTIONS
+# =============================================================================
 
-# Load environment variables
-source .env
+check_environment() {
+    """Check if .env file exists and load environment variables."""
+    if [ ! -f "$PROJECT_ROOT/.env" ]; then
+        echo "❌ Error: .env file not found in project root!"
+        echo "   Please copy env.example to .env and configure your settings."
+        exit 1
+    fi
+    
+    # Load environment variables
+    source "$PROJECT_ROOT/.env"
+}
 
-# Activate the virtual environment
-source bellasreef-venv/bin/activate
+check_service_enabled() {
+    """Check if telemetry service is enabled in configuration."""
+    if [ "${TELEMETRY_ENABLED:-true}" != "true" ]; then
+        echo "⚠️  Telemetry service is disabled in configuration."
+        echo "   Set TELEMETRY_ENABLED=true in your .env file to enable it."
+        exit 0
+    fi
+}
 
-echo "🚀 Starting Telemetry Aggregator Service..."
-echo "   - Interval: 1 hour (default)"
-echo "   - Debug: ${DEBUG:-false}"
+activate_venv() {
+    """Activate the virtual environment."""
+    source "$PROJECT_ROOT/bellasreef-venv/bin/activate"
+}
 
-# Execute the aggregator script directly with Python.
-# It will run in continuous mode by default.
-exec python telemetry/aggregator.py
+print_configuration() {
+    """Print worker configuration information."""
+    echo "📈 Starting Telemetry Aggregator Worker..."
+    echo "   - Aggregation interval: ${AGGREGATION_INTERVAL:-3600} seconds"
+    echo "   - Debug: ${DEBUG:-false}"
+}
+
+start_worker() {
+    """Start the telemetry aggregator worker."""
+    exec python3 -m telemetry.aggregator
+}
+
+# =============================================================================
+# MAIN FUNCTION
+# =============================================================================
+
+main() {
+    """Main function to start the telemetry aggregator worker."""
+    # Change to project root
+    cd "$PROJECT_ROOT"
+    
+    # Setup and validation
+    check_environment
+    check_service_enabled
+    activate_venv
+    
+    # Start worker
+    print_configuration
+    start_worker
+}
+
+# =============================================================================
+# SCRIPT EXECUTION
+# =============================================================================
+
+main "$@"
 

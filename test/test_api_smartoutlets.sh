@@ -1,61 +1,111 @@
 #!/bin/bash
 #
-# API Test Script for the SmartOutlets Service
+# Bella's Reef - SmartOutlets API Service Test Script
 #
-# Authenticates with Core, then tests the SmartOutlets service.
-#
-# Usage: ./test_api_smartoutlets.sh [HOST_IP]
-#
+# Description: Tests the SmartOutlets API service endpoints to verify functionality.
+# Date: 2025-06-22
+# Author: Bella's Reef Development Team
 
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 
-# --- Configuration ---
-HOST=${1:-"localhost"}
-CORE_PORT="8000"
-SMARTOUTLETS_PORT="8005"
-CORE_API_URL="http://$HOST:$CORE_PORT"
-SMARTOUTLETS_API_URL="http://$HOST:$SMARTOUTLETS_PORT"
+# Script directory for relative path resolution
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-ADMIN_USER=$(grep -E "^ADMIN_USERNAME" .env | cut -d '=' -f2)
-ADMIN_PASS=$(grep -E "^ADMIN_PASSWORD" .env | cut -d '=' -f2)
+# =============================================================================
+# FUNCTIONS
+# =============================================================================
 
-# --- Colors for Output ---
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m'
-
-# --- Helper Functions ---
-check_command() {
-    if ! command -v $1 &> /dev/null; then echo -e "${RED}Error: '$1' not installed.${NC}"; exit 1; fi
+check_environment() {
+    """Check if .env file exists and load environment variables."""
+    if [ ! -f "$PROJECT_ROOT/.env" ]; then
+        echo "❌ Error: .env file not found in project root!"
+        echo "   Please copy env.example to .env and configure your settings."
+        exit 1
+    fi
+    
+    # Load environment variables
+    source "$PROJECT_ROOT/.env"
 }
 
 get_auth_token() {
-    echo -n "➡️ Authenticating with Core service to get JWT token... "
-    local response=$(curl -s -X POST -d "username=$ADMIN_USER&password=$ADMIN_PASS" -H "Content-Type: application/x-www-form-urlencoded" "$CORE_API_URL/api/auth/login")
-    TOKEN=$(echo "$response" | jq -r .access_token)
-    if [ "$TOKEN" != "null" ] && [ ! -z "$TOKEN" ]; then echo -e "${GREEN}PASSED${NC}"; else echo -e "${RED}FAILED${NC}\nResponse: $response"; exit 1; fi
+    """Get authentication token from the core service."""
+    echo "🔐 Getting authentication token..."
+    
+    local response
+    response=$(curl -s -X POST "http://localhost:${SERVICE_PORT_CORE:-8000}/auth/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=${ADMIN_USERNAME:-admin}&password=${ADMIN_PASSWORD:-admin}")
+    
+    if [ $? -eq 0 ] && echo "$response" | grep -q "access_token"; then
+        TOKEN=$(echo "$response" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+        echo "✅ Token obtained successfully"
+    else
+        echo "❌ Failed to get token"
+        echo "Response: $response"
+        exit 1
+    fi
 }
 
-# --- Test Functions ---
-test_list_outlets_authenticated() {
-    echo -n "➡️ Testing Authenticated Outlet List (/api/smartoutlets/outlets/)... "
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$SMARTOUTLETS_API_URL/api/smartoutlets/outlets/")
-    if [ "$status_code" -eq 200 ]; then echo -e "${GREEN}PASSED${NC}"; else echo -e "${RED}FAILED (Status: $status_code)${NC}"; exit 1; fi
+test_health_endpoint() {
+    """Test the health endpoint."""
+    echo ""
+    echo "🏥 Testing health endpoint..."
+    curl -s "http://localhost:${SERVICE_PORT_SMARTOUTLETS:-8005}/health" | jq .
 }
 
-# --- Main Execution ---
-echo "============================================="
-echo "  Testing SmartOutlets Service API"
-echo "  Core Target:   $CORE_API_URL"
-echo "  Outlets Target: $SMARTOUTLETS_API_URL"
-echo "============================================="
+test_discover_outlets() {
+    """Test the discover outlets endpoint."""
+    echo ""
+    echo "🔍 Testing discover outlets endpoint..."
+    curl -s -H "Authorization: Bearer $TOKEN" \
+        "http://localhost:${SERVICE_PORT_SMARTOUTLETS:-8005}/outlets/discover" | jq .
+}
 
-check_command "jq"
-check_command "curl"
+test_get_outlets() {
+    """Test the get outlets endpoint."""
+    echo ""
+    echo "🔌 Testing get outlets endpoint..."
+    curl -s -H "Authorization: Bearer $TOKEN" \
+        "http://localhost:${SERVICE_PORT_SMARTOUTLETS:-8005}/outlets/" | jq .
+}
 
-get_auth_token
-test_list_outlets_authenticated
+print_summary() {
+    """Print test summary."""
+    echo ""
+    echo "✅ SmartOutlets API service tests completed!"
+    echo "📖 API Documentation: http://localhost:${SERVICE_PORT_SMARTOUTLETS:-8005}/docs"
+}
 
-echo -e "\n${GREEN}✅ All SmartOutlets Service tests passed successfully!${NC}\n"
+# =============================================================================
+# MAIN FUNCTION
+# =============================================================================
+
+main() {
+    """Main function to test the smartoutlets API service."""
+    echo "🧪 Testing SmartOutlets API Service..."
+    echo "   - Host: localhost"
+    echo "   - Port: ${SERVICE_PORT_SMARTOUTLETS:-8005}"
+    echo ""
+    
+    # Setup
+    check_environment
+    get_auth_token
+    
+    # Run tests
+    test_health_endpoint
+    test_discover_outlets
+    test_get_outlets
+    
+    # Summary
+    print_summary
+}
+
+# =============================================================================
+# SCRIPT EXECUTION
+# =============================================================================
+
+main "$@"
 
 

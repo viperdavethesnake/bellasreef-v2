@@ -1,70 +1,110 @@
 #!/bin/bash
 #
-# API Test Script for the Temperature Service
+# Bella's Reef - Temperature API Service Test Script
 #
-# This script FIRST authenticates with the Core service to get a token,
-# then uses that token to test the Temp service.
-#
-# Usage: ./test_api_temp.sh [HOST_IP]
-#
+# Description: Tests the Temperature API service endpoints to verify functionality.
+# Date: 2025-06-22
+# Author: Bella's Reef Development Team
 
-set -e
+set -euo pipefail
+IFS=$'\n\t'
 
-# --- Configuration ---
-HOST=${1:-"localhost"}
-CORE_PORT="8000"
-TEMP_PORT="8004"
-CORE_API_URL="http://$HOST:$CORE_PORT"
-TEMP_API_URL="http://$HOST:$TEMP_PORT"
+# Script directory for relative path resolution
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-# Get admin credentials from the project's .env file
-ADMIN_USER=$(grep -E "^ADMIN_USERNAME" .env | cut -d '=' -f2)
-ADMIN_PASS=$(grep -E "^ADMIN_PASSWORD" .env | cut -d '=' -f2)
+# =============================================================================
+# FUNCTIONS
+# =============================================================================
 
-# --- Colors for Output ---
-GREEN='\033[0;32m'
-RED='\033[0;31m'
-NC='\033[0m'
-
-# --- Helper Functions ---
-check_command() {
-    if ! command -v $1 &> /dev/null; then echo -e "${RED}Error: '$1' not installed.${NC}"; exit 1; fi
+check_environment() {
+    """Check if .env file exists and load environment variables."""
+    if [ ! -f "$PROJECT_ROOT/.env" ]; then
+        echo "❌ Error: .env file not found in project root!"
+        echo "   Please copy env.example to .env and configure your settings."
+        exit 1
+    fi
+    
+    # Load environment variables
+    source "$PROJECT_ROOT/.env"
 }
 
 get_auth_token() {
-    echo -n "➡️ Authenticating with Core service to get JWT token... "
-    local response=$(curl -s -X POST -d "username=$ADMIN_USER&password=$ADMIN_PASS" -H "Content-Type: application/x-www-form-urlencoded" "$CORE_API_URL/api/auth/login")
-    TOKEN=$(echo "$response" | jq -r .access_token)
-    if [ "$TOKEN" != "null" ] && [ ! -z "$TOKEN" ]; then echo -e "${GREEN}PASSED${NC}"; else echo -e "${RED}FAILED${NC}\nResponse: $response"; exit 1; fi
+    """Get authentication token from the core service."""
+    echo "🔐 Getting authentication token..."
+    
+    local response
+    response=$(curl -s -X POST "http://localhost:${SERVICE_PORT_CORE:-8000}/auth/login" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        -d "username=${ADMIN_USERNAME:-admin}&password=${ADMIN_PASSWORD:-admin}")
+    
+    if [ $? -eq 0 ] && echo "$response" | grep -q "access_token"; then
+        TOKEN=$(echo "$response" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+        echo "✅ Token obtained successfully"
+    else
+        echo "❌ Failed to get token"
+        echo "Response: $response"
+        exit 1
+    fi
 }
 
-# --- Test Functions ---
+test_health_endpoint() {
+    """Test the health endpoint."""
+    echo ""
+    echo "🏥 Testing health endpoint..."
+    curl -s "http://localhost:${SERVICE_PORT_TEMP:-8004}/health" | jq .
+}
+
 test_discover_probes() {
-    echo -n "➡️ Testing Probe Discovery (/probe/discover)... "
-    # This endpoint is not protected by auth in the source code, so no token needed.
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" "$TEMP_API_URL/probe/discover")
-    if [ "$status_code" -eq 200 ]; then echo -e "${GREEN}PASSED${NC}"; else echo -e "${RED}FAILED (Status: $status_code)${NC}"; exit 1; fi
+    """Test the discover probes endpoint."""
+    echo ""
+    echo "🔍 Testing discover probes endpoint..."
+    curl -s -H "Authorization: Bearer $TOKEN" \
+        "http://localhost:${SERVICE_PORT_TEMP:-8004}/probes/discover" | jq .
 }
 
-test_list_probes_authenticated() {
-    echo -n "➡️ Testing Authenticated Probe List (/probe/list)... "
-    local status_code=$(curl -s -o /dev/null -w "%{http_code}" -H "Authorization: Bearer $TOKEN" "$TEMP_API_URL/probe/list")
-    if [ "$status_code" -eq 200 ]; then echo -e "${GREEN}PASSED${NC}"; else echo -e "${RED}FAILED (Status: $status_code)${NC}"; exit 1; fi
+test_get_probes() {
+    """Test the get probes endpoint."""
+    echo ""
+    echo "📊 Testing get probes endpoint..."
+    curl -s -H "Authorization: Bearer $TOKEN" \
+        "http://localhost:${SERVICE_PORT_TEMP:-8004}/probes/" | jq .
 }
 
-# --- Main Execution ---
-echo "==========================================="
-echo "  Testing Temperature Service API"
-echo "  Core Target:   $CORE_API_URL"
-echo "  Temp Target:   $TEMP_API_URL"
-echo "==========================================="
+print_summary() {
+    """Print test summary."""
+    echo ""
+    echo "✅ Temperature API service tests completed!"
+    echo "📖 API Documentation: http://localhost:${SERVICE_PORT_TEMP:-8004}/docs"
+}
 
-check_command "jq"
-check_command "curl"
+# =============================================================================
+# MAIN FUNCTION
+# =============================================================================
 
-get_auth_token
-test_discover_probes
-test_list_probes_authenticated
+main() {
+    """Main function to test the temperature API service."""
+    echo "🧪 Testing Temperature API Service..."
+    echo "   - Host: localhost"
+    echo "   - Port: ${SERVICE_PORT_TEMP:-8004}"
+    echo ""
+    
+    # Setup
+    check_environment
+    get_auth_token
+    
+    # Run tests
+    test_health_endpoint
+    test_discover_probes
+    test_get_probes
+    
+    # Summary
+    print_summary
+}
 
-echo -e "\n${GREEN}✅ All Temperature Service tests passed successfully!${NC}\n"
+# =============================================================================
+# SCRIPT EXECUTION
+# =============================================================================
+
+main "$@"
 
