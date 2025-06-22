@@ -345,27 +345,26 @@ async def start_local_discovery(
     description="Retrieves the results of a local device discovery task by task ID.",
     tags=["Discovery"]
 )
-async def get_local_discovery_results(
-    task_id: str,
-    current_user: User = Depends(get_current_user)
-):
+async def get_local_discovery_results(task_id: str):
     """
-    Get local discovery results.
-
-    Args:
-        task_id: The discovery task ID
-        current_user: Current authenticated user
-
-    Returns:
-        DiscoveryResults: Discovery results
+    Get results from a local discovery task.
     """
-    results = await discovery_service.get_discovery_results(task_id)
-    if results is None:
+    result_data = await discovery_service.get_discovery_results(task_id)
+
+    if not result_data:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Discovery task {task_id} not found"
+            detail=f"Discovery task {task_id} not found",
         )
-    return results
+
+    return DiscoveryResults(
+        task_id=task_id,
+        status=result_data.get("status", "unknown"),
+        created_at=result_data.get("created_at"),
+        completed_at=result_data.get("completed_at"),
+        results=[DiscoveredDevice(**dev) for dev in result_data.get("results", [])],
+        error=result_data.get("error"),
+    )
 
 
 @router.post(

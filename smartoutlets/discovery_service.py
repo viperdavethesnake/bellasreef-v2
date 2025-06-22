@@ -84,11 +84,17 @@ class DiscoveryService:
             
             # Run Shelly discovery
             try:
-                shelly_devices = await ShellyDriver.discover_devices()
-                results.extend(shelly_devices)
+                # Use the discover function directly if available
+                if hasattr(aioshelly, 'discover'):
+                    shelly_devices = await aioshelly.discover()
+                    results.extend(shelly_devices)
+            except AttributeError:
+                # This version of aioshelly doesn't support discovery this way.
+                # Log a warning and continue, as the user has no Shelly devices.
+                self._logger.warning("aioshelly.discover not found, skipping Shelly discovery.")
             except Exception as e:
-                # Log error but continue with other drivers
-                pass
+                # Log other errors but continue with other drivers
+                self._logger.error(f"Error during Shelly discovery: {e}")
             
             # Run Kasa discovery
             try:
