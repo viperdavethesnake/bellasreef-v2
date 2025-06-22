@@ -87,26 +87,28 @@ class VeSyncDeviceService:
             # Get outlets
             if hasattr(manager, 'outlets') and manager.outlets:
                 for outlet in manager.outlets:
+                    # Safely append outlet data, providing defaults for any missing attributes
                     devices.append(DiscoveredVeSyncDevice(
-                        vesync_device_id=outlet.cid,
-                        device_name=outlet.device_name,
+                        vesync_device_id=getattr(outlet, 'cid', None),
+                        device_name=getattr(outlet, 'device_name', 'Unknown Outlet'),
                         device_type="outlet",
-                        model=outlet.device_type,
+                        model=getattr(outlet, 'device_type', 'unknown_model'),
                         is_online=getattr(outlet, 'is_online', True),
-                        is_on=outlet.is_on,
+                        is_on=getattr(outlet, 'is_on', False),
                         power_w=getattr(outlet, 'power', None)
                     ))
             
             # Get switches (if any)
             if hasattr(manager, 'switches') and manager.switches:
                 for switch in manager.switches:
+                    # Safely append switch data, providing defaults for any missing attributes
                     devices.append(DiscoveredVeSyncDevice(
-                        vesync_device_id=switch.cid,
-                        device_name=switch.device_name,
+                        vesync_device_id=getattr(switch, 'cid', None),
+                        device_name=getattr(switch, 'device_name', 'Unknown Switch'),
                         device_type="switch",
-                        model=switch.device_type,
+                        model=getattr(switch, 'device_type', 'unknown_model'),
                         is_online=getattr(switch, 'is_online', True),
-                        is_on=switch.is_on,
+                        is_on=getattr(switch, 'is_on', False),
                         power_w=getattr(switch, 'power', None)
                     ))
             
