@@ -81,9 +81,6 @@ class VeSyncDeviceService:
             manager = await self._get_manager(account)
             await asyncio.to_thread(manager.update)
             
-            logger.info(f"VeSync raw outlets found: {len(manager.outlets) if hasattr(manager, 'outlets') else 0}")
-            logger.info(f"VeSync raw switches found: {len(manager.switches) if hasattr(manager, 'switches') else 0}")
-
             # Get all devices from VeSync
             devices = []
             
