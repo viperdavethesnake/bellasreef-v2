@@ -84,6 +84,7 @@ class VeSyncDeviceService:
         """
         try:
             manager = await self._get_manager(account)
+            await asyncio.to_thread(manager.update)
             
             # Get all devices from VeSync
             devices = []
