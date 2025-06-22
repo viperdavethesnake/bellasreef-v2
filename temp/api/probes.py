@@ -5,10 +5,9 @@ from typing import List
 # Import the generic Device schemas and CRUD, not the old Probe ones
 from shared.crud import device as device_crud
 from shared.schemas import device as device_schema
-from shared.schemas.user import User
 
 from shared.db.database import get_db
-from ..deps import require_auth
+from ..deps import get_current_user_or_service
 from ..services.temperature import temperature_service, OneWireCheckResult
 
 router = APIRouter(prefix="/probe", tags=["Temperature Probes"])
@@ -27,7 +26,7 @@ def check_1wire():
     "/{hardware_id}/current",
     response_model=float,
     summary="Get Current Reading for a Sensor",
-    dependencies=[Depends(require_auth)]
+    dependencies=[Depends(get_current_user_or_service)]
 )
 def get_current_reading(hardware_id: str):
     """Get the current temperature reading for a specific sensor by its hardware ID."""
@@ -39,7 +38,7 @@ def get_current_reading(hardware_id: str):
 # The following endpoints now operate on the standard 'devices' table.
 # We are treating temperature probes as a specific 'type' of device.
 
-@router.post("/", response_model=device_schema.Device, dependencies=[Depends(require_auth)], summary="Register a Temperature Probe as a Device")
+@router.post("/", response_model=device_schema.Device, dependencies=[Depends(get_current_user_or_service)], summary="Register a Temperature Probe as a Device")
 async def create_probe_device(
     probe_in: device_schema.DeviceCreate,
     db: AsyncSession = Depends(get_db)
@@ -60,12 +59,12 @@ async def create_probe_device(
 
     return await device_crud.create(db=db, obj_in=probe_in)
 
-@router.get("/list", response_model=List[device_schema.Device], dependencies=[Depends(require_auth)], summary="List All Registered Probes")
+@router.get("/list", response_model=List[device_schema.Device], dependencies=[Depends(get_current_user_or_service)], summary="List All Registered Probes")
 async def list_probe_devices(db: AsyncSession = Depends(get_db)):
     """List all configured devices with type 'temperature_sensor'."""
     return await device_crud.get_multi(db, device_type='temperature_sensor')
 
-@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_auth)], summary="Delete a Registered Probe")
+@router.delete("/{device_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(get_current_user_or_service)], summary="Delete a Registered Probe")
 async def delete_probe_device(device_id: int, db: AsyncSession = Depends(get_db)):
     """Delete a registered temperature probe device by its database ID."""
     device = await device_crud.get(db, device_id=device_id)
