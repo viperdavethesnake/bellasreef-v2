@@ -31,8 +31,7 @@ from shared.core.config import settings
 from shared.db.database import async_session
 from shared.crud import device as device_crud
 from shared.crud import history as history_crud
-from shared.schemas.device import Device
-from shared.schemas.history import HistoryCreate
+from shared.schemas.device import Device, HistoryCreate
 
 # Configure basic logging
 logging.basicConfig(
