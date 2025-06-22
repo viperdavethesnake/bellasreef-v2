@@ -443,7 +443,6 @@ async def get_vesync_account_or_404(account_id: int, db: AsyncSession) -> VeSync
 
 
 vesync_router = APIRouter(
-    prefix="/vesync/accounts",
     tags=["VeSync Accounts"],
     responses={404: {"description": "Not found"}},
 )
