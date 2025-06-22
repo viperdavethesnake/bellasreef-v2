@@ -10,8 +10,9 @@ from datetime import datetime
 from typing import Optional
 from uuid import uuid4
 
-from sqlalchemy import Column, String, Boolean, DateTime, Text, UniqueConstraint
+from sqlalchemy import Column, String, Boolean, DateTime, Text, UniqueConstraint, Integer, LargeBinary
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.sql import func
 # Use shared Base for cross-service table registration!
 from shared.db.database import Base
 
@@ -87,4 +88,39 @@ class SmartOutlet(Base):
         Returns:
             str: String representation of the SmartOutlet
         """
-        return f"<SmartOutlet(id={self.id}, name='{self.name}', driver_type='{self.driver_type}', ip_address='{self.ip_address}')>" 
+        return f"<SmartOutlet(id={self.id}, name='{self.name}', driver_type='{self.driver_type}', ip_address='{self.ip_address}')>"
+
+
+class VeSyncAccount(Base):
+    """
+    SQLAlchemy model for VeSync account credentials.
+    
+    Represents a VeSync account with encrypted credentials for cloud device access.
+    """
+    
+    __tablename__ = "vesync_accounts"
+    
+    # Primary key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Account credentials
+    email = Column(String, nullable=False, unique=True, index=True, comment="VeSync account email")
+    password_encrypted = Column(LargeBinary, nullable=False, comment="Encrypted VeSync account password")
+    
+    # Status and sync information
+    is_active = Column(Boolean, default=True, nullable=False, comment="Whether the account is active")
+    last_sync_status = Column(String, default="Pending", comment="Last synchronization status")
+    last_synced_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="Last synchronization timestamp")
+    
+    # Timestamps
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), comment="Creation timestamp")
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), comment="Last update timestamp")
+    
+    def __repr__(self):
+        """
+        Return a string representation of the VeSyncAccount instance.
+
+        Returns:
+            str: String representation of the VeSyncAccount
+        """
+        return f"<VeSyncAccount(id={self.id}, email='{self.email}', is_active={self.is_active})>" 

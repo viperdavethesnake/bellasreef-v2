@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any, List
 from uuid import UUID
 from datetime import datetime
 
-from pydantic import BaseModel, Field, constr
+from pydantic import BaseModel, Field, constr, EmailStr, SecretStr
 from .enums import OutletRole, SmartOutletDriverType
 
 
@@ -187,4 +187,63 @@ class DiscoveryResults(BaseModel):
     created_at: datetime = Field(..., description="Task creation timestamp")
     completed_at: Optional[datetime] = Field(None, description="Task completion timestamp")
     results: List[DiscoveredDevice] = Field(default_factory=list, description="List of discovered devices")
-    error: Optional[str] = Field(None, description="Error message if task failed") 
+    error: Optional[str] = Field(None, description="Error message if task failed")
+
+
+# VeSync Account Schemas
+
+class VeSyncAccountBase(BaseModel):
+    """
+    Base schema for VeSync account data.
+
+    Attributes:
+        email (EmailStr): VeSync account email address
+    """
+    email: EmailStr
+
+
+class VeSyncAccountCreate(VeSyncAccountBase):
+    """
+    Schema for creating a new VeSync account.
+
+    Attributes:
+        email (EmailStr): VeSync account email address
+        password (SecretStr): VeSync account password (encrypted in storage)
+    """
+    password: SecretStr
+
+
+class VeSyncAccountUpdate(BaseModel):
+    """
+    Schema for updating VeSync account data.
+
+    Attributes:
+        email (Optional[EmailStr]): VeSync account email address
+        password (Optional[SecretStr]): VeSync account password (encrypted in storage)
+        is_active (Optional[bool]): Whether the account is active
+    """
+    email: Optional[EmailStr] = None
+    password: Optional[SecretStr] = None
+    is_active: Optional[bool] = None
+
+
+class VeSyncAccountRead(VeSyncAccountBase):
+    """
+    Schema for reading VeSync account data.
+
+    Attributes:
+        id (int): Unique identifier
+        email (EmailStr): VeSync account email address
+        is_active (bool): Whether the account is active
+        last_sync_status (str): Last synchronization status
+        last_synced_at (Optional[datetime]): Last synchronization timestamp
+        created_at (datetime): Creation timestamp
+    """
+    id: int
+    is_active: bool
+    last_sync_status: str
+    last_synced_at: Optional[datetime] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True 

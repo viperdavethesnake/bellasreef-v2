@@ -40,7 +40,7 @@ from shared.db.models import (
 )
 from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username
-from smartoutlets.models import SmartOutlet
+from smartoutlets.models import SmartOutlet, VeSyncAccount
 
 # Debug: Print tables after all model imports
 print("[DEBUG] Tables registered AFTER model imports:", list(Base.metadata.tables.keys()))
