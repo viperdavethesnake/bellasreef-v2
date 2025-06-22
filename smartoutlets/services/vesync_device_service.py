@@ -60,8 +60,9 @@ class VeSyncDeviceService:
         # Login
         login_success = await asyncio.to_thread(manager.login)
         if not login_success:
-            error_msg = manager.error_msg or "Unknown login error"
-            raise OutletAuthenticationError(f"VeSync login failed for {account.email}: {error_msg}")
+            # The 'error_msg' attribute is not reliable across pyvesync versions.
+            # We will raise a clear, generic authentication error if login returns false.
+            raise OutletAuthenticationError(f"VeSync login failed for {account.email}. Please check your credentials.")
         
         # Store manager for reuse
         self._managers[account.id] = manager
