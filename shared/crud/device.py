@@ -12,7 +12,7 @@ class DeviceCRUD:
     
     async def get_by_address(self, db: AsyncSession, address: str) -> Optional[Device]:
         result = await db.execute(select(Device).filter(Device.address == address))
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
     
     async def get_multi(
         self, 
@@ -107,7 +107,7 @@ class DeviceCRUD:
 class HistoryCRUD:
     async def get(self, db: AsyncSession, history_id: int) -> Optional[History]:
         result = await db.execute(select(History).filter(History.id == history_id))
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
     
     async def get_by_device(
         self, 
@@ -173,7 +173,7 @@ class HistoryCRUD:
                 History.device_id == device_id
             ).order_by(desc(History.timestamp))
         )
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
     
     async def get_latest_by_device_with_device_info(self, db: AsyncSession, device_id: int) -> Optional[Dict[str, Any]]:
         """Get latest history record with device metadata included"""
