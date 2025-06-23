@@ -63,6 +63,19 @@ async def register_pca9685_controller(
     new_device = await device_crud.create(db, obj_in=device_data)
     return new_device
 
+@router.get("", response_model=List[device_schema.Device])
+async def list_registered_controllers(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Retrieves a list of all registered PCA9685 controller devices.
+    """
+    controllers = await device_crud.get_multi(
+        db, role=DeviceRole.PCA9685_CONTROLLER.value
+    )
+    return controllers
+
 @router.post("/channel/register", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
 async def register_pwm_channel(
     request: PWMChannelRegistrationRequest,
@@ -123,4 +136,4 @@ async def get_configured_channels(
         )
 
     # The 'children' relationship we defined in the model makes this easy
-    return parent_controller.children 
+    return parent_controller.children
