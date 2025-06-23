@@ -9,6 +9,7 @@ from uuid import uuid4
 from datetime import datetime
 
 from shared.db.database import Base
+from shared.schemas.enums import DeviceRole
 from .db_encryption import EncryptedJSON
 
 
@@ -28,6 +29,8 @@ class User(Base):
 class Device(Base):
     __tablename__ = "devices"
     id = Column(Integer, primary_key=True, index=True)
+    role = Column(String, nullable=False, default=DeviceRole.GENERAL.value, index=True)
+    parent_device_id = Column(Integer, ForeignKey("devices.id"), nullable=True, index=True)
     name = Column(String, nullable=False, index=True)
     device_type = Column(String, nullable=False, index=True)
     address = Column(String, nullable=False, unique=True, index=True)
@@ -43,7 +46,9 @@ class Device(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    # Relationships
+    parent = relationship("Device", back_populates="children", remote_side=[id], lazy="joined")
+    children = relationship("Device", back_populates="parent", lazy="joined", cascade="all, delete-orphan")
+
     history = relationship("History", back_populates="device", cascade="all, delete-orphan")
     history_hourly = relationship("HistoryHourlyAggregate", back_populates="device", cascade="all, delete-orphan")
     alerts = relationship("Alert", back_populates="device", cascade="all, delete-orphan")

@@ -5,3 +5,4 @@ This service provides a unified, high-level API for controlling all physical har
 including PWM controllers (on-board and external), GPIO relays, and other low-level devices.
 It abstracts the specific hardware details from the rest of the application.
 """
+
