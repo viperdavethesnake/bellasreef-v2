@@ -233,38 +233,34 @@ class VeSyncDriver(AbstractSmartOutletDriver):
     async def _get_state_implementation(self) -> SmartOutletState:
         """
         Implementation of get state operation.
-        
-        Returns:
-            SmartOutletState: Current state information
         """
         async def _get_state_action():
             try:
                 device = await self._get_device()
                 loop = asyncio.get_running_loop()
-                
-                # Update device state
+
+                # Update device state from the cloud
                 await loop.run_in_executor(None, device.update)
-                
-                # Get basic state
-                is_on = device.is_on
-                
-                # Get power usage if available
-                power_w = None
-                try:
-                    power_data = await loop.run_in_executor(None, device.get_power_usage)
-                    if power_data:
-                        power_w = power_data.get('power')
-                except AttributeError:
-                    # Power usage not available for this device
-                    self._logger.debug(f"Power usage not available for {self.device_id} at {self.ip_address}")
-                except Exception as e:
-                    # Power usage not available or failed
-                    self._logger.debug(f"Power usage not available for {self.device_id} at {self.ip_address}: {e}")
-                
+
+                # Get energy meter data if the device supports it
+                energy_data = {}
+                if device.has_energy_meter():
+                    # get_energy_usage() is a synchronous call in pyvesync
+                    # It returns a dictionary with power, voltage, etc.
+                    energy_data = await loop.run_in_executor(None, device.get_energy_usage)
+
+                # Construct the state object with all available data.
+                # If this code is reached without an exception, the device is online.
                 return SmartOutletState(
-                    is_on=is_on,
-                    power_w=power_w
+                    is_on=device.is_on,
+                    is_online=True,
+                    power_w=energy_data.get('power'),
+                    voltage_v=energy_data.get('voltage'),
+                    current_a=energy_data.get('current'),
+                    energy_kwh=energy_data.get('energy'),
+                    temperature_c=None  # VeSync devices don't typically expose this
                 )
+
             except requests.exceptions.Timeout as e:
                 self._logger.error(f"Timeout getting state for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletTimeoutError(f"Timeout getting state for outlet at {self.ip_address}: {e}")
@@ -277,7 +273,7 @@ class VeSyncDriver(AbstractSmartOutletDriver):
             except Exception as e:
                 self._logger.error(f"Unexpected error getting state for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to get state for outlet at {self.ip_address}: {e}")
-        
+
         return await self._perform_network_action(_get_state_action())
     
     async def discover_device(self) -> Dict:
