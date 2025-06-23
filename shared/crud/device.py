@@ -8,7 +8,7 @@ from shared.schemas.device import DeviceCreate, DeviceUpdate, HistoryCreate
 class DeviceCRUD:
     async def get(self, db: AsyncSession, device_id: int) -> Optional[Device]:
         result = await db.execute(select(Device).filter(Device.id == device_id))
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
     
     async def get_by_address(self, db: AsyncSession, address: str) -> Optional[Device]:
         result = await db.execute(select(Device).filter(Device.address == address))
