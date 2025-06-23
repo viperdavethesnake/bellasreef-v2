@@ -659,6 +659,21 @@ async def add_vesync_device(
             detail=f"Device {device_data.vesync_device_id} is already managed"
         )
     
+    # Decrypt the password from the account object
+    decrypted_password = decrypt_vesync_password(account.password_encrypted.decode())
+    if not decrypted_password:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to decrypt password to create device auth_info.",
+        )
+
+    # Create the auth_info dictionary
+    auth_info_data = {
+        "email": account.email,
+        "password": decrypted_password,
+        "time_zone": account.time_zone
+    }
+
     # Create new SmartOutlet record
     outlet = SmartOutlet(
         id=uuid4(),
@@ -668,6 +683,7 @@ async def add_vesync_device(
         name=device_data.name,
         nickname=device_data.nickname,
         ip_address="cloud",  # VeSync devices are cloud-based
+        auth_info=auth_info_data,
         location=device_data.location,
         role=device_data.role.value,
         enabled=True,
