@@ -244,7 +244,7 @@ class VeSyncDriver(AbstractSmartOutletDriver):
 
                 # Get energy meter data if the device supports it
                 energy_data = {}
-                if device.has_energy_meter():
+                if hasattr(device, 'get_energy_usage'):
                     # get_energy_usage() is a synchronous call in pyvesync
                     # It returns a dictionary with power, voltage, etc.
                     energy_data = await loop.run_in_executor(None, device.get_energy_usage)
