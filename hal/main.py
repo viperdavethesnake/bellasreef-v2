@@ -1,5 +1,3 @@
-import os
-os.environ["BLINKA_PLATFORM"] = "RASPBERRY_PI"
 
 # --- ALL OTHER IMPORTS AND CODE MUST BE BELOW THIS LINE ---
 
