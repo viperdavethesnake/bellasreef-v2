@@ -8,10 +8,12 @@ including creation, update, state, and discovery schemas.
 from typing import Optional, Dict, Any, List
 from uuid import UUID
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, Field, constr, EmailStr, SecretStr, field_validator
 import pytz
-from .enums import OutletRole, SmartOutletDriverType
+from .driver_types import SmartOutletDriverType
+from shared.schemas import DeviceRole
 
 
 class SmartOutletCreate(BaseModel):
@@ -26,7 +28,7 @@ class SmartOutletCreate(BaseModel):
         ip_address (str): IP address of the device
         auth_info (Optional[Dict[str, Any]]): Authentication information
         location (Optional[str]): Physical location of the outlet
-        role (OutletRole): Role of the outlet
+        role (DeviceRole): Role of the outlet
         enabled (bool): Whether the outlet is enabled
         poller_enabled (bool): Whether polling is enabled
         scheduler_enabled (bool): Whether scheduling is enabled
@@ -39,7 +41,7 @@ class SmartOutletCreate(BaseModel):
     ip_address: str = Field(..., description="IP address of the device")
     auth_info: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Authentication information")
     location: Optional[str] = Field(None, description="Physical location of the outlet")
-    role: OutletRole = Field(default=OutletRole.GENERAL, description="Role of the outlet")
+    role: DeviceRole = Field(default=DeviceRole.GENERAL, description="Role of the outlet")
     enabled: bool = Field(default=True, description="Whether the outlet is enabled")
     poller_enabled: bool = Field(default=True, description="Whether polling is enabled")
     scheduler_enabled: bool = Field(default=True, description="Whether scheduling is enabled")
@@ -94,13 +96,13 @@ class SmartOutletUpdate(BaseModel):
     Attributes:
         nickname (Optional[str]): Optional nickname
         location (Optional[str]): Physical location of the outlet
-        role (Optional[OutletRole]): Role of the outlet
+        role (Optional[DeviceRole]): Role of the outlet
         enabled (Optional[bool]): Whether the outlet is enabled
     """
     
     nickname: Optional[str] = Field(None, description="Optional nickname")
     location: Optional[str] = Field(None, description="Physical location of the outlet")
-    role: Optional[OutletRole] = Field(None, description="Role of the outlet")
+    role: Optional[DeviceRole] = Field(None, description="Role of the outlet")
     enabled: Optional[bool] = Field(None, description="Whether the outlet is enabled")
 
 
@@ -310,13 +312,13 @@ class VeSyncDeviceCreate(BaseModel):
         name (str): User-friendly name for the device
         nickname (Optional[str]): Optional nickname
         location (Optional[str]): Physical location
-        role (OutletRole): Role of the outlet
+        role (DeviceRole): Role of the outlet
     """
     vesync_device_id: str = Field(..., description="Unique VeSync device identifier")
     name: str = Field(..., description="User-friendly name for the device")
     nickname: Optional[str] = Field(None, description="Optional nickname")
     location: Optional[str] = Field(None, description="Physical location")
-    role: OutletRole = Field(default=OutletRole.GENERAL, description="Role of the outlet")
+    role: DeviceRole = Field(default=DeviceRole.GENERAL, description="Role of the outlet")
 
 
 class SmartOutletWithState(SmartOutletRead):
