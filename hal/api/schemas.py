@@ -18,4 +18,8 @@ class PWMChannelRegistrationRequest(BaseModel):
     name: str = Field(..., description="A unique, user-friendly name for this channel (e.g., 'Blue LEDs').")
     role: DeviceRole = Field(..., description="The specific role of this channel (e.g., 'light_blue', 'pump_return').")
     min_value: Optional[int] = Field(0, ge=0, le=100, description="The minimum allowed intensity percentage (0-100).")
-    max_value: Optional[int] = Field(100, ge=0, le=100, description="The maximum allowed intensity percentage (0-100).") 
+    max_value: Optional[int] = Field(100, ge=0, le=100, description="The maximum allowed intensity percentage (0-100).")
+
+class SetDutyCycleRequest(BaseModel):
+    device_id: int = Field(..., description="The database ID of the PWM channel device to control.")
+    intensity: int = Field(..., ge=0, le=100, description="The desired intensity as a percentage (0-100).") 

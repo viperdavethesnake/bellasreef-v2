@@ -7,8 +7,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from shared.core.config import settings
 
-# Import the new router
-from .api import pca9685
+# Import the new routers
+from .api import pca9685, pwm
 
 # --- FastAPI App Configuration ---
 app = FastAPI(
@@ -26,8 +26,9 @@ app.add_middleware(
 )
 
 # --- API Endpoints ---
-# Include the new PCA9685 router
+# Include the new routers
 app.include_router(pca9685.router, prefix="/api")
+app.include_router(pwm.router, prefix="/api")
 
 @app.get("/")
 async def root():
