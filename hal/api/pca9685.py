@@ -6,6 +6,8 @@ from shared.db.database import get_db
 from shared.crud import device as device_crud
 from shared.schemas import device as device_schema
 from shared.schemas.enums import DeviceRole
+from shared.schemas.user import User
+from core.api.deps import get_current_user
 
 from ..drivers import pca9685_driver
 from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChannelRegistrationRequest
@@ -13,7 +15,10 @@ from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChan
 router = APIRouter(prefix="/pca9685", tags=["PCA9685 Controller"])
 
 @router.get("/discover", response_model=PCA9685DiscoveryResult)
-async def discover_pca9685_controller(address: int = 0x40):
+async def discover_pca9685_controller(
+    address: int = 0x40,
+    current_user: User = Depends(get_current_user)
+):
     """
     Scans the I2C bus for a PCA9685 device at a given address.
     """
@@ -25,7 +30,8 @@ async def discover_pca9685_controller(address: int = 0x40):
 @router.post("/register", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
 async def register_pca9685_controller(
     request: PCA9685RegistrationRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Registers a new PCA9685 controller as a 'parent' device in the system.
@@ -60,7 +66,8 @@ async def register_pca9685_controller(
 @router.post("/channel/register", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
 async def register_pwm_channel(
     request: PWMChannelRegistrationRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Registers an individual PWM channel as a new 'child' device, linked to a parent PCA9685 controller.
@@ -99,7 +106,11 @@ async def register_pwm_channel(
     return new_device
 
 @router.get("/{controller_id}/channels", response_model=List[device_schema.Device])
-async def get_configured_channels(controller_id: int, db: AsyncSession = Depends(get_db)):
+async def get_configured_channels(
+    controller_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Retrieves a list of all PWM channels that have been configured for a specific PCA9685 controller.
     """

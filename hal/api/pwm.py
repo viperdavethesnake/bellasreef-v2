@@ -4,6 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shared.db.database import get_db
 from shared.crud import device as device_crud
 from shared.schemas.enums import DeviceRole
+from shared.schemas.user import User
+from core.api.deps import get_current_user
 
 from ..drivers import pca9685_driver
 from .schemas import SetDutyCycleRequest
@@ -13,7 +15,8 @@ router = APIRouter(prefix="/pwm", tags=["PWM Control"])
 @router.post("/set-duty-cycle", status_code=status.HTTP_200_OK)
 async def set_pwm_channel_duty_cycle(
     request: SetDutyCycleRequest,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Sets the intensity (duty cycle) for a configured PWM channel device.
