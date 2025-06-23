@@ -44,8 +44,8 @@ class OutletConnectionError(SmartOutletError):
     Raised when there's an error connecting to a smart outlet device.
     """
     
-    def __init__(self, message: str):
-        super().__init__(message, code="outlet_connection_error")
+    def __init__(self, message: str, code: str = "outlet_connection_error"):
+        super().__init__(message, code=code)
 
 
 class OutletTimeoutError(OutletConnectionError):
