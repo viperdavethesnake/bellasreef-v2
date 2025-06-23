@@ -1,6 +1,6 @@
-# Bella's Reef - Unified Project Dependencies (v6)
+# Bella's Reef - Unified Project Dependencies (v7)
 # This is the single source of truth for all Python packages.
-# Added environment markers for Raspberry Pi-specific hardware libraries.
+# Versions for critical hardware libraries are pinned to ensure stable, reproducible builds.
 
 # --- Core FastAPI & Web ---
 fastapi
@@ -23,12 +23,15 @@ email-validator
 
 # --- Hardware & Drivers (Platform Specific) ---
 # The following libraries will ONLY be installed on Linux systems (like Raspberry Pi)
-RPi.GPIO ; sys_platform == 'linux'
-psutil ; sys_platform == 'linux'
-adafruit-circuitpython-pca9685 ; sys_platform == 'linux'
-w1thermsensor ; sys_platform == 'linux'
+# Versions are pinned to the last known-good configuration from testing.
+RPi.GPIO==0.7.1 ; sys_platform == 'linux'
+Adafruit-Blinka==8.61.2 ; sys_platform == 'linux'
+adafruit-circuitpython-pca9685==3.4.19 ; sys_platform == 'linux'
+w1thermsensor ; sys_platform == 'linux' # TODO: Pin version after testing temp module
+psutil ; sys_platform == 'linux' # TODO: Pin version after testing
 
 # --- Smart Outlet Drivers (Cross-Platform) ---
+# TODO: Pin versions after testing each smart outlet type
 python-kasa
 aioshelly>=1.0.0
 pyvesync
@@ -42,4 +45,3 @@ tenacity
 # --- Worker/Scheduler (Future Use) ---
 apscheduler==3.10.4
 celery==5.3.4
-httpx
