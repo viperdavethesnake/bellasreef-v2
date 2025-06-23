@@ -46,8 +46,8 @@ class Device(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
-    parent = relationship("Device", back_populates="children", remote_side=[id], lazy="joined")
-    children = relationship("Device", back_populates="parent", lazy="joined", cascade="all, delete-orphan")
+    parent = relationship("Device", back_populates="children", remote_side=[id])
+    children = relationship("Device", back_populates="parent", lazy="selectin", cascade="all, delete-orphan")
 
     history = relationship("History", back_populates="device", cascade="all, delete-orphan")
     history_hourly = relationship("HistoryHourlyAggregate", back_populates="device", cascade="all, delete-orphan")
