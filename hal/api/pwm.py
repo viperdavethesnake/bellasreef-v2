@@ -23,7 +23,7 @@ async def set_pwm_channel_duty_cycle(
     """
     # 1. Fetch the channel device from the database
     channel_device = await device_crud.get(db, device_id=request.device_id)
-    if not channel_device or channel_device.role != DeviceRole.PWM_CHANNEL:
+    if not channel_device or channel_device.role != DeviceRole.PWM_CHANNEL.value:
         raise HTTPException(status_code=404, detail="PWM Channel device not found.")
 
     # 2. Get the parent controller to find its address
