@@ -5,6 +5,7 @@ from .schedule import Schedule, ScheduleCreate, ScheduleUpdate, ScheduleExecutio
 from .alert import Alert, AlertCreate, AlertUpdate, AlertHistory
 from .device import Device, DeviceCreate, DeviceUpdate
 from .probe import Probe, ProbeCreate, ProbeUpdate, ProbeHistory, ProbeHistoryCreate
+from .enums import DeviceRole
 
 __all__ = [
     "User",
@@ -25,5 +26,6 @@ __all__ = [
     "ProbeCreate",
     "ProbeUpdate",
     "ProbeHistory",
-    "ProbeHistoryCreate"
+    "ProbeHistoryCreate",
+    "DeviceRole"
 ]
