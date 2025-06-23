@@ -27,8 +27,8 @@ async def discover_pca9685_controller(
     
     return PCA9685DiscoveryResult(address=address, is_found=is_found, message=message)
 
-@router.post("/register", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
-async def register_pca9685_controller(
+@router.post("", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
+async def create_pca9685_controller(
     request: PCA9685RegistrationRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
