@@ -45,7 +45,7 @@ async def register_pca9685_controller(
 
     # Check if a controller with this address is already registered
     existing_device = await device_crud.get_by_address(db, str(request.address))
-    if existing_device and existing_device.role == DeviceRole.PCA9685_CONTROLLER:
+    if existing_device and existing_device.role == DeviceRole.PCA9685_CONTROLLER.value:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"A PCA9685 controller at address {hex(request.address)} is already registered."
