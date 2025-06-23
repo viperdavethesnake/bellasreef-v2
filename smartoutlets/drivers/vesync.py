@@ -139,27 +139,25 @@ class VeSyncDriver(AbstractSmartOutletDriver):
     
     async def _get_device(self):
         """
-        Get the target VeSync device.
-        
-        Returns:
-            VeSync device instance
+        Get the target VeSync device by its CID.
         """
         if self._device is None:
             manager = await self._get_manager()
-            loop = asyncio.get_running_loop()
+
+            # The target CID is self.device_id, which was set in the driver's constructor.
+            target_cid = self.device_id
             
-            # Find target device by device_name or cid
-            target_name = self.auth_info.get('vesync_device_name')
-            target_cid = self.auth_info.get('cid')
+            # Combine outlets and switches from the manager for a comprehensive search.
+            all_devices = manager.outlets + manager.switches
             
-            for outlet in manager.outlets:
-                if (target_name and outlet.device_name == target_name) or \
-                   (target_cid and outlet.cid == target_cid):
-                    self._device = outlet
+            for device in all_devices:
+                if device.cid == target_cid:
+                    self._device = device
                     break
             
             if not self._device:
-                raise ValueError(f"VeSync device not found: name={target_name}, cid={target_cid}")
+                # This error message is now more informative.
+                raise ValueError(f"VeSync device with CID '{target_cid}' not found in the authenticated account.")
         
         return self._device
     
