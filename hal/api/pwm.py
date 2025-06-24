@@ -52,7 +52,17 @@ async def set_pwm_channel_duty_cycle(
             channel=channel_number,
             duty_cycle=duty_cycle
         )
+        
+        # Update the device's current_value in the database
+        channel_device.current_value = constrained_intensity
+        db.add(channel_device)
+        await db.commit()
+        
     except Exception as e:
         raise HTTPException(status_code=503, detail=f"Failed to set PWM channel duty cycle. Hardware error: {e}")
 
-    return {"message": f"Successfully set device '{channel_device.name}' (Channel {channel_number}) to {constrained_intensity}% intensity.", "duty_cycle_value": duty_cycle} 
+    return {
+        "message": f"Successfully set device '{channel_device.name}' (Channel {channel_number}) to {constrained_intensity}% intensity.", 
+        "duty_cycle_value": duty_cycle,
+        "current_value": constrained_intensity
+    } 
