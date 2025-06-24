@@ -11,7 +11,7 @@ class DeviceCRUD:
         return result.scalar_one_or_none()
     
     async def get_by_address(self, db: AsyncSession, address: str) -> Optional[Device]:
-        result = await db.execute(select(Device).filter(Device.address == address).unique())
+        result = await db.execute(select(Device).filter(Device.address == address))
         return result.scalar_one_or_none()
     
     async def get_multi(
