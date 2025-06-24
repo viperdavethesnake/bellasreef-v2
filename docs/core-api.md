@@ -20,8 +20,7 @@ The Core service provides user authentication, session management, and system he
   "endpoints": {
     "health": "/api/health",
     "auth": "/api/auth",
-    "users": "/api/users",
-    "system": "/api"
+    "users": "/api/users"
   }
 }
 ```
@@ -33,7 +32,8 @@ The Core service provides user authentication, session management, and system he
 ```json
 {
   "status": "healthy",
-  "service": "Bella's Reef Core Service",
+  "timestamp": "2024-01-15T10:30:00.123456",
+  "service": "Bella's Reef API",
   "version": "1.0.0"
 }
 ```
@@ -63,6 +63,31 @@ curl -X POST "http://localhost:8000/api/auth/login" \
 - `401 Unauthorized` - Invalid credentials
 - `400 Bad Request` - Inactive user
 
+### Register
+**POST /api/auth/register** - Register a new user and get access token
+
+**Request:**
+```json
+{
+  "username": "newuser",
+  "email": "newuser@example.com",
+  "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "token_type": "bearer"
+}
+```
+
+**Status Codes:**
+- `200 OK` - User registered successfully
+- `400 Bad Request` - Username or email already registered
+- `400 Bad Request` - Invalid data
+
 ## User Management Endpoints
 
 ### Get Current User
@@ -76,9 +101,11 @@ curl -X POST "http://localhost:8000/api/auth/login" \
   "id": 1,
   "username": "admin",
   "email": "admin@example.com",
+  "phone_number": null,
   "is_active": true,
   "is_admin": true,
-  "created_at": "2024-01-15T10:30:00.123456"
+  "created_at": "2024-01-15T10:30:00.123456",
+  "updated_at": null
 }
 ```
 
@@ -86,20 +113,20 @@ curl -X POST "http://localhost:8000/api/auth/login" \
 - `200 OK` - User information retrieved
 - `401 Unauthorized` - Invalid or missing token
 
-## Health Endpoints
+### List All Users (Admin Only)
+**GET /api/users/** - Get all users (admin only)
 
-### System Health
-**GET /api/health** - Detailed system health check
+**Headers:** `Authorization: Bearer <token>`
 
 **Response:**
 ```json
-{
-  "status": "healthy",
-  "timestamp": "2024-01-15T10:30:00.123456",
-  "service": "Bella's Reef API",
-  "version": "1.0.0"
-}
+[]
 ```
+
+**Status Codes:**
+- `200 OK` - Users retrieved successfully
+- `401 Unauthorized` - Invalid or missing token
+- `403 Forbidden` - Admin access required
 
 ## System Information Endpoints
 
@@ -203,6 +230,19 @@ curl -X GET "http://localhost:8000/api/host-info"
 curl -X GET "http://localhost:8000/api/system-usage"
 ```
 
+### User Registration Flow
+
+```bash
+# 1. Register a new user
+curl -X POST "http://localhost:8000/api/auth/register" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "username": "newuser",
+    "email": "newuser@example.com",
+    "password": "password123"
+  }'
+```
+
 ### System Monitoring Script
 
 ```bash
@@ -240,4 +280,9 @@ ALLOWED_HOSTS=["http://localhost:3000", "http://localhost:8080"]
 # Logging
 LOG_LEVEL=INFO
 DEBUG=false
+
+# Service Configuration
+CORE_ENABLED=true
+SERVICE_HOST=0.0.0.0
+SERVICE_PORT=8000
 ``` 

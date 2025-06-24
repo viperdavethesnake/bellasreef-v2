@@ -25,28 +25,46 @@ The Telemetry service provides centralized access to historical data from all de
 }
 ```
 
+### Health Check
+**GET /health** - Service health status
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "service": "telemetry",
+  "timestamp": "2025-06-22T20:00:00Z"
+}
+```
+
 ## Historical Data Endpoints
 
 ### Get Raw History
 **GET /api/history/{device_id}/raw** - Get raw, high-resolution historical data
 
 **Parameters:**
-- `device_id` (path): ID of the device
-- `hours` (query, optional): Hours to look back (1-168, default: 24)
-- `limit` (query, optional): Maximum records to return (1-10000, default: 1000)
+- `device_id` (path, integer): ID of the device
+- `hours` (query, optional, integer): Hours to look back (1-168, default: 24)
+- `limit` (query, optional, integer): Maximum records to return (1-10000, default: 1000)
 
 **Response:**
 ```json
 [
   {
+    "id": 1,
+    "device_id": 1,
     "timestamp": "2024-01-15T10:30:00.123456",
     "value": 23.45,
-    "device_id": 1
+    "json_value": null,
+    "history_metadata": null
   },
   {
+    "id": 2,
+    "device_id": 1,
     "timestamp": "2024-01-15T10:31:00.123456",
     "value": 23.47,
-    "device_id": 1
+    "json_value": null,
+    "history_metadata": null
   }
 ]
 ```
@@ -56,38 +74,105 @@ The Telemetry service provides centralized access to historical data from all de
 - `404 Not Found` - Device not found
 - `400 Bad Request` - Invalid parameters
 
+### Get Raw History Statistics
+**GET /api/history/{device_id}/raw/stats** - Get statistics about raw historical data
+
+**Parameters:**
+- `device_id` (path, integer): ID of the device
+- `hours` (query, optional, integer): Hours to look back (1-168, default: 24)
+
+**Response:**
+```json
+{
+  "total_records": 1440,
+  "date_range": {
+    "start": "2024-01-14T10:30:00.123456",
+    "end": "2024-01-15T10:30:00.123456"
+  },
+  "value_stats": {
+    "min": 23.12,
+    "max": 23.89,
+    "avg": 23.45,
+    "std_dev": 0.15
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Statistics retrieved successfully
+- `404 Not Found` - Device not found
+- `400 Bad Request` - Invalid parameters
+
 ### Get Hourly Aggregated History
 **GET /api/history/{device_id}/hourly** - Get hourly aggregated historical data
 
 **Parameters:**
-- `device_id` (path): ID of the device
-- `start_date` (query, required): Start date in YYYY-MM-DD format
-- `end_date` (query, required): End date in YYYY-MM-DD format
+- `device_id` (path, integer): ID of the device
+- `start_date` (query, required, string): Start date in YYYY-MM-DD format
+- `end_date` (query, required, string): End date in YYYY-MM-DD format
 
 **Response:**
 ```json
 [
   {
-    "hour": "2024-01-15T10:00:00",
+    "id": 1,
+    "device_id": 1,
+    "hour_timestamp": "2024-01-15T10:00:00",
     "avg_value": 23.45,
     "min_value": 23.12,
     "max_value": 23.78,
     "sample_count": 60,
-    "device_id": 1
+    "created_at": "2024-01-15T11:00:00.123456"
   },
   {
-    "hour": "2024-01-15T11:00:00",
+    "id": 2,
+    "device_id": 1,
+    "hour_timestamp": "2024-01-15T11:00:00",
     "avg_value": 23.52,
     "min_value": 23.34,
     "max_value": 23.89,
     "sample_count": 60,
-    "device_id": 1
+    "created_at": "2024-01-15T12:00:00.123456"
   }
 ]
 ```
 
 **Status Codes:**
 - `200 OK` - Data retrieved successfully
+- `404 Not Found` - Device not found
+- `400 Bad Request` - Invalid date format
+
+### Get Hourly History Statistics
+**GET /api/history/{device_id}/hourly/stats** - Get statistics about hourly aggregated data
+
+**Parameters:**
+- `device_id` (path, integer): ID of the device
+- `start_date` (query, required, string): Start date in YYYY-MM-DD format
+- `end_date` (query, required, string): End date in YYYY-MM-DD format
+
+**Response:**
+```json
+{
+  "total_hours": 24,
+  "date_range": {
+    "start": "2024-01-15",
+    "end": "2024-01-15"
+  },
+  "value_stats": {
+    "min": 23.12,
+    "max": 23.89,
+    "avg": 23.45,
+    "std_dev": 0.15
+  },
+  "sample_stats": {
+    "total_samples": 1440,
+    "avg_samples_per_hour": 60
+  }
+}
+```
+
+**Status Codes:**
+- `200 OK` - Statistics retrieved successfully
 - `404 Not Found` - Device not found
 - `400 Bad Request` - Invalid date format
 
@@ -146,14 +231,14 @@ The Telemetry service provides centralized access to historical data from all de
 ### 400 Bad Request
 ```json
 {
-  "detail": "Invalid date format. Use YYYY-MM-DD"
+  "detail": "Invalid date format. Use YYYY-MM-DD format (e.g., 2025-06-22)"
 }
 ```
 
 ### 500 Internal Server Error
 ```json
 {
-  "detail": "Database query failed"
+  "detail": "Internal server error"
 }
 ```
 
@@ -173,6 +258,9 @@ curl -X GET "http://localhost:8006/api/history/1/raw?hours=24&limit=1000"
 
 # Get last 7 days of raw data
 curl -X GET "http://localhost:8006/api/history/1/raw?hours=168&limit=5000"
+
+# Get raw data statistics
+curl -X GET "http://localhost:8006/api/history/1/raw/stats?hours=24"
 ```
 
 ### Get Historical Trends
@@ -183,6 +271,9 @@ curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2024-01-08&en
 
 # Get monthly trends
 curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2023-12-01&end_date=2024-01-15"
+
+# Get hourly data statistics
+curl -X GET "http://localhost:8006/api/history/1/hourly/stats?start_date=2024-01-01&end_date=2024-01-15"
 ```
 
 ### Complete Data Analysis Flow
@@ -192,10 +283,13 @@ curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2023-12-01&en
 curl -X GET "http://localhost:8006/api/history/1/raw?hours=6&limit=1000" | jq '.[] | select(.value > 25)'
 
 # 2. Get daily averages for trend analysis
-curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15" | jq '.[] | {hour: .hour, avg: .avg_value}'
+curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15" | jq '.[] | {hour: .hour_timestamp, avg: .avg_value}'
 
 # 3. Find temperature extremes
 curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15" | jq '.[] | select(.max_value > 26 or .min_value < 20)'
+
+# 4. Get comprehensive statistics
+curl -X GET "http://localhost:8006/api/history/1/hourly/stats?start_date=2024-01-01&end_date=2024-01-15"
 ```
 
 ## Data Processing
@@ -229,7 +323,7 @@ data = response.json()
 
 # Convert to DataFrame
 df = pd.DataFrame(data)
-df['hour'] = pd.to_datetime(df['hour'])
+df['hour'] = pd.to_datetime(df['hour_timestamp'])
 df.set_index('hour', inplace=True)
 
 # Plot trends
@@ -263,7 +357,7 @@ DATABASE_URL=postgresql://user:password@localhost/bellasreef
 
 # Service Configuration
 SERVICE_HOST=0.0.0.0
-SERVICE_PORT=8006
+SERVICE_PORT_TELEMETRY=8006
 
 # Logging
 LOG_LEVEL=INFO
@@ -300,6 +394,14 @@ sensor:
 async function getTemperatureData(deviceId, hours = 24) {
   const response = await fetch(
     `http://localhost:8006/api/history/${deviceId}/raw?hours=${hours}`
+  );
+  return await response.json();
+}
+
+// Fetch hourly aggregates
+async function getHourlyData(deviceId, startDate, endDate) {
+  const response = await fetch(
+    `http://localhost:8006/api/history/${deviceId}/hourly?start_date=${startDate}&end_date=${endDate}`
   );
   return await response.json();
 }

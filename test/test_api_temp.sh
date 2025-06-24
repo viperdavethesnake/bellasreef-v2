@@ -96,7 +96,7 @@ get_auth_token() {
     local response
     response=$(curl -s -X POST "http://${TARGET_HOST}:${CORE_PORT}/api/auth/login" \
         -H "Content-Type: application/x-www-form-urlencoded" \
-        -d "username=${ADMIN_USERNAME:-bellas}&password=${ADMIN_PASSWORD:-reefrocks}")
+        -d "username=${ADMIN_USERNAME:-admin}&password=${ADMIN_PASSWORD:-reefrocks}")
 
     if echo "$response" | jq -e '.access_token' > /dev/null; then
         TOKEN=$(echo "$response" | jq -r .access_token)

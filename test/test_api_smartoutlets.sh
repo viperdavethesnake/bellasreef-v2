@@ -171,7 +171,7 @@ run_tests() {
     print_subsection "Kasa Device Lifecycle"
     print_progress "Starting local discovery for Kasa devices"
     local DISCOVERY_TASK_RESP
-    DISCOVERY_TASK_RESP=$(curl -sS -X POST "${API_URL}/discover/local" -H "Authorization: Bearer $TOKEN")
+    DISCOVERY_TASK_RESP=$(curl -sS -X POST "${API_URL}/outlets/discover/local" -H "Authorization: Bearer $TOKEN")
     local TASK_ID
     TASK_ID=$(echo "$DISCOVERY_TASK_RESP" | jq -r '.task_id')
     print_progress_done
@@ -180,7 +180,7 @@ run_tests() {
 
     print_progress "Fetching discovery results"
     local DISCOVERY_RESULTS
-    DISCOVERY_RESULTS=$(curl -sS -X GET "${API_URL}/discover/local/${TASK_ID}/results" -H "Authorization: Bearer $TOKEN")
+    DISCOVERY_RESULTS=$(curl -sS -X GET "${API_URL}/outlets/discover/local/${TASK_ID}/results" -H "Authorization: Bearer $TOKEN")
     local KASA_DEVICES
     KASA_DEVICES=$(echo "$DISCOVERY_RESULTS" | jq '[.results[] | select(.driver_type=="kasa")]')
     local KASA_DEVICE_COUNT

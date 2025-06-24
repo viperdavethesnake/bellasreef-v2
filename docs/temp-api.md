@@ -16,9 +16,19 @@ The Temperature service manages 1-wire temperature sensors, providing discovery,
 **Response:**
 ```json
 {
-  "service": "Bella's Reef Temperature Service",
-  "version": "1.0.0",
-  "description": "1-wire temperature sensor management and monitoring"
+  "message": "Welcome to the Temperature Service"
+}
+```
+
+### Health Check
+**GET /health** - Service health status
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "service": "temperature",
+  "version": "1.0.0"
 }
 ```
 
@@ -217,6 +227,20 @@ All endpoints require authentication via:
 }
 ```
 
+### 400 Bad Request (Address Already Exists)
+```json
+{
+  "detail": "Device with this address (hardware ID) already exists."
+}
+```
+
+### 404 Not Found (Device Not Found)
+```json
+{
+  "detail": "Temperature sensor device not found."
+}
+```
+
 ### 401 Unauthorized
 ```json
 {
@@ -321,6 +345,11 @@ SERVICE_TOKEN=your_service_token_here
 # Hardware Configuration
 ONE_WIRE_BUS_PATH=/sys/bus/w1/devices
 GPIO_PIN=4
+
+# Service Configuration
+TEMP_ENABLED=true
+SERVICE_HOST=0.0.0.0
+SERVICE_PORT=8004
 
 # Logging
 LOG_LEVEL=INFO

@@ -40,12 +40,8 @@ A "controller" is a parent device that manages one or more channels (e.g., a PCA
 ```json
 {
   "name": "Main LED Controller",
-  "device_type": "pca9685",
-  "address": "64",
-  "role": "pca9685_controller",
-  "config": {
-    "frequency": 1000
-  }
+  "address": 64,
+  "frequency": 1000
 }
 ```
 
@@ -62,7 +58,12 @@ A "controller" is a parent device that manages one or more channels (e.g., a PCA
   "is_active": true,
   "poll_enabled": true,
   "poll_interval": 60,
-  "parent_device_id": null
+  "parent_device_id": null,
+  "min_value": null,
+  "max_value": null,
+  "unit": null,
+  "created_at": "2024-01-15T10:30:00.123456",
+  "updated_at": "2024-01-15T10:30:00.123456"
 }
 ```
 
@@ -75,9 +76,46 @@ A "controller" is a parent device that manages one or more channels (e.g., a PCA
   {
     "id": 1,
     "name": "Main LED Controller",
-    "role": "pca9685_controller",
+    "device_type": "pca9685",
     "address": "64",
-    "is_active": true
+    "role": "pca9685_controller",
+    "current_value": 0.0,
+    "is_active": true,
+    "poll_enabled": true,
+    "poll_interval": 60,
+    "parent_device_id": null,
+    "min_value": null,
+    "max_value": null,
+    "unit": null,
+    "created_at": "2024-01-15T10:30:00.123456",
+    "updated_at": "2024-01-15T10:30:00.123456"
+  }
+]
+```
+
+### Get Configured Channels for Controller
+**GET /api/hal/controllers/{controller_id}/channels** - Retrieves a list of all PWM channels that have been configured for a specific PCA9685 controller.
+
+**Success Response (200 OK):**
+```json
+[
+  {
+    "id": 5,
+    "name": "Blue LEDs",
+    "device_type": "pwm_channel",
+    "address": "pca9685_1_ch0",
+    "role": "light",
+    "config": { "channel_number": 0 },
+    "current_value": 75.0,
+    "is_active": true,
+    "poll_enabled": true,
+    "poll_interval": 60,
+    "parent_device_id": 1,
+    "min_value": 0,
+    "max_value": 100,
+    "unit": null,
+    "created_at": "2024-01-15T10:30:00.123456",
+    "updated_at": "2024-01-15T10:30:00.123456"
   }
 ]
 ```
@@ -99,7 +137,7 @@ A "channel" is a child device managed by a controller (e.g., a single PWM output
 {
   "channel_number": 0,
   "name": "Blue LEDs",
-  "role": "pwm_channel",
+  "role": "light",
   "min_value": 0,
   "max_value": 100
 }
@@ -111,11 +149,19 @@ A "channel" is a child device managed by a controller (e.g., a single PWM output
   "id": 5,
   "name": "Blue LEDs",
   "device_type": "pwm_channel",
-  "role": "pwm_channel",
-  "parent_device_id": 1,
+  "address": "pca9685_1_ch0",
+  "role": "light",
   "config": { "channel_number": 0 },
   "current_value": 0.0,
-  "is_active": true
+  "is_active": true,
+  "poll_enabled": true,
+  "poll_interval": 60,
+  "parent_device_id": 1,
+  "min_value": 0,
+  "max_value": 100,
+  "unit": null,
+  "created_at": "2024-01-15T10:30:00.123456",
+  "updated_at": "2024-01-15T10:30:00.123456"
 }
 ```
 
@@ -128,16 +174,38 @@ A "channel" is a child device managed by a controller (e.g., a single PWM output
   {
     "id": 5,
     "name": "Blue LEDs",
-    "role": "pwm_channel",
+    "device_type": "pwm_channel",
+    "address": "pca9685_1_ch0",
+    "role": "light",
+    "config": { "channel_number": 0 },
+    "current_value": 75.0,
+    "is_active": true,
+    "poll_enabled": true,
+    "poll_interval": 60,
     "parent_device_id": 1,
-    "current_value": 75.0
+    "min_value": 0,
+    "max_value": 100,
+    "unit": null,
+    "created_at": "2024-01-15T10:30:00.123456",
+    "updated_at": "2024-01-15T10:30:00.123456"
   },
   {
     "id": 6,
     "name": "White LEDs",
-    "role": "pwm_channel",
+    "device_type": "pwm_channel",
+    "address": "pca9685_1_ch1",
+    "role": "light",
+    "config": { "channel_number": 1 },
+    "current_value": 50.0,
+    "is_active": true,
+    "poll_enabled": true,
+    "poll_interval": 60,
     "parent_device_id": 1,
-    "current_value": 50.0
+    "min_value": 0,
+    "max_value": 100,
+    "unit": null,
+    "created_at": "2024-01-15T10:30:00.123456",
+    "updated_at": "2024-01-15T10:30:00.123456"
   }
 ]
 ```
@@ -161,14 +229,19 @@ A "channel" is a child device managed by a controller (e.g., a single PWM output
 **Success Response (Ramp):**
 ```json
 {
-  "message": "Ramp initiated for device 'Blue LEDs': 50.0% → 75% over 3000ms"
+  "message": "Ramp initiated for device 'Blue LEDs' (Channel 0): 50.0% → 75% over 3000ms",
+  "ramp_started": true,
+  "start_intensity": 50.0,
+  "target_intensity": 75,
+  "duration_ms": 3000
 }
 ```
 
 **Success Response (Immediate):**
 ```json
 {
-  "message": "Successfully set device 'Blue LEDs' to 75% intensity.",
+  "message": "Successfully set device 'Blue LEDs' (Channel 0) to 75% intensity.",
+  "duty_cycle_value": 49151,
   "current_value": 75
 }
 ```
@@ -209,12 +282,12 @@ A "channel" is a child device managed by a controller (e.g., a single PWM output
   {
     "device_id": 5,
     "status": "success",
-    "detail": "Ramp initiated."
+    "detail": "Ramp initiated: 50.0% → 100% over 5000ms"
   },
   {
     "device_id": 6,
     "status": "success",
-    "detail": "Set to 0%."
+    "detail": "Set to 0% intensity"
   }
 ]
 ```
@@ -226,10 +299,103 @@ A "channel" is a child device managed by a controller (e.g., a single PWM output
 | **401 Unauthorized** | `Not authenticated` | Bearer token is missing or invalid. |
 | **404 Not Found** | `PWM Channel device not found.` | The specified `channel_id` does not exist or is not a PWM channel. |
 | **404 Not Found** | `Parent controller not found.` | The specified controller for a channel does not exist. |
+| **404 Not Found** | `Parent controller with ID {controller_id} not found or is not a PCA9685 controller.` | The specified controller does not exist or is not a PCA9685 controller. |
+| **400 Bad Request** | `Channel device is not linked to a parent controller.` | The channel device has no parent controller. |
+| **409 Conflict** | `Channel {channel_number} is already registered for controller ID {controller_id}.` | The channel number is already in use. |
+| **409 Conflict** | `A PCA9685 controller at address {hex_address} is already registered.` | A controller with this address already exists. |
 | **503 Service Unavailable** | `Failed to set PWM... Hardware error...` | The service cannot communicate with the physical I2C device. |
 
 ## Interactive Documentation
 
 - **Swagger UI:** `http://localhost:8003/docs`
 - **ReDoc:** `http://localhost:8003/redoc`
-- **OpenAPI JSON:** `http://localhost:8003/openapi.json` 
+- **OpenAPI JSON:** `http://localhost:8003/openapi.json`
+
+## Example Usage
+
+### Complete Controller and Channel Setup
+
+```bash
+# 1. Get authentication token
+TOKEN=$(curl -s -X POST "http://localhost:8000/api/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=admin&password=admin123" | jq -r '.access_token')
+
+# 2. Discover PCA9685 controller
+curl -X POST "http://localhost:8003/api/hal/controllers/discover?address=64" \
+  -H "Authorization: Bearer $TOKEN"
+
+# 3. Register the controller
+curl -X POST "http://localhost:8003/api/hal/controllers" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Main LED Controller",
+    "address": 64,
+    "frequency": 1000
+  }'
+
+# 4. Register a channel on the controller
+curl -X POST "http://localhost:8003/api/hal/controllers/1/channels" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel_number": 0,
+    "name": "Blue LEDs",
+    "role": "light",
+    "min_value": 0,
+    "max_value": 100
+  }'
+
+# 5. Control the channel
+curl -X POST "http://localhost:8003/api/hal/channels/5/control" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "intensity": 75,
+    "duration_ms": 3000
+  }'
+
+# 6. Get channel state
+curl -X GET "http://localhost:8003/api/hal/channels/5/state" \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+### Bulk Control Example
+
+```bash
+# Control multiple channels at once
+curl -X POST "http://localhost:8003/api/hal/channels/bulk-control" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "device_id": 5,
+      "intensity": 100,
+      "duration_ms": 5000
+    },
+    {
+      "device_id": 6,
+      "intensity": 0
+    }
+  ]'
+```
+
+## Environment Variables
+
+```bash
+# Database
+DATABASE_URL=postgresql://user:password@localhost/bellasreef
+
+# Service Configuration
+SERVICE_HOST=0.0.0.0
+SERVICE_PORT_HAL=8003
+
+# Hardware Configuration
+I2C_BUS=1
+GPIO_PIN=4
+
+# Logging
+LOG_LEVEL=INFO
+DEBUG=false
+``` 
