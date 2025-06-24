@@ -66,3 +66,18 @@ async def set_pwm_channel_duty_cycle(
         "duty_cycle_value": duty_cycle,
         "current_value": constrained_intensity
     } 
+
+@router.get("/{device_id}/state", response_model=float, summary="Get Current PWM Channel State")
+async def get_pwm_channel_state(
+    device_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Gets the last known intensity for a configured PWM channel device from the database.
+    """
+    channel_device = await device_crud.get(db, device_id=device_id)
+    if not channel_device or channel_device.role != DeviceRole.PWM_CHANNEL.value:
+        raise HTTPException(status_code=404, detail="PWM Channel device not found.")
+
+    return channel_device.current_value 
