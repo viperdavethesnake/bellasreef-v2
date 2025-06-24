@@ -12,9 +12,9 @@ from core.api.deps import get_current_user
 from ..drivers import pca9685_driver
 from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChannelRegistrationRequest
 
-router = APIRouter(prefix="/pca9685", tags=["PCA9685 Controller"])
+router = APIRouter(prefix="/controllers", tags=["Controllers"])
 
-@router.get("/discover", response_model=PCA9685DiscoveryResult)
+@router.post("/discover", response_model=PCA9685DiscoveryResult)
 async def discover_pca9685_controller(
     address: int = 0x40,
     current_user: User = Depends(get_current_user)
@@ -76,8 +76,9 @@ async def list_registered_controllers(
     )
     return controllers
 
-@router.post("/channel/register", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
+@router.post("/{controller_id}/channels", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
 async def register_pwm_channel(
+    controller_id: int,
     request: PWMChannelRegistrationRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -86,11 +87,11 @@ async def register_pwm_channel(
     Registers an individual PWM channel as a new 'child' device, linked to a parent PCA9685 controller.
     """
     # 1. Verify the parent controller exists and is a PCA9685 controller
-    parent_controller = await device_crud.get(db, device_id=request.parent_controller_id)
+    parent_controller = await device_crud.get(db, device_id=controller_id)
     if not parent_controller or parent_controller.role != DeviceRole.PCA9685_CONTROLLER.value:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Parent controller with ID {request.parent_controller_id} not found or is not a PCA9685 controller."
+            detail=f"Parent controller with ID {controller_id} not found or is not a PCA9685 controller."
         )
 
     # 2. Check if this channel is already registered for this parent
@@ -98,7 +99,7 @@ async def register_pwm_channel(
         if child.config and child.config.get("channel_number") == request.channel_number:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail=f"Channel {request.channel_number} is already registered for controller ID {request.parent_controller_id}."
+                detail=f"Channel {request.channel_number} is already registered for controller ID {controller_id}."
             )
 
     # 3. Create the new channel device entry
@@ -106,9 +107,9 @@ async def register_pwm_channel(
         name=request.name,
         device_type="pwm_channel",
         # The address for a channel is a composite of parent and channel for uniqueness
-        address=f"pca9685_{request.parent_controller_id}_ch{request.channel_number}",
+        address=f"pca9685_{controller_id}_ch{request.channel_number}",
         role=request.role,
-        parent_device_id=request.parent_controller_id,
+        parent_device_id=controller_id,
         # Store hardware-specific info in the config JSON field
         config={"channel_number": request.channel_number},
         min_value=request.min_value,
@@ -136,4 +137,4 @@ async def get_configured_channels(
         )
 
     # The 'children' relationship we defined in the model makes this easy
-    return parent_controller.children
+    return parent_controller.children 

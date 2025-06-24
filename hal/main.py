@@ -1,4 +1,3 @@
-
 # --- ALL OTHER IMPORTS AND CODE MUST BE BELOW THIS LINE ---
 
 """
@@ -11,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from shared.core.config import settings
 
 # Import the new routers
-from .api import pca9685, pwm
+from .api import controllers, channels
 
 # --- FastAPI App Configuration ---
 app = FastAPI(
@@ -30,8 +29,8 @@ app.add_middleware(
 
 # --- API Endpoints ---
 # Include the new routers
-app.include_router(pca9685.router, prefix="/api")
-app.include_router(pwm.router, prefix="/api")
+app.include_router(controllers.router, prefix="/api/hal")
+app.include_router(channels.router, prefix="/api/hal")
 
 @app.get("/")
 async def root():
