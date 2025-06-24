@@ -2,9 +2,9 @@
 
 ## Overview
 
-The Scheduler service manages job scheduling, interval management, and device action coordination. It provides comprehensive scheduling capabilities for automated device control and system operations. It runs on port 8006 by default.
+The Scheduler service manages job scheduling, interval management, and device action coordination. It provides comprehensive scheduling capabilities for automated device control and system operations. It runs on port 8001 by default.
 
-**Base URL:** `http://localhost:8006`
+**Base URL:** `http://localhost:8001`
 
 ## Service Information
 
@@ -344,9 +344,9 @@ All endpoints require authentication via:
 
 ## Interactive Documentation
 
-- **Swagger UI:** `http://localhost:8006/docs`
-- **ReDoc:** `http://localhost:8006/redoc`
-- **OpenAPI JSON:** `http://localhost:8006/openapi.json`
+- **Swagger UI:** `http://localhost:8001/docs`
+- **ReDoc:** `http://localhost:8001/redoc`
+- **OpenAPI JSON:** `http://localhost:8001/openapi.json`
 
 ## Example Usage
 
@@ -359,7 +359,7 @@ TOKEN=$(curl -s -X POST "http://localhost:8000/api/auth/login" \
   -d "username=admin&password=admin123" | jq -r '.access_token')
 
 # 2. Create a new schedule
-curl -X POST "http://localhost:8006/api/v1/schedules" \
+curl -X POST "http://localhost:8001/api/v1/schedules" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -370,7 +370,7 @@ curl -X POST "http://localhost:8006/api/v1/schedules" \
   }'
 
 # 3. Add device actions to the schedule
-curl -X POST "http://localhost:8006/api/v1/schedules/device-actions" \
+curl -X POST "http://localhost:8001/api/v1/schedules/device-actions" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -382,15 +382,15 @@ curl -X POST "http://localhost:8006/api/v1/schedules/device-actions" \
   }'
 
 # 4. List all schedules
-curl -X GET "http://localhost:8006/api/v1/schedules" \
+curl -X GET "http://localhost:8001/api/v1/schedules" \
   -H "Authorization: Bearer $TOKEN"
 
 # 5. Check scheduler health
-curl -X GET "http://localhost:8006/api/v1/schedules/health" \
+curl -X GET "http://localhost:8001/api/v1/schedules/health" \
   -H "Authorization: Bearer $TOKEN"
 
 # 6. Get device actions for a schedule
-curl -X GET "http://localhost:8006/api/v1/schedules/device-actions?schedule_id=1" \
+curl -X GET "http://localhost:8001/api/v1/schedules/device-actions?schedule_id=1" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -398,7 +398,7 @@ curl -X GET "http://localhost:8006/api/v1/schedules/device-actions?schedule_id=1
 
 ```bash
 # Create a temperature-dependent schedule
-curl -X POST "http://localhost:8006/api/v1/schedules" \
+curl -X POST "http://localhost:8001/api/v1/schedules" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -409,7 +409,7 @@ curl -X POST "http://localhost:8006/api/v1/schedules" \
   }'
 
 # Create an interval-based monitoring schedule
-curl -X POST "http://localhost:8006/api/v1/schedules" \
+curl -X POST "http://localhost:8001/api/v1/schedules" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -428,7 +428,7 @@ DATABASE_URL=postgresql://user:password@localhost/bellasreef
 
 # Service Configuration
 SERVICE_HOST=0.0.0.0
-SERVICE_PORT=8006
+SERVICE_PORT=8001
 
 # Scheduler Configuration
 SCHEDULER_WORKER_INTERVAL=60
@@ -459,7 +459,7 @@ automation:
 ```javascript
 // Create a new schedule
 async function createSchedule(scheduleData) {
-  const response = await fetch('http://localhost:8006/api/v1/schedules', {
+  const response = await fetch('http://localhost:8001/api/v1/schedules', {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${token}`,
@@ -472,7 +472,7 @@ async function createSchedule(scheduleData) {
 
 // Get scheduler health
 async function getSchedulerHealth() {
-  const response = await fetch('http://localhost:8006/api/v1/schedules/health', {
+  const response = await fetch('http://localhost:8001/api/v1/schedules/health', {
     headers: {
       'Authorization': `Bearer ${token}`
     }

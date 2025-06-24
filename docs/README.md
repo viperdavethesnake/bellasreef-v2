@@ -42,14 +42,14 @@ curl -X GET "http://localhost:8000/api/health"
 ### 3. Discover Temperature Sensors
 ```bash
 # Discover available sensors
-curl -X GET "http://localhost:8005/probe/discover"
+curl -X GET "http://localhost:8004/probe/discover"
 ```
 
 ### 4. List Smart Outlets
 ```bash
 # List all outlets (requires authentication)
 TOKEN="your_access_token_here"
-curl -X GET "http://localhost:8004/api/smartoutlets/outlets" \
+curl -X GET "http://localhost:8005/api/smartoutlets/outlets" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -57,13 +57,14 @@ curl -X GET "http://localhost:8004/api/smartoutlets/outlets" \
 
 Bella's Reef is built as a microservices architecture with the following services:
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| **Core** | 8000 | Authentication, user management, system health |
-| **Telemetry** | 8001 | Historical data access and analytics |
-| **SmartOutlets** | 8004 | Smart outlet management and control |
-| **Temperature** | 8005 | Temperature sensor management |
-| **Scheduler** | 8006 | Job scheduling and automation |
+| Service       | Port | Purpose                                       |
+|---------------|------|-----------------------------------------------|
+| **Core** | 8000 | Authentication, user management, system health|
+| **HAL** | 8003 | Hardware Abstraction Layer for PWM control    |
+| **Temperature** | 8004 | Temperature sensor management                 |
+| **SmartOutlets**| 8005 | Smart outlet management and control           |
+| **Telemetry** | 8006 | Historical data access and analytics          |
+| **Scheduler** | 8001 | Job scheduling and automation                 |
 
 ## 🔐 Authentication Methods
 
@@ -77,8 +78,8 @@ curl -H "Authorization: Bearer <your_jwt_token>" \
 ### Service Token Authentication
 Used for inter-service communication:
 ```bash
-curl -H "X-Service-Token: <service_token>" \
-  http://localhost:8005/probe/list
+curl -H "Authorization: Bearer <service_token>" \
+  http://localhost:8004/probe/list
 ```
 
 ## 📊 Data Flow
@@ -172,7 +173,7 @@ curl -X GET "http://localhost:8000/health"
 python scripts/init_db.py --test
 
 # Check hardware
-curl -X GET "http://localhost:8005/probe/check"
+curl -X GET "http://localhost:8004/probe/check"
 ```
 
 ## 📞 Support

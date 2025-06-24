@@ -48,8 +48,8 @@ The system comes with a default admin user:
 For inter-service communication, use the `SERVICE_TOKEN` environment variable:
 
 ```bash
-curl -X GET "http://localhost:8005/probe/list" \
-  -H "X-Service-Token: your_service_token_here"
+curl -X GET "http://localhost:8004/probe/list" \
+  -H "Authorization: Bearer your_service_token_here"
 ```
 
 ## Token Expiration

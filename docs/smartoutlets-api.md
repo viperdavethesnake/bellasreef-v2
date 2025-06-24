@@ -2,9 +2,9 @@
 
 ## Overview
 
-The SmartOutlets service manages smart outlet devices, providing discovery, control, and monitoring capabilities. It supports multiple brands including Kasa, Shelly, and VeSync. It runs on port 8004 by default.
+The SmartOutlets service manages smart outlet devices, providing discovery, control, and monitoring capabilities. It supports multiple brands including Kasa, Shelly, and VeSync. It runs on port 8005 by default.
 
-**Base URL:** `http://localhost:8004`
+**Base URL:** `http://localhost:8005`
 
 ## Service Information
 
@@ -374,9 +374,9 @@ All endpoints require authentication via:
 
 ## Interactive Documentation
 
-- **Swagger UI:** `http://localhost:8004/docs`
-- **ReDoc:** `http://localhost:8004/redoc`
-- **OpenAPI JSON:** `http://localhost:8004/openapi.json`
+- **Swagger UI:** `http://localhost:8005/docs`
+- **ReDoc:** `http://localhost:8005/redoc`
+- **OpenAPI JSON:** `http://localhost:8005/openapi.json`
 
 ## Example Usage
 
@@ -389,11 +389,11 @@ TOKEN=$(curl -s -X POST "http://localhost:8000/api/auth/login" \
   -d "username=admin&password=admin123" | jq -r '.access_token')
 
 # 2. List all outlets
-curl -X GET "http://localhost:8004/api/smartoutlets/outlets" \
+curl -X GET "http://localhost:8005/api/smartoutlets/outlets" \
   -H "Authorization: Bearer $TOKEN"
 
 # 3. Create a new outlet
-curl -X POST "http://localhost:8004/api/smartoutlets/outlets" \
+curl -X POST "http://localhost:8005/api/smartoutlets/outlets" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -403,15 +403,15 @@ curl -X POST "http://localhost:8004/api/smartoutlets/outlets" \
   }'
 
 # 4. Turn on the outlet
-curl -X POST "http://localhost:8004/api/smartoutlets/outlets/1/on" \
+curl -X POST "http://localhost:8005/api/smartoutlets/outlets/1/on" \
   -H "Authorization: Bearer $TOKEN"
 
 # 5. Get outlet state
-curl -X GET "http://localhost:8004/api/smartoutlets/outlets/1/state" \
+curl -X GET "http://localhost:8005/api/smartoutlets/outlets/1/state" \
   -H "Authorization: Bearer $TOKEN"
 
 # 6. Discover new devices
-curl -X POST "http://localhost:8004/api/smartoutlets/outlets/discover/local" \
+curl -X POST "http://localhost:8005/api/smartoutlets/outlets/discover/local" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"driver_type": "kasa", "timeout": 30}'

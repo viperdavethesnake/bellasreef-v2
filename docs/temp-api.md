@@ -2,9 +2,9 @@
 
 ## Overview
 
-The Temperature service manages 1-wire temperature sensors, providing discovery, monitoring, and data collection capabilities. It runs on port 8005 by default.
+The Temperature service manages 1-wire temperature sensors, providing discovery, monitoring, and data collection capabilities. It runs on port 8004 by default.
 
-**Base URL:** `http://localhost:8005`
+**Base URL:** `http://localhost:8004`
 
 ## Service Information
 
@@ -233,9 +233,9 @@ All endpoints require authentication via:
 
 ## Interactive Documentation
 
-- **Swagger UI:** `http://localhost:8005/docs`
-- **ReDoc:** `http://localhost:8005/redoc`
-- **OpenAPI JSON:** `http://localhost:8005/openapi.json`
+- **Swagger UI:** `http://localhost:8004/docs`
+- **ReDoc:** `http://localhost:8004/redoc`
+- **OpenAPI JSON:** `http://localhost:8004/openapi.json`
 
 ## Example Usage
 
@@ -248,17 +248,17 @@ TOKEN=$(curl -s -X POST "http://localhost:8000/api/auth/login" \
   -d "username=admin&password=admin123" | jq -r '.access_token')
 
 # 2. Discover available sensors
-curl -X GET "http://localhost:8005/probe/discover"
+curl -X GET "http://localhost:8004/probe/discover"
 
 # 3. Check 1-wire subsystem
-curl -X GET "http://localhost:8005/probe/check"
+curl -X GET "http://localhost:8004/probe/check"
 
 # 4. Get current reading from a sensor
-curl -X GET "http://localhost:8005/probe/28-00000a1b2c3d/current" \
+curl -X GET "http://localhost:8004/probe/28-00000a1b2c3d/current" \
   -H "Authorization: Bearer $TOKEN"
 
 # 5. Register a sensor as a device
-curl -X POST "http://localhost:8005/probe/" \
+curl -X POST "http://localhost:8004/probe/" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -271,11 +271,11 @@ curl -X POST "http://localhost:8005/probe/" \
   }'
 
 # 6. List all registered sensors
-curl -X GET "http://localhost:8005/probe/list" \
+curl -X GET "http://localhost:8004/probe/list" \
   -H "Authorization: Bearer $TOKEN"
 
 # 7. Update a sensor
-curl -X PATCH "http://localhost:8005/probe/1" \
+curl -X PATCH "http://localhost:8004/probe/1" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -288,10 +288,10 @@ curl -X PATCH "http://localhost:8005/probe/1" \
 
 ```bash
 # Using service token for inter-service communication
-curl -X GET "http://localhost:8005/probe/list" \
+curl -X GET "http://localhost:8004/probe/list" \
   -H "X-Service-Token: your_service_token_here"
 
-curl -X GET "http://localhost:8005/probe/28-00000a1b2c3d/current" \
+curl -X GET "http://localhost:8004/probe/28-00000a1b2c3d/current" \
   -H "X-Service-Token: your_service_token_here"
 ```
 
@@ -356,4 +356,4 @@ cat /sys/bus/w1/devices/28-00000a1b2c3d/w1_slave
 
 # Test GPIO access
 sudo python3 -c "import RPi.GPIO as GPIO; GPIO.setmode(GPIO.BCM); print('GPIO access OK')"
-``` 
+```

@@ -106,26 +106,54 @@ curl -X POST "http://localhost:8000/api/auth/login" \
 2. **Add your outlets** to the account
 3. **Note your credentials** for API access
 
+### HAL (PWM Controller)
+
+1. **Connect PCA9685 Controller (if used):**
+   ```
+   VCC → 5V or 3.3V
+   GND → Ground
+   SDA → GPIO 2 (SDA)
+   SCL → GPIO 3 (SCL)
+   ```
+
+2. **Enable I2C interface:**
+   ```bash
+   sudo raspi-config
+   # Navigate to: Interface Options → I2C → Enable
+   ```
+
+3. **Test I2C connectivity:**
+   ```bash
+   # Install i2c-tools if you haven't already
+   sudo apt-get install -y i2c-tools
+   # Scan for the device (should appear at address 0x40 by default)
+   sudo i2cdetect -y 1
+   ```
+
 ## 📱 First Steps
 
 ### 1. Discover Your Hardware
 
 ```bash
 # Discover temperature sensors
-curl -X GET "http://localhost:8005/probe/discover"
+curl -X GET "http://localhost:8004/probe/discover"
 
 # Discover smart outlets (Kasa example)
-curl -X POST "http://localhost:8004/api/smartoutlets/outlets/discover/local" \
+curl -X POST "http://localhost:8005/api/smartoutlets/outlets/discover/local" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"driver_type": "kasa", "timeout": 30}'
+
+# Discover a HAL controller
+curl -X POST "http://localhost:8003/api/hal/controllers/discover?address=0x40" \
+  -H "Authorization: Bearer $TOKEN"
 ```
 
 ### 2. Register Your Devices
 
 ```bash
 # Register a temperature sensor
-curl -X POST "http://localhost:8005/probe/" \
+curl -X POST "http://localhost:8004/probe/" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -138,7 +166,7 @@ curl -X POST "http://localhost:8005/probe/" \
   }'
 
 # Register a smart outlet
-curl -X POST "http://localhost:8004/api/smartoutlets/outlets" \
+curl -X POST "http://localhost:8005/api/smartoutlets/outlets" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -146,21 +174,41 @@ curl -X POST "http://localhost:8004/api/smartoutlets/outlets" \
     "driver_type": "kasa",
     "ip_address": "192.168.1.100"
   }'
+
+# Register a HAL controller
+curl -X POST "http://localhost:8003/api/hal/controllers" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Main LED Controller",
+    "address": 64,
+    "frequency": 1000
+  }'
+
+# Register a channel on the new controller (assuming its ID is 1)
+curl -X POST "http://localhost:8003/api/hal/controllers/1/channels" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "channel_number": 0,
+    "name": "Blue LEDs",
+    "role": "pwm_channel"
+  }'
 ```
 
 ### 3. Test Your Setup
 
 ```bash
 # Get current temperature
-curl -X GET "http://localhost:8005/probe/28-00000a1b2c3d/current" \
+curl -X GET "http://localhost:8004/probe/28-00000a1b2c3d/current" \
   -H "Authorization: Bearer $TOKEN"
 
 # Turn on lights
-curl -X POST "http://localhost:8004/api/smartoutlets/outlets/1/on" \
+curl -X POST "http://localhost:8005/api/smartoutlets/outlets/1/on" \
   -H "Authorization: Bearer $TOKEN"
 
 # Check outlet status
-curl -X GET "http://localhost:8004/api/smartoutlets/outlets/1/state" \
+curl -X GET "http://localhost:8005/api/smartoutlets/outlets/1/state" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
@@ -168,7 +216,7 @@ curl -X GET "http://localhost:8004/api/smartoutlets/outlets/1/state" \
 
 ```bash
 # Create a daily light cycle
-curl -X POST "http://localhost:8006/api/v1/schedules" \
+curl -X POST "http://localhost:8001/api/v1/schedules" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -179,7 +227,7 @@ curl -X POST "http://localhost:8006/api/v1/schedules" \
   }'
 
 # Add light-on action
-curl -X POST "http://localhost:8006/api/v1/schedules/device-actions" \
+curl -X POST "http://localhost:8001/api/v1/schedules/device-actions" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -191,7 +239,7 @@ curl -X POST "http://localhost:8006/api/v1/schedules/device-actions" \
   }'
 
 # Add light-off action
-curl -X POST "http://localhost:8006/api/v1/schedules/device-actions" \
+curl -X POST "http://localhost:8001/api/v1/schedules/device-actions" \
   -H "Authorization: Bearer $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
@@ -208,21 +256,21 @@ curl -X POST "http://localhost:8006/api/v1/schedules/device-actions" \
 ### Real-time Data
 ```bash
 # Get current temperature
-curl -X GET "http://localhost:8005/probe/28-00000a1b2c3d/current" \
+curl -X GET "http://localhost:8004/probe/28-00000a1b2c3d/current" \
   -H "Authorization: Bearer $TOKEN"
 
 # Get outlet status
-curl -X GET "http://localhost:8004/api/smartoutlets/outlets/1/state" \
+curl -X GET "http://localhost:8005/api/smartoutlets/outlets/1/state" \
   -H "Authorization: Bearer $TOKEN"
 ```
 
 ### Historical Data
 ```bash
 # Get last 24 hours of temperature data
-curl -X GET "http://localhost:8001/api/history/1/raw?hours=24&limit=1000"
+curl -X GET "http://localhost:8006/api/history/1/raw?hours=24&limit=1000"
 
 # Get hourly averages for the week
-curl -X GET "http://localhost:8001/api/history/1/hourly?start_date=2024-01-08&end_date=2024-01-15"
+curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2024-01-08&end_date=2024-01-15"
 ```
 
 ## 🔍 Troubleshooting
@@ -272,6 +320,7 @@ ls -la */env.example
 # Check all service health
 curl -X GET "http://localhost:8000/health"
 curl -X GET "http://localhost:8001/health"
+curl -X GET "http://localhost:8003/health"
 curl -X GET "http://localhost:8004/health"
 curl -X GET "http://localhost:8005/health"
 curl -X GET "http://localhost:8006/health"

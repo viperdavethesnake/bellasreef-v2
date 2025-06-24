@@ -2,9 +2,9 @@
 
 ## Overview
 
-The Telemetry service provides centralized access to historical data from all devices in the system. It offers both raw high-resolution data and pre-aggregated hourly data for efficient querying. It runs on port 8001 by default.
+The Telemetry service provides centralized access to historical data from all devices in the system. It offers both raw high-resolution data and pre-aggregated hourly data for efficient querying. It runs on port 8006 by default.
 
-**Base URL:** `http://localhost:8001`
+**Base URL:** `http://localhost:8006`
 
 ## Service Information
 
@@ -159,9 +159,9 @@ The Telemetry service provides centralized access to historical data from all de
 
 ## Interactive Documentation
 
-- **Swagger UI:** `http://localhost:8001/docs`
-- **ReDoc:** `http://localhost:8001/redoc`
-- **OpenAPI JSON:** `http://localhost:8001/openapi.json`
+- **Swagger UI:** `http://localhost:8006/docs`
+- **ReDoc:** `http://localhost:8006/redoc`
+- **OpenAPI JSON:** `http://localhost:8006/openapi.json`
 
 ## Example Usage
 
@@ -169,33 +169,33 @@ The Telemetry service provides centralized access to historical data from all de
 
 ```bash
 # Get last 24 hours of raw temperature data
-curl -X GET "http://localhost:8001/api/history/1/raw?hours=24&limit=1000"
+curl -X GET "http://localhost:8006/api/history/1/raw?hours=24&limit=1000"
 
 # Get last 7 days of raw data
-curl -X GET "http://localhost:8001/api/history/1/raw?hours=168&limit=5000"
+curl -X GET "http://localhost:8006/api/history/1/raw?hours=168&limit=5000"
 ```
 
 ### Get Historical Trends
 
 ```bash
 # Get hourly aggregates for the last week
-curl -X GET "http://localhost:8001/api/history/1/hourly?start_date=2024-01-08&end_date=2024-01-15"
+curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2024-01-08&end_date=2024-01-15"
 
 # Get monthly trends
-curl -X GET "http://localhost:8001/api/history/1/hourly?start_date=2023-12-01&end_date=2024-01-15"
+curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2023-12-01&end_date=2024-01-15"
 ```
 
 ### Complete Data Analysis Flow
 
 ```bash
 # 1. Get recent high-resolution data for detailed analysis
-curl -X GET "http://localhost:8001/api/history/1/raw?hours=6&limit=1000" | jq '.[] | select(.value > 25)'
+curl -X GET "http://localhost:8006/api/history/1/raw?hours=6&limit=1000" | jq '.[] | select(.value > 25)'
 
 # 2. Get daily averages for trend analysis
-curl -X GET "http://localhost:8001/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15" | jq '.[] | {hour: .hour, avg: .avg_value}'
+curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15" | jq '.[] | {hour: .hour, avg: .avg_value}'
 
 # 3. Find temperature extremes
-curl -X GET "http://localhost:8001/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15" | jq '.[] | select(.max_value > 26 or .min_value < 20)'
+curl -X GET "http://localhost:8006/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15" | jq '.[] | select(.max_value > 26 or .min_value < 20)'
 ```
 
 ## Data Processing
@@ -207,7 +207,7 @@ import pandas as pd
 from datetime import datetime
 
 # Get raw data
-response = requests.get("http://localhost:8001/api/history/1/raw?hours=24")
+response = requests.get("http://localhost:8006/api/history/1/raw?hours=24")
 data = response.json()
 
 # Convert to DataFrame
@@ -224,7 +224,7 @@ print(f"Max: {df['value'].max():.2f}")
 ### Hourly Data Processing
 ```python
 # Get hourly data
-response = requests.get("http://localhost:8001/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15")
+response = requests.get("http://localhost:8006/api/history/1/hourly?start_date=2024-01-01&end_date=2024-01-15")
 data = response.json()
 
 # Convert to DataFrame
@@ -263,7 +263,7 @@ DATABASE_URL=postgresql://user:password@localhost/bellasreef
 
 # Service Configuration
 SERVICE_HOST=0.0.0.0
-SERVICE_PORT=8001
+SERVICE_PORT=8006
 
 # Logging
 LOG_LEVEL=INFO
@@ -275,7 +275,7 @@ DEBUG=false
 ### Grafana Integration
 ```json
 {
-  "url": "http://localhost:8001/api/history/{device_id}/raw",
+  "url": "http://localhost:8006/api/history/{device_id}/raw",
   "method": "GET",
   "params": {
     "hours": "24",
@@ -289,7 +289,7 @@ DEBUG=false
 sensor:
   - platform: rest
     name: "Tank Temperature"
-    resource: "http://localhost:8001/api/history/1/raw?hours=1&limit=1"
+    resource: "http://localhost:8006/api/history/1/raw?hours=1&limit=1"
     value_template: "{{ value_json[0].value }}"
     scan_interval: 60
 ```
@@ -299,7 +299,7 @@ sensor:
 // Fetch temperature data
 async function getTemperatureData(deviceId, hours = 24) {
   const response = await fetch(
-    `http://localhost:8001/api/history/${deviceId}/raw?hours=${hours}`
+    `http://localhost:8006/api/history/${deviceId}/raw?hours=${hours}`
   );
   return await response.json();
 }
