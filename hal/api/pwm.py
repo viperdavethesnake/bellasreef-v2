@@ -8,13 +8,13 @@ from shared.schemas.user import User
 from core.api.deps import get_current_user
 
 from ..drivers import pca9685_driver
-from .schemas import SetDutyCycleRequest
+from .schemas import PWMControlRequest
 
 router = APIRouter(prefix="/pwm", tags=["PWM Control"])
 
 @router.post("/set-duty-cycle", status_code=status.HTTP_200_OK)
 async def set_pwm_channel_duty_cycle(
-    request: SetDutyCycleRequest,
+    request: PWMControlRequest,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
