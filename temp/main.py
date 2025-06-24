@@ -18,9 +18,14 @@ app = FastAPI(
 
 app.include_router(probes.router)
 
-@app.get("/probe/health")
-def health_check():
-    return {"status": "ok"}
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {
+        "status": "healthy",
+        "service": "temperature",
+        "version": "1.0.0"
+    }
 
 # This is a sample root endpoint with authentication
 @app.get("/")
