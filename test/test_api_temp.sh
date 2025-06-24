@@ -3,11 +3,17 @@
 # Bella's Reef - Temperature API Service Test Script
 #
 # Description: Tests the Temperature API service endpoints to verify functionality.
-# Date: 2025-06-22
+# Supports testing against a remote host by providing an IP address as an argument.
+# Usage: ./test_api_temp.sh [TARGET_IP]
+#
+# Date: 2025-06-23
 # Author: Bella's Reef Development Team
 
 set -euo pipefail
 IFS=$'\n\t'
+
+# --- Configuration ---
+TARGET_HOST="${1:-localhost}" # Use first argument as host, or default to localhost
 
 # Script directory for relative path resolution
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
@@ -16,8 +22,6 @@ PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 # =============================================================================
 # COLOR AND STYLE DEFINITIONS
 # =============================================================================
-
-# ANSI Color Codes
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -25,18 +29,15 @@ BLUE='\033[0;34m'
 PURPLE='\033[0;35m'
 CYAN='\033[0;36m'
 WHITE='\033[1;37m'
-NC='\033[0m' # No Color
-
-# Style Codes
+NC='\033[0m'
 BOLD='\033[1m'
 
 # =============================================================================
-# VISUAL ELEMENTS
+# HELPER FUNCTIONS
 # =============================================================================
 
 print_banner() {
-    #Print the test banner.#
-    echo -e "${CYAN}"
+    echo -e "${BLUE}"
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║                 🌡️  Temperature API Test Suite 🌡️           ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
@@ -44,7 +45,6 @@ print_banner() {
 }
 
 print_section_header() {
-    #Print a section header with visual styling.#
     local title="$1"
     echo -e "\n${BLUE}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${BLUE}${BOLD}  ${title}${NC}"
@@ -52,210 +52,138 @@ print_section_header() {
 }
 
 print_subsection() {
-    #Print a subsection header.#
     local title="$1"
     echo -e "\n${PURPLE}${BOLD}▶ ${title}${NC}"
 }
 
-print_info() {
-    #Print an informational message.#
-    echo -e "${CYAN}ℹ ${1}${NC}"
-}
-
 print_success() {
-    #Print a success message.#
     echo -e "${GREEN}✅ ${1}${NC}"
 }
 
-print_warning() {
-    #Print a warning message.#
-    echo -e "${YELLOW}⚠️  ${1}${NC}"
-}
-
 print_error() {
-    #Print an error message.#
     echo -e "${RED}❌ ${1}${NC}"
+    exit 1
 }
 
 print_progress() {
-    #Print a progress message with dots animation.#
     local message="$1"
-    echo -n -e "${CYAN}⏳ ${message}${NC}"
+    echo -n -e "${CYAN}⏳ ${message}...${NC}"
 }
 
 print_progress_done() {
-    #Complete a progress message.#
-    echo -e "${GREEN} ✓${NC}"
-}
-
-print_test_config() {
-    #Print test configuration information.#
-    local host="$1"
-    local port="$2"
-    
-    echo -e "${WHITE}📋 Test Configuration:${NC}"
-    echo -e "  • Host: ${CYAN}${host}${NC}"
-    echo -e "  • Port: ${CYAN}${port}${NC}"
-    echo -e "  • Service URL: ${CYAN}http://${host}:${port}${NC}"
-}
-
-print_test_result() {
-    #Print test result with visual indicator.#
-    local test_name="$1"
-    local result="$2"
-    
-    case "$result" in
-        "PASS")
-            echo -e "  ${GREEN}✅ ${test_name} - PASSED${NC}"
-            ;;
-        "FAIL")
-            echo -e "  ${RED}❌ ${test_name} - FAILED${NC}"
-            ;;
-        "SKIP")
-            echo -e "  ${YELLOW}⏭️  ${test_name} - SKIPPED${NC}"
-            ;;
-    esac
+    echo -e "${GREEN} Done.${NC}"
 }
 
 # =============================================================================
-# FUNCTIONS
+# TEST LOGIC
 # =============================================================================
 
 check_environment() {
-    #Check if .env file exists and load environment variables.#
     print_subsection "Environment Validation"
-    
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
         print_error "Error: .env file not found in project root!"
-        echo -e "${WHITE}   Please copy env.example to .env and configure your settings.${NC}"
-        exit 1
     fi
-    
     print_progress "Loading environment variables"
     source "$PROJECT_ROOT/.env"
     print_progress_done
 }
 
 get_auth_token() {
-    #Get authentication token from the core service.#
     print_subsection "Authentication"
-    print_progress "Getting authentication token"
+    local CORE_PORT=${SERVICE_PORT_CORE:-8000}
+    print_progress "Requesting JWT token from Core service at ${TARGET_HOST}:${CORE_PORT}"
     
     local response
-    response=$(curl -s -X POST "http://localhost:${SERVICE_PORT_CORE:-8000}/auth/login" \
+    response=$(curl -s -X POST "http://${TARGET_HOST}:${CORE_PORT}/api/auth/login" \
         -H "Content-Type: application/x-www-form-urlencoded" \
-        -d "username=${ADMIN_USERNAME:-admin}&password=${ADMIN_PASSWORD:-admin}")
-    
-    if [ $? -eq 0 ] && echo "$response" | grep -q "access_token"; then
-        TOKEN=$(echo "$response" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+        -d "username=${ADMIN_USERNAME:-bellas}&password=${ADMIN_PASSWORD:-reefrocks}")
+
+    if echo "$response" | jq -e '.access_token' > /dev/null; then
+        TOKEN=$(echo "$response" | jq -r .access_token)
         print_progress_done
-        print_success "Token obtained successfully"
+        print_success "Token obtained successfully."
     else
-        echo -e "${RED} ✗${NC}"
-        print_error "Failed to get token"
-        echo -e "${WHITE}Response: $response${NC}"
-        exit 1
+        print_error "Failed to get auth token. Response: $response"
     fi
 }
 
-test_health_endpoint() {
-    #Test the health endpoint.#
-    print_subsection "Health Endpoint Test"
-    print_progress "Testing health endpoint"
-    
-    local response
-    response=$(curl -s "http://localhost:${SERVICE_PORT_TEMP:-8004}/health")
-    
-    if [ $? -eq 0 ] && echo "$response" | grep -q "status"; then
-        print_progress_done
-        print_test_result "Health Check" "PASS"
-        echo "$response" | jq .
-    else
-        echo -e "${RED} ✗${NC}"
-        print_test_result "Health Check" "FAIL"
-        return 1
-    fi
-}
+run_tests() {
+    print_section_header "Running Temperature Service Tests"
+    local TEMP_PORT=${SERVICE_PORT_TEMP:-8004}
+    local TEMP_URL="http://${TARGET_HOST}:${TEMP_PORT}"
 
-test_discover_probes() {
-    #Test the discover probes endpoint.#
-    print_subsection "Probe Discovery Test"
-    print_progress "Testing probe discovery endpoint"
-    
-    local response
-    response=$(curl -s -H "Authorization: Bearer $TOKEN" \
-        "http://localhost:${SERVICE_PORT_TEMP:-8004}/probes/discover")
-    
-    if [ $? -eq 0 ]; then
-        print_progress_done
-        print_test_result "Probe Discovery" "PASS"
-        echo "$response" | jq .
-    else
-        echo -e "${RED} ✗${NC}"
-        print_test_result "Probe Discovery" "FAIL"
-        return 1
-    fi
-}
+    # --- Health Check ---
+    print_subsection "Health Check"
+    print_progress "Checking Temperature service health at ${TEMP_URL}/health"
+    curl -sS --fail "${TEMP_URL}/health" | jq .
+    print_progress_done
 
-test_get_probes() {
-    #Test the get probes endpoint.#
-    print_subsection "Probe List Test"
-    print_progress "Testing probe list endpoint"
-    
-    local response
-    response=$(curl -s -H "Authorization: Bearer $TOKEN" \
-        "http://localhost:${SERVICE_PORT_TEMP:-8004}/probes/")
-    
-    if [ $? -eq 0 ]; then
-        print_progress_done
-        print_test_result "Probe List" "PASS"
-        echo "$response" | jq .
-    else
-        echo -e "${RED} ✗${NC}"
-        print_test_result "Probe List" "FAIL"
-        return 1
-    fi
-}
+    # --- Discovery ---
+    print_subsection "Hardware Discovery"
+    print_progress "Discovering 1-Wire sensors via ${TEMP_URL}/probe/discover"
+    local SENSORS_JSON
+    SENSORS_JSON=$(curl -sS -H "Authorization: Bearer $TOKEN" "${TEMP_URL}/probe/discover")
+    echo "$SENSORS_JSON" | jq .
+    local SENSOR_COUNT
+    SENSOR_COUNT=$(echo "$SENSORS_JSON" | jq 'length')
+    print_progress_done
+    print_success "Found ${SENSOR_COUNT} sensor(s)."
 
-print_summary() {
-    #Print test summary.#
-    print_section_header "🎉 Test Summary"
+    if [ "$SENSOR_COUNT" -eq 0 ]; then
+        print_error "No sensors found to test. Please ensure 1-wire sensors are connected and configured."
+    fi
+    local SENSOR_HW_ID
+    SENSOR_HW_ID=$(echo "$SENSORS_JSON" | jq -r '.[0]')
+
+    # --- Full Device Lifecycle Test ---
+    print_subsection "Device Registration & Management"
+    print_progress "Registering sensor ${SENSOR_HW_ID} as 'Test Tank Probe'"
+    local DEVICE_RESPONSE
+    DEVICE_RESPONSE=$(curl -sS -X POST "${TEMP_URL}/probe/" \
+        -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+        -d '{"name": "Test Tank Probe", "device_type": "temperature_sensor", "address": "'"${SENSOR_HW_ID}"'", "unit": "C"}')
+    DEVICE_ID=$(echo "$DEVICE_RESPONSE" | jq -r '.id')
+    print_progress_done
+    print_success "Sensor registered with DB ID: ${DEVICE_ID}"
+
+    print_progress "Listing registered probes"
+    curl -sS -H "Authorization: Bearer $TOKEN" "${TEMP_URL}/probe/list" | jq .
+    print_progress_done
+
+    print_progress "Getting current reading from ${SENSOR_HW_ID}"
+    local READING
+    READING=$(curl -sS -H "Authorization: Bearer $TOKEN" "${TEMP_URL}/probe/${SENSOR_HW_ID}/current")
+    print_progress_done
+    print_success "Current temperature: ${READING}°C"
     
-    echo -e "${GREEN}${BOLD}Temperature API service tests completed!${NC}"
-    echo ""
-    echo -e "${WHITE}📖 API Documentation: ${CYAN}http://localhost:${SERVICE_PORT_TEMP:-8004}/docs${NC}"
-    echo -e "${WHITE}🏥 Health Check: ${CYAN}http://localhost:${SERVICE_PORT_TEMP:-8004}/health${NC}"
-    echo ""
-    echo -e "${GREEN}${BOLD}🌡️  Temperature API is ready for use! 🌡️${NC}"
+    print_progress "Updating probe ${DEVICE_ID} name to 'Main Tank Probe'"
+    curl -sS -X PATCH "${TEMP_URL}/probe/${DEVICE_ID}" \
+      -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+      -d '{"name": "Main Tank Probe"}' | jq .
+    print_progress_done
+
+    print_progress "Deleting probe ${DEVICE_ID}"
+    curl -sS -X DELETE "${TEMP_URL}/probe/${DEVICE_ID}" -H "Authorization: Bearer $TOKEN"
+    print_progress_done
+    print_success "Probe ${DEVICE_ID} deleted."
 }
 
 # =============================================================================
 # MAIN FUNCTION
 # =============================================================================
-
 main() {
-    #Main function to test the temperature API service.#
     print_banner
-    
-    # Print test configuration
-    print_test_config "localhost" "${SERVICE_PORT_TEMP:-8004}"
-    
-    # Setup
     check_environment
+    
+    echo -e "${WHITE}📋 Test Configuration:${NC}"
+    echo -e "  • Target Host:       ${CYAN}${TARGET_HOST}${NC}"
+    echo -e "  • Core Port:         ${CYAN}${SERVICE_PORT_CORE:-8000}${NC}"
+    echo -e "  • Temperature Port:  ${CYAN}${SERVICE_PORT_TEMP:-8004}${NC}"
+
     get_auth_token
+    run_tests
     
-    # Run tests
-    test_health_endpoint
-    test_discover_probes
-    test_get_probes
-    
-    # Summary
-    print_summary
+    print_section_header "🎉 Temperature Test Suite Completed Successfully! 🎉"
 }
 
-# =============================================================================
-# SCRIPT EXECUTION
-# =============================================================================
-
 main "$@"
-
