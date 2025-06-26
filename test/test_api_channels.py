@@ -13,15 +13,17 @@ from fastapi import BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from datetime import datetime
 
 # Import the HAL app and dependencies
 from hal.main import app
 from shared.db.database import get_db
-from shared.db.base import Base
+from shared.db.database import Base
 from shared.schemas.enums import DeviceRole
 from shared.schemas.user import User
 from shared.schemas import device as device_schema
 from core.api.deps import get_current_user
+from shared.db.models import User, Device, History, HistoryHourlyAggregate, Alert, AlertEvent, Schedule, DeviceAction, SmartOutlet, VeSyncAccount
 
 # Mock the hardware driver functions
 from hal.drivers import pca9685_driver
@@ -69,7 +71,8 @@ def create_mock_user():
         username="testuser",
         email="test@example.com",
         is_active=True,
-        is_superuser=True
+        is_superuser=True,
+        created_at=datetime.now()
     )
 
 
@@ -146,7 +149,7 @@ async def test_controller_and_channel(client, mock_pca9685_driver):
     channel_data = {
         "channel_number": 0,
         "name": "Test Blue LEDs",
-        "role": DeviceRole.LIGHT_BLUE.value,
+        "role": DeviceRole.LIGHT_ROYAL_BLUE.value,
         "min_value": 0,
         "max_value": 100
     }
@@ -381,7 +384,7 @@ class TestBulkChannelControl:
         channel_data2 = {
             "channel_number": 1,
             "name": "Test White LEDs",
-            "role": DeviceRole.LIGHT_WHITE.value,
+            "role": DeviceRole.LIGHT_DAYLIGHT.value,
             "min_value": 0,
             "max_value": 100
         }
@@ -588,7 +591,7 @@ class TestChannelListing:
         channel = data[0]
         assert channel["name"] == "Test Blue LEDs"
         assert channel["device_type"] == "pwm_channel"
-        assert channel["role"] == DeviceRole.LIGHT_BLUE.value
+        assert channel["role"] == DeviceRole.LIGHT_ROYAL_BLUE.value
         assert channel["parent_device_id"] == test_controller_and_channel["controller_id"]
     
     def test_list_channels_multiple(self, client, test_controller_and_channel):
@@ -599,7 +602,7 @@ class TestChannelListing:
         channel_data2 = {
             "channel_number": 1,
             "name": "Test White LEDs",
-            "role": DeviceRole.LIGHT_WHITE.value,
+            "role": DeviceRole.LIGHT_DAYLIGHT.value,
             "min_value": 0,
             "max_value": 100
         }
@@ -647,7 +650,7 @@ class TestChannelErrorHandling:
         channel_data = {
             "channel_number": 0,
             "name": "Test Channel",
-            "role": DeviceRole.LIGHT_BLUE.value,
+            "role": DeviceRole.LIGHT_ROYAL_BLUE.value,
             "min_value": 0,
             "max_value": 100
         }
@@ -685,7 +688,7 @@ class TestChannelErrorHandling:
         channel_data = {
             "channel_number": 0,
             "name": "Test Channel",
-            "role": DeviceRole.LIGHT_BLUE.value,
+            "role": DeviceRole.LIGHT_ROYAL_BLUE.value,
             "min_value": 0,
             "max_value": 100
         }
@@ -749,7 +752,7 @@ class TestChannelIntegration:
         channel_data2 = {
             "channel_number": 1,
             "name": "Test White LEDs",
-            "role": DeviceRole.LIGHT_WHITE.value,
+            "role": DeviceRole.LIGHT_DAYLIGHT.value,
             "min_value": 0,
             "max_value": 100
         }

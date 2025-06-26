@@ -45,3 +45,5 @@ tenacity
 # --- Worker/Scheduler (Future Use) ---
 apscheduler==3.10.4
 celery==5.3.4
+
+aiosqlite

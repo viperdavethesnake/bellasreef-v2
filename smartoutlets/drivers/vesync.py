@@ -187,7 +187,7 @@ class VeSyncDriver(AbstractSmartOutletDriver):
                 self._logger.error(f"Unexpected error turning on VeSync outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to turn on outlet at {self.ip_address}: {e}")
         
-        return await self._perform_network_action(_turn_on_action())
+        return await self._perform_network_action(_turn_on_action)
     
     async def _turn_off_implementation(self) -> bool:
         """
@@ -215,7 +215,7 @@ class VeSyncDriver(AbstractSmartOutletDriver):
                 self._logger.error(f"Unexpected error turning off VeSync outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to turn off outlet at {self.ip_address}: {e}")
         
-        return await self._perform_network_action(_turn_off_action())
+        return await self._perform_network_action(_turn_off_action)
     
     async def _toggle_implementation(self) -> bool:
         """
@@ -234,47 +234,30 @@ class VeSyncDriver(AbstractSmartOutletDriver):
         """
         Implementation of get state operation.
         """
-        async def _get_state_action():
-            try:
-                device = await self._get_device()
-                loop = asyncio.get_running_loop()
+        device = await self._get_device()
+        loop = asyncio.get_running_loop()
 
-                # Update device state from the cloud
-                await loop.run_in_executor(None, device.update)
+        # Update device state from the cloud
+        await loop.run_in_executor(None, device.update)
 
-                # Get energy meter data if the device supports it
-                energy_data = {}
-                if hasattr(device, 'get_energy_usage'):
-                    # get_energy_usage() is a synchronous call in pyvesync
-                    # It returns a dictionary with power, voltage, etc.
-                    energy_data = await loop.run_in_executor(None, device.get_energy_usage)
+        # Get energy meter data if the device supports it
+        energy_data = {}
+        if hasattr(device, 'get_energy_usage'):
+            # get_energy_usage() is a synchronous call in pyvesync
+            # It returns a dictionary with power, voltage, etc.
+            energy_data = await loop.run_in_executor(None, device.get_energy_usage)
 
-                # Construct the state object with all available data.
-                # If this code is reached without an exception, the device is online.
-                return SmartOutletState(
-                    is_on=device.is_on,
-                    is_online=True,
-                    power_w=energy_data.get('power'),
-                    voltage_v=energy_data.get('voltage'),
-                    current_a=energy_data.get('current'),
-                    energy_kwh=energy_data.get('energy'),
-                    temperature_c=None  # VeSync devices don't typically expose this
-                )
-
-            except requests.exceptions.Timeout as e:
-                self._logger.error(f"Timeout getting state for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletTimeoutError(f"Timeout getting state for outlet at {self.ip_address}: {e}")
-            except requests.exceptions.ConnectionError as e:
-                self._logger.error(f"Connection error getting state for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Connection error getting state for outlet at {self.ip_address}: {e}")
-            except requests.exceptions.RequestException as e:
-                self._logger.error(f"Request error getting state for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Request error getting state for outlet at {self.ip_address}: {e}")
-            except Exception as e:
-                self._logger.error(f"Unexpected error getting state for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Failed to get state for outlet at {self.ip_address}: {e}")
-
-        return await self._perform_network_action(_get_state_action())
+        # Construct the state object with all available data.
+        # If this code is reached without an exception, the device is online.
+        return SmartOutletState(
+            is_on=device.is_on,
+            is_online=True,
+            power_w=energy_data.get('power'),
+            voltage_v=energy_data.get('voltage'),
+            current_a=energy_data.get('current'),
+            energy_kwh=energy_data.get('energy'),
+            temperature_c=None  # VeSync devices don't typically expose this
+        )
     
     async def discover_device(self) -> Dict:
         """
@@ -314,15 +297,7 @@ class VeSyncDriver(AbstractSmartOutletDriver):
                 self._logger.error(f"Unexpected error discovering VeSync device {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to discover device at {self.ip_address}: {e}")
         
-        try:
-            return await self._perform_network_action(_discover_action())
-        except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
-            # Return error info instead of re-raising for discovery
-            return {
-                'device_id': self.device_id,
-                'ip_address': self.ip_address,
-                'error': 'Device discovery failed'
-            }
+        return await self._perform_network_action(_discover_action)
     
     async def get_energy_meter(self) -> Optional[Dict]:
         """
@@ -371,8 +346,4 @@ class VeSyncDriver(AbstractSmartOutletDriver):
                 self._logger.error(f"Unexpected error getting energy meter for VeSync outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to get energy meter for outlet at {self.ip_address}: {e}")
         
-        try:
-            return await self._perform_network_action(_get_energy_action())
-        except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
-            # Return None instead of re-raising for energy meter
-            return None 
+        return await self._perform_network_action(_get_energy_action) 

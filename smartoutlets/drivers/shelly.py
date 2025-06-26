@@ -146,7 +146,7 @@ class ShellyDriver(AbstractSmartOutletDriver):
                 if device:
                     await device.shutdown()
         
-        return await self._perform_network_action(_turn_on_action())
+        return await self._perform_network_action(_turn_on_action)
     
     async def _turn_off_implementation(self) -> bool:
         """
@@ -181,7 +181,7 @@ class ShellyDriver(AbstractSmartOutletDriver):
                 if device:
                     await device.shutdown()
         
-        return await self._perform_network_action(_turn_off_action())
+        return await self._perform_network_action(_turn_off_action)
     
     async def _toggle_implementation(self) -> bool:
         """
@@ -203,48 +203,26 @@ class ShellyDriver(AbstractSmartOutletDriver):
         Returns:
             SmartOutletState: Current state information
         """
-        async def _get_state_action():
-            device = None
-            try:
-                device = await self._get_device()
-                relay = await self._get_relay(device)
-                
-                # Get basic state
-                is_on = relay.output
-                
-                # Get power information if available
-                power_w = None
-                if device.gen == 2:
-                    # Gen2 has apower (active power)
-                    power_w = getattr(relay, 'apower', None)
-                else:
-                    # Gen1 has power
-                    power_w = getattr(relay, 'power', None)
-                
-                return SmartOutletState(
-                    is_on=is_on,
-                    power_w=power_w
-                )
-            except DeviceConnectionTimeoutError as e:
-                self._logger.error(f"Timeout getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletTimeoutError(f"Timeout getting state for outlet at {self.ip_address}: {e}")
-            except InvalidAuthError as e:
-                self._logger.error(f"Authentication error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletAuthenticationError(f"Authentication error getting state for outlet at {self.ip_address}: {e}")
-            except DeviceConnectionError as e:
-                self._logger.error(f"Connection error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Connection error getting state for outlet at {self.ip_address}: {e}")
-            except ShellyError as e:
-                self._logger.error(f"Shelly error getting state for outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Shelly error getting state for outlet at {self.ip_address}: {e}")
-            except Exception as e:
-                self._logger.error(f"Unexpected error getting state for Shelly outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Failed to get state for outlet at {self.ip_address}: {e}")
-            finally:
-                if device:
-                    await device.shutdown()
+        device = await self._get_device()
+        relay = await self._get_relay(device)
         
-        return await self._perform_network_action(_get_state_action())
+        # Get basic state
+        is_on = relay.output
+        
+        # Get power information if available
+        power_w = None
+        if device.gen == 2:
+            # Gen2 has apower (active power)
+            power_w = getattr(relay, 'apower', None)
+        else:
+            # Gen1 has power
+            power_w = getattr(relay, 'power', None)
+        
+        return SmartOutletState(
+            is_on=is_on,
+            power_w=power_w,
+            is_online=True
+        )
     
     async def discover_device(self) -> Dict:
         """
@@ -294,7 +272,7 @@ class ShellyDriver(AbstractSmartOutletDriver):
                     await device.shutdown()
         
         try:
-            return await self._perform_network_action(_discover_action())
+            return await self._perform_network_action(_discover_action)
         except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
             # Return error info instead of re-raising for discovery
             return {
@@ -357,7 +335,7 @@ class ShellyDriver(AbstractSmartOutletDriver):
                     await device.shutdown()
         
         try:
-            return await self._perform_network_action(_get_energy_action())
+            return await self._perform_network_action(_get_energy_action)
         except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
             # Return None instead of re-raising for energy meter
             return None 

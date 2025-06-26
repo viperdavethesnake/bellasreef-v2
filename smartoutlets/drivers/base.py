@@ -8,7 +8,7 @@ It provides the interface and retry logic for all driver implementations.
 import asyncio
 import logging
 from abc import ABC, abstractmethod
-from typing import Dict, Optional, Coroutine, Any
+from typing import Dict, Optional, Coroutine, Any, Callable
 
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
@@ -49,22 +49,22 @@ class AbstractSmartOutletDriver(ABC):
                 f"after {retry_state.outcome.exception()}"
             )
     )
-    async def _perform_network_action(self, action_coro: Coroutine) -> Any:
+    async def _perform_network_action(self, action_callable) -> Any:
         """
         Perform a network action with retry logic and timeout.
         
         Args:
-            action_coro (Coroutine): The coroutine to execute
-            
+            action_callable (Callable[[], Coroutine]): The callable that returns the coroutine to execute
+        
         Returns:
             Any: The result of the action
-            
+        
         Raises:
             OutletConnectionError: If the action fails after all retries
             OutletTimeoutError: If the action times out
         """
         try:
-            return await asyncio.wait_for(action_coro, timeout=settings.OUTLET_TIMEOUT_SECONDS)
+            return await asyncio.wait_for(action_callable(), timeout=settings.OUTLET_TIMEOUT_SECONDS)
         except asyncio.TimeoutError:
             self.logger.error(f"Timeout after {settings.OUTLET_TIMEOUT_SECONDS}s for device {self.device_id}")
             raise OutletTimeoutError(f"Operation timed out after {settings.OUTLET_TIMEOUT_SECONDS} seconds")
@@ -79,7 +79,7 @@ class AbstractSmartOutletDriver(ABC):
         Returns:
             bool: True if successful, False otherwise
         """
-        return await self._perform_network_action(self._turn_on_implementation())
+        return await self._perform_network_action(self._turn_on_implementation)
     
     async def turn_off(self) -> bool:
         """
@@ -88,7 +88,7 @@ class AbstractSmartOutletDriver(ABC):
         Returns:
             bool: True if successful, False otherwise
         """
-        return await self._perform_network_action(self._turn_off_implementation())
+        return await self._perform_network_action(self._turn_off_implementation)
     
     async def toggle(self) -> bool:
         """
@@ -97,16 +97,25 @@ class AbstractSmartOutletDriver(ABC):
         Returns:
             bool: True if successful, False otherwise
         """
-        return await self._perform_network_action(self._toggle_implementation())
+        return await self._perform_network_action(self._toggle_implementation)
     
     async def get_state(self) -> SmartOutletState:
         """
-        Get the current state of the outlet with retry logic.
+        Get the current state of the outlet with resilient error handling.
         
         Returns:
-            SmartOutletState: Current state information
+            SmartOutletState: Current state information. If connection fails,
+                             returns a state with is_online=False.
         """
-        return await self._perform_network_action(self._get_state_implementation())
+        try:
+            return await self._perform_network_action(self._get_state_implementation)
+        except (OutletConnectionError, OutletTimeoutError) as e:
+            self.logger.warning(f"Connection error getting state for device {self.device_id} at {self.ip_address}: {e}")
+            return SmartOutletState(is_on=False, is_online=False)
+        except Exception as e:
+            # Catch any other exceptions including RetryError from tenacity
+            self.logger.warning(f"Unexpected error getting state for device {self.device_id} at {self.ip_address}: {e}")
+            return SmartOutletState(is_on=False, is_online=False)
     
     @abstractmethod
     async def _turn_on_implementation(self) -> bool:

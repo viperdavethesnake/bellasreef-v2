@@ -118,7 +118,7 @@ class KasaDriver(AbstractSmartOutletDriver):
                 self._logger.error(f"Unexpected error turning on Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to turn on outlet at {self.ip_address}: {e}")
         
-        return await self._perform_network_action(_turn_on_action())
+        return await self._perform_network_action(_turn_on_action)
     
     async def _turn_off_implementation(self) -> bool:
         """
@@ -148,7 +148,7 @@ class KasaDriver(AbstractSmartOutletDriver):
                 self._logger.error(f"Unexpected error turning off Kasa outlet {self.device_id} at {self.ip_address}: {e}")
                 raise OutletConnectionError(f"Failed to turn off outlet at {self.ip_address}: {e}")
         
-        return await self._perform_network_action(_turn_off_action())
+        return await self._perform_network_action(_turn_off_action)
     
     async def _toggle_implementation(self) -> bool:
         """
@@ -170,57 +170,38 @@ class KasaDriver(AbstractSmartOutletDriver):
         Returns:
             SmartOutletState: Current state information
         """
-        async def _get_state_action():
-            try:
-                plug = await self._create_smart_plug()
-                
-                # Always update device state before querying
-                await plug.update()
-                
-                # Get basic state
-                is_on = plug.is_on
-                
-                # Get energy meter data if available
-                power_w = None
-                current_a = None
-                voltage_v = None
-                
-                try:
-                    if hasattr(plug, 'emeter_realtime'):
-                        emeter_data = plug.emeter_realtime
-                        if emeter_data:
-                            power_w = emeter_data.get('power')
-                            current_ma = emeter_data.get('current')
-                            voltage_v = emeter_data.get('voltage')
-                            current_a = current_ma / 1000.0 if current_ma is not None else None
-                except Exception as e:
-                    # Energy meter not available or failed
-                    self._logger.debug(f"Energy meter not available for {self.device_id} at {self.ip_address}: {e}")
-                
-                return SmartOutletState(
-                    is_on=is_on,
-                    power_w=power_w,
-                    voltage_v=voltage_v,
-                    current_a=current_a,
-                    is_online=True
-                )
-            except TimeoutError as e:
-                self._logger.error(f"Timeout getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletTimeoutError(f"Timeout getting state for outlet at {self.ip_address}: {e}")
-            except AuthenticationError as e:
-                self._logger.error(f"Authentication error getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletAuthenticationError(f"Authentication error getting state for outlet at {self.ip_address}: {e}")
-            except DeviceError as e:
-                self._logger.error(f"Device error getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Device error getting state for outlet at {self.ip_address}: {e}")
-            except KasaException as e:
-                self._logger.error(f"Kasa error getting state for outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Kasa error getting state for outlet at {self.ip_address}: {e}")
-            except Exception as e:
-                self._logger.error(f"Unexpected error getting state for Kasa outlet {self.device_id} at {self.ip_address}: {e}")
-                raise OutletConnectionError(f"Failed to get state for outlet at {self.ip_address}: {e}")
+        plug = await self._create_smart_plug()
         
-        return await self._perform_network_action(_get_state_action())
+        # Always update device state before querying
+        await plug.update()
+        
+        # Get basic state
+        is_on = plug.is_on
+        
+        # Get energy meter data if available
+        power_w = None
+        current_a = None
+        voltage_v = None
+        
+        try:
+            if hasattr(plug, 'emeter_realtime'):
+                emeter_data = plug.emeter_realtime
+                if emeter_data:
+                    power_w = emeter_data.get('power')
+                    current_ma = emeter_data.get('current')
+                    voltage_v = emeter_data.get('voltage')
+                    current_a = current_ma / 1000.0 if current_ma is not None else None
+        except Exception as e:
+            # Energy meter not available or failed
+            self._logger.debug(f"Energy meter not available for {self.device_id} at {self.ip_address}: {e}")
+        
+        return SmartOutletState(
+            is_on=is_on,
+            power_w=power_w,
+            voltage_v=voltage_v,
+            current_a=current_a,
+            is_online=True
+        )
     
     async def discover_device(self) -> Dict:
         """
@@ -265,7 +246,7 @@ class KasaDriver(AbstractSmartOutletDriver):
                 raise OutletConnectionError(f"Failed to discover device at {self.ip_address}: {e}")
         
         try:
-            return await self._perform_network_action(_discover_action())
+            return await self._perform_network_action(_discover_action)
         except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
             # Return error info instead of re-raising for discovery
             return {
@@ -327,7 +308,7 @@ class KasaDriver(AbstractSmartOutletDriver):
                 raise OutletConnectionError(f"Failed to get energy meter for outlet at {self.ip_address}: {e}")
         
         try:
-            return await self._perform_network_action(_get_energy_action())
+            return await self._perform_network_action(_get_energy_action)
         except (OutletConnectionError, OutletTimeoutError, OutletAuthenticationError):
             # Return None instead of re-raising for energy meter
             return None 
