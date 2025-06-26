@@ -8,9 +8,12 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from shared.core.config import settings
+from shared.utils.logger import get_logger
 
 # Import the new routers
 from .api import controllers, channels
+
+logger = get_logger(__name__)
 
 # --- FastAPI App Configuration ---
 app = FastAPI(

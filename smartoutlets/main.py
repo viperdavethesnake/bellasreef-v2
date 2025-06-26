@@ -27,6 +27,8 @@ from .api import router, vesync_router
 from .handlers import register_exception_handlers
 from .manager import SmartOutletManager
 
+logger = get_logger(__name__)
+
 # =============================================================================
 # Application Lifecycle
 # =============================================================================
@@ -35,7 +37,6 @@ from .manager import SmartOutletManager
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
     # Startup
-    logger = get_logger(__name__)
     logger.info("🚀 Starting Bella's Reef SmartOutlets Service...")
     
     # Verify database connectivity and table existence
@@ -161,7 +162,7 @@ if __name__ == "__main__":
     
     # Check if service is enabled
     if not settings.SMART_OUTLETS_ENABLED:
-        print("SmartOutlets Service is disabled. Set SMART_OUTLETS_ENABLED=true in smartoutlets/.env to enable.")
+        logger.info("SmartOutlets Service is disabled. Set SMART_OUTLETS_ENABLED=true in smartoutlets/.env to enable.")
         sys.exit(0)
     
     uvicorn.run(

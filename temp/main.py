@@ -1,9 +1,12 @@
 import sys
 from fastapi import FastAPI, Depends
 from shared.core.config import settings
+from shared.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 if not settings.TEMP_ENABLED:
-    print("Temperature Service is disabled. Set TEMP_ENABLED=true in temp/.env to enable.")
+    logger.info("Temperature Service is disabled. Set TEMP_ENABLED=true in temp/.env to enable.")
     sys.exit(0)
 
 from .api import probes

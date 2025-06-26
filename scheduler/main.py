@@ -21,8 +21,11 @@ from sqlalchemy import text
 
 from shared.core.config import settings
 from shared.db.database import engine, Base
+from shared.utils.logger import get_logger
 from scheduler.api import schedules
 from scheduler.worker.scheduler_worker import SchedulerWorker
+
+logger = get_logger(__name__)
 
 # =============================================================================
 # Application Lifecycle
@@ -32,7 +35,7 @@ from scheduler.worker.scheduler_worker import SchedulerWorker
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
     # Startup
-    print("🚀 Starting Bella's Reef Scheduler Service...")
+    logger.info("🚀 Starting Bella's Reef Scheduler Service...")
     
     # Verify database connectivity and table existence
     try:
@@ -56,10 +59,10 @@ async def lifespan(app: FastAPI):
                     detail="Database tables not found. Please run 'python scripts/init_db.py' to initialize the database."
                 )
         
-        print("✅ Database connectivity verified")
+        logger.info("✅ Database connectivity verified")
         
     except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+        logger.error(f"❌ Database connection failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Database connection failed: {str(e)}. Please ensure the database is running and initialized."
@@ -72,14 +75,14 @@ async def lifespan(app: FastAPI):
     # Start scheduler worker if enabled
     if os.getenv("SCHEDULER_WORKER_ENABLED", "true").lower() == "true":
         await scheduler_worker.start()
-        print("✅ Scheduler worker started")
+        logger.info("✅ Scheduler worker started")
     
-    print("✅ Scheduler service started successfully")
+    logger.info("✅ Scheduler service started successfully")
     
     yield
     
     # Shutdown
-    print("🛑 Shutting down Scheduler service...")
+    logger.info("🛑 Shutting down Scheduler service...")
     
     # Stop scheduler worker
     if hasattr(app.state, 'scheduler_worker'):
