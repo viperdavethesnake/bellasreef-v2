@@ -8,10 +8,13 @@ from shared.crud import device as device_crud
 from shared.schemas.enums import DeviceRole
 from shared.schemas.user import User
 from shared.schemas import device as device_schema
+from shared.utils.logger import get_logger
 from core.api.deps import get_current_user
 
 from ..drivers import pca9685_driver
 from .schemas import PWMControlRequest, PWMControlRequestWithDevice
+
+logger = get_logger(__name__)
 
 router = APIRouter(prefix="/channels", tags=["Channels"])
 
@@ -65,7 +68,10 @@ async def _perform_ramp(
             
         except Exception as e:
             # Log error but continue with ramp
-            print(f"Error during ramp step {step}: {e}")
+            logger.error(
+                f"Error during ramp step {step} for device {device_id} (Channel {channel_number}): {e}",
+                exc_info=True
+            )
             break
         
         # Sleep for the step interval (except on the last step)
