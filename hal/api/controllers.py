@@ -10,7 +10,7 @@ from shared.schemas.user import User
 from core.api.deps import get_current_user
 
 from ..drivers import pca9685_driver
-from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChannelRegistrationRequest
+from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChannelRegistrationRequest, PWMFrequencyUpdateRequest
 
 router = APIRouter(prefix="/controllers", tags=["Controllers"])
 
@@ -185,4 +185,44 @@ async def delete_pca9685_controller(
     # Delete the controller (cascading delete will handle child channels)
     await device_crud.remove(db, device_id=controller_id)
     
-    return None 
+    return None
+
+@router.patch("/{controller_id}/frequency", response_model=device_schema.Device)
+async def update_pwm_frequency(
+    controller_id: int,
+    request: PWMFrequencyUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Updates the PWM frequency of a registered PCA9685 controller.
+    """
+    # Retrieve the controller device from the database
+    controller = await device_crud.get(db, device_id=controller_id)
+    if not controller or controller.role != DeviceRole.CONTROLLER.value or controller.device_type != "pca9685":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PCA9685 controller with ID {controller_id} not found."
+        )
+    
+    # Apply the frequency change to the physical hardware
+    try:
+        controller_address = int(controller.address)
+        pca9685_driver.set_frequency(controller_address, request.frequency)
+    except (ValueError, IOError) as e:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to update PWM frequency on hardware: {str(e)}"
+        )
+    
+    # Update the config dictionary in the device's database record
+    if not controller.config:
+        controller.config = {}
+    controller.config["frequency"] = request.frequency
+    
+    # Save the changes to the database
+    db.add(controller)
+    await db.commit()
+    await db.refresh(controller)
+    
+    return controller 

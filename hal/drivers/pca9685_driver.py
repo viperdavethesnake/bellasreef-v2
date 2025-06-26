@@ -55,4 +55,24 @@ def set_channel_duty_cycle(address: int, channel: int, duty_cycle: int):
             pca.channels[channel].duty_cycle = duty_cycle
     except (ValueError, IOError) as e:
         # Re-raise to be handled by the API layer.
+        raise e
+
+def set_frequency(address: int, frequency: int):
+    """
+    Sets the PWM frequency for a PCA9685 board.
+
+    Args:
+        address: The I2C address of the PCA9685 board.
+        frequency: The PWM frequency in Hz (24-1526 Hz).
+
+    Raises:
+        ValueError: If the board is not found at the address or frequency is invalid.
+        IOError: On other communication errors.
+    """
+    try:
+        with get_i2c_bus() as i2c:
+            pca = PCA9685(i2c, address=address)
+            pca.frequency = frequency
+    except (ValueError, IOError) as e:
+        # Re-raise to be handled by the API layer.
         raise e 
