@@ -16,7 +16,6 @@ Core Logic:
 
 import asyncio
 import argparse
-import logging
 import signal
 import sys
 from pathlib import Path
@@ -32,16 +31,9 @@ from shared.db.database import async_session
 from shared.crud import device as device_crud
 from shared.crud import history as history_crud
 from shared.schemas.device import Device, HistoryCreate
+from shared.utils.logger import get_logger
 
-# Configure basic logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-    ]
-)
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class TelemetryWorker:
