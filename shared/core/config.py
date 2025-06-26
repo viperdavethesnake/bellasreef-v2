@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     # GENERAL SERVICE SETTINGS
     # =============================================================================
     SERVICE_HOST: str = "0.0.0.0"
+    SERVICE_PORT_HAL: int = 8003
     DEBUG: bool = False
     LOG_LEVEL: str = "INFO"
 
