@@ -25,7 +25,8 @@ async def _perform_ramp(
     end_intensity: int, 
     duration_ms: int,
     controller_address: int,
-    channel_number: int
+    channel_number: int,
+    curve: str = 'linear'
 ):
     """
     Background worker function to perform a gradual ramp from start_intensity to end_intensity
@@ -34,7 +35,6 @@ async def _perform_ramp(
     # Calculate ramp parameters
     step_interval_ms = 50  # Update every 50ms for smooth transition
     total_steps = duration_ms // step_interval_ms
-    intensity_change_per_step = (end_intensity - start_intensity) / total_steps
     
     # Get the device for database updates
     channel_device = await device_crud.get(db, device_id=device_id)
@@ -43,8 +43,16 @@ async def _perform_ramp(
     
     # Perform the ramp
     for step in range(total_steps + 1):  # +1 to include the final step
-        # Calculate current intensity for this step
-        current_intensity = start_intensity + (intensity_change_per_step * step)
+        # Calculate current intensity for this step based on curve type
+        if curve == 'exponential':
+            # Exponential curve (ease-in) for more natural lighting effects
+            progress = step / total_steps
+            eased_progress = progress * progress  # Quadratic ease-in
+            current_intensity = start_intensity + (end_intensity - start_intensity) * eased_progress
+        else:
+            # Linear curve (default)
+            intensity_change_per_step = (end_intensity - start_intensity) / total_steps
+            current_intensity = start_intensity + (intensity_change_per_step * step)
         
         # Ensure we reach exactly the target intensity on the final step
         if step == total_steps:
@@ -91,7 +99,7 @@ async def set_pwm_channel_duty_cycle(
     """
     # 1. Fetch the channel device from the database
     channel_device = await device_crud.get(db, device_id=channel_id)
-    if not channel_device or channel_device.role != DeviceRole.PWM_CHANNEL.value:
+    if not channel_device or channel_device.device_type != "pwm_channel":
         raise HTTPException(status_code=404, detail="PWM Channel device not found.")
 
     # 2. Get the parent controller to find its address
@@ -125,7 +133,8 @@ async def set_pwm_channel_duty_cycle(
             end_intensity=constrained_intensity,
             duration_ms=request.duration_ms,
             controller_address=controller_address,
-            channel_number=channel_number
+            channel_number=channel_number,
+            curve=request.curve
         )
         
         return {
@@ -179,7 +188,7 @@ async def bulk_set_pwm_duty_cycle(
         try:
             # 1. Fetch the channel device from the database
             channel_device = await device_crud.get(db, device_id=request.device_id)
-            if not channel_device or channel_device.role != DeviceRole.PWM_CHANNEL.value:
+            if not channel_device or channel_device.device_type != "pwm_channel":
                 results.append({"device_id": request.device_id, "status": "error", "detail": "PWM Channel device not found."})
                 continue
 
@@ -217,7 +226,8 @@ async def bulk_set_pwm_duty_cycle(
                     end_intensity=constrained_intensity,
                     duration_ms=request.duration_ms,
                     controller_address=controller_address,
-                    channel_number=channel_number
+                    channel_number=channel_number,
+                    curve=request.curve
                 )
                 
                 results.append({
@@ -274,7 +284,7 @@ async def get_pwm_channel_state(
     Gets the last known intensity for a configured PWM channel device from the database.
     """
     channel_device = await device_crud.get(db, device_id=channel_id)
-    if not channel_device or channel_device.role != DeviceRole.PWM_CHANNEL.value:
+    if not channel_device or channel_device.device_type != "pwm_channel":
         raise HTTPException(status_code=404, detail="PWM Channel device not found.")
 
     return channel_device.current_value
@@ -287,5 +297,5 @@ async def list_all_pwm_channels(
     """
     Retrieves a list of all devices configured with the 'pwm_channel' role across all controllers.
     """
-    channels = await device_crud.get_multi(db, role=DeviceRole.PWM_CHANNEL.value)
+    channels = await device_crud.get_multi(db, device_type="pwm_channel")
     return channels 
