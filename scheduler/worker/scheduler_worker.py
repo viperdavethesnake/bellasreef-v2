@@ -27,7 +27,6 @@ DEPENDENCIES:
 """
 
 import argparse
-import logging
 import signal
 import sys
 import time
@@ -37,21 +36,12 @@ from typing import Optional
 
 from shared.core.config import settings
 from shared.db.database import async_session
+from shared.utils.logger import get_logger
 from scheduler.worker.schedule_calculator import ScheduleCalculator
 from shared.crud.schedule import schedule as schedule_crud
 from shared.schemas.schedule import ScheduleCreate, ActionTypeEnum
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('scheduler_worker.log')
-    ]
-)
-
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 class SchedulerWorker:
     """
@@ -368,10 +358,6 @@ def main():
     )
     
     args = parser.parse_args()
-    
-    # Set log level
-    if args.verbose:
-        logging.getLogger().setLevel(logging.DEBUG)
     
     # Create and run worker
     worker = SchedulerWorker(evaluation_interval=args.interval)
