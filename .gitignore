@@ -27,6 +27,7 @@ env/
 ENV/
 env.bak/
 venv.bak/
+bellasreef-venv/
 
 # Bella's Reef service virtual environments
 */bellasreef-*-venv/
