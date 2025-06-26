@@ -137,4 +137,26 @@ async def get_configured_channels(
         )
 
     # The 'children' relationship we defined in the model makes this easy
-    return parent_controller.children 
+    return parent_controller.children
+
+@router.delete("/{controller_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_pca9685_controller(
+    controller_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Deletes a registered PCA9685 controller and all its associated PWM channels.
+    """
+    # Retrieve the device to verify it exists and is a PCA9685 controller
+    controller = await device_crud.get(db, device_id=controller_id)
+    if not controller or controller.role != DeviceRole.PCA9685_CONTROLLER.value:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PCA9685 controller with ID {controller_id} not found."
+        )
+    
+    # Delete the controller (cascading delete will handle child channels)
+    await device_crud.remove(db, device_id=controller_id)
+    
+    return None 
