@@ -45,7 +45,7 @@ async def create_pca9685_controller(
 
     # Check if a controller with this address is already registered
     existing_device = await device_crud.get_by_address(db, str(request.address))
-    if existing_device and existing_device.role == DeviceRole.PCA9685_CONTROLLER.value:
+    if existing_device and existing_device.role == DeviceRole.CONTROLLER.value and existing_device.device_type == "pca9685":
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"A PCA9685 controller at address {hex(request.address)} is already registered."
@@ -56,7 +56,7 @@ async def create_pca9685_controller(
         name=request.name,
         device_type="pca9685",
         address=str(request.address), # Store address as a string
-        role=DeviceRole.PCA9685_CONTROLLER,
+        role=DeviceRole.CONTROLLER,
         config={"frequency": request.frequency}
     )
     
@@ -72,9 +72,10 @@ async def list_registered_controllers(
     Retrieves a list of all registered PCA9685 controller devices.
     """
     controllers = await device_crud.get_multi(
-        db, role=DeviceRole.PCA9685_CONTROLLER.value
+        db, role=DeviceRole.CONTROLLER.value
     )
-    return controllers
+    # Filter to only PCA9685 controllers
+    return [controller for controller in controllers if controller.device_type == "pca9685"]
 
 @router.post("/{controller_id}/channels", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
 async def register_pwm_channel(
@@ -88,7 +89,7 @@ async def register_pwm_channel(
     """
     # 1. Verify the parent controller exists and is a PCA9685 controller
     parent_controller = await device_crud.get(db, device_id=controller_id)
-    if not parent_controller or parent_controller.role != DeviceRole.PCA9685_CONTROLLER.value:
+    if not parent_controller or parent_controller.role != DeviceRole.CONTROLLER.value or parent_controller.device_type != "pca9685":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Parent controller with ID {controller_id} not found or is not a PCA9685 controller."
@@ -130,7 +131,7 @@ async def get_configured_channels(
     """
     # Verify the parent controller exists
     parent_controller = await device_crud.get(db, device_id=controller_id)
-    if not parent_controller or parent_controller.role != DeviceRole.PCA9685_CONTROLLER.value:
+    if not parent_controller or parent_controller.role != DeviceRole.CONTROLLER.value or parent_controller.device_type != "pca9685":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Parent controller with ID {controller_id} not found or is not a PCA9685 controller."
@@ -150,7 +151,7 @@ async def delete_pca9685_controller(
     """
     # Retrieve the device to verify it exists and is a PCA9685 controller
     controller = await device_crud.get(db, device_id=controller_id)
-    if not controller or controller.role != DeviceRole.PCA9685_CONTROLLER.value:
+    if not controller or controller.role != DeviceRole.CONTROLLER.value or controller.device_type != "pca9685":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"PCA9685 controller with ID {controller_id} not found."
