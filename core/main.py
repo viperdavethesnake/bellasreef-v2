@@ -22,8 +22,10 @@ from sqlalchemy import text
 from shared.core.config import settings
 from shared.db.database import engine, Base, async_session
 from shared.db.models import User
-from shared.utils import get_logger
+from shared.utils.logger import get_logger
 from core.api import health, auth, users, deps, system_info
+
+logger = get_logger(__name__)
 
 # =============================================================================
 # Application Lifecycle
@@ -33,7 +35,7 @@ from core.api import health, auth, users, deps, system_info
 async def lifespan(app: FastAPI):
     """Application lifespan management."""
     # Startup
-    print("🚀 Starting Bella's Reef Core Service...")
+    logger.info("🚀 Starting Bella's Reef Core Service...")
     
     # Verify database connectivity and table existence
     try:
@@ -57,21 +59,21 @@ async def lifespan(app: FastAPI):
                     detail="Database tables not found. Please run 'python scripts/init_db.py' to initialize the database."
                 )
         
-        print("✅ Database connectivity verified")
+        logger.info("✅ Database connectivity verified")
         
     except Exception as e:
-        print(f"❌ Database connection failed: {e}")
+        logger.error(f"❌ Database connection failed: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Database connection failed: {str(e)}. Please ensure the database is running and initialized."
         )
     
-    print("✅ Core service started successfully")
+    logger.info("✅ Core service started successfully")
     
     yield
     
     # Shutdown
-    print("🛑 Shutting down Core service...")
+    logger.info("🛑 Shutting down Core service...")
 
 # =============================================================================
 # FastAPI Application
@@ -139,7 +141,7 @@ if __name__ == "__main__":
     
     # Check if service is enabled
     if not settings.CORE_ENABLED:
-        print("Core Service is disabled. Set CORE_ENABLED=true in core/.env to enable.")
+        logger.info("Core Service is disabled. Set CORE_ENABLED=true in core/.env to enable.")
         sys.exit(0)
     
     uvicorn.run(
