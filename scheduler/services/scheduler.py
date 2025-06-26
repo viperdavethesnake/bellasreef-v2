@@ -2,6 +2,9 @@ import asyncio
 from datetime import datetime, time
 from typing import Dict, List, Callable, Any
 import pytz
+from shared.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class Scheduler:
     def __init__(self):
@@ -42,7 +45,7 @@ class Scheduler:
                     try:
                         await task['func'](*task.get('args', []), **task.get('kwargs', {}))
                     except Exception as e:
-                        print(f"Error executing task {task_id}: {e}")
+                        logger.error(f"Error executing task {task_id}: {e}")
             
             await asyncio.sleep(60)  # Check every minute
 
