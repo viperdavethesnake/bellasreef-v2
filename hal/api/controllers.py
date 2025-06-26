@@ -14,18 +14,43 @@ from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChan
 
 router = APIRouter(prefix="/controllers", tags=["Controllers"])
 
-@router.post("/discover", response_model=PCA9685DiscoveryResult)
+@router.get("/discover", response_model=List[PCA9685DiscoveryResult])
 async def discover_pca9685_controller(
-    address: int = 0x40,
     current_user: User = Depends(get_current_user)
 ):
     """
-    Scans the I2C bus for a PCA9685 device at a given address.
+    Scans the I2C bus for all PCA9685 devices across a range of addresses.
     """
-    is_found = pca9685_driver.check_board(address)
-    message = "PCA9685 controller found successfully." if is_found else "PCA9685 controller not found at the specified address."
+    # Define the range of I2C addresses to scan (0x40 to 0x77)
+    # This covers the standard 7-bit I2C address range for PCA9685 devices
+    i2c_addresses = list(range(0x40, 0x78))  # 0x40 to 0x77 inclusive
     
-    return PCA9685DiscoveryResult(address=address, is_found=is_found, message=message)
+    discovered_devices = []
+    
+    # Scan each address in the range
+    for address in i2c_addresses:
+        is_found = pca9685_driver.check_board(address)
+        if is_found:
+            message = f"PCA9685 controller found at address {hex(address)}."
+            discovered_devices.append(
+                PCA9685DiscoveryResult(
+                    address=address, 
+                    is_found=True, 
+                    message=message
+                )
+            )
+    
+    # If no devices found, add a single result indicating no devices
+    if not discovered_devices:
+        discovered_devices.append(
+            PCA9685DiscoveryResult(
+                address=0x40,  # Default address for reference
+                is_found=False, 
+                message="No PCA9685 controllers found on the I2C bus."
+            )
+        )
+    
+    return discovered_devices
 
 @router.post("", response_model=device_schema.Device, status_code=status.HTTP_201_CREATED)
 async def create_pca9685_controller(
