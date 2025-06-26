@@ -289,6 +289,55 @@ async def get_pwm_channel_state(
 
     return channel_device.current_value
 
+@router.get("/{channel_id}/live-state", response_model=float, summary="Get Live Hardware State")
+async def get_pwm_channel_live_state(
+    channel_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Gets the current intensity directly from the hardware and updates the database.
+    This provides a guaranteed, real-time value for diagnostics and state synchronization.
+    """
+    # 1. Fetch the channel device from the database
+    channel_device = await device_crud.get(db, device_id=channel_id)
+    if not channel_device or channel_device.device_type != "pwm_channel":
+        raise HTTPException(status_code=404, detail="PWM Channel device not found.")
+
+    # 2. Get the parent controller to find its address
+    if not channel_device.parent_device_id:
+        raise HTTPException(status_code=400, detail="Channel device is not linked to a parent controller.")
+    
+    parent_controller = await device_crud.get(db, device_id=channel_device.parent_device_id)
+    if not parent_controller:
+        raise HTTPException(status_code=404, detail="Parent controller not found for this channel.")
+
+    # 3. Get hardware-specific info from the config fields
+    controller_address = int(parent_controller.address)
+    channel_number = channel_device.config.get("channel_number")
+
+    if channel_number is None:
+        raise HTTPException(status_code=500, detail="Channel number is not configured for this device.")
+
+    # 4. Read the current duty cycle from the hardware
+    try:
+        duty_cycle = pca9685_driver.get_current_duty_cycle(controller_address, channel_number)
+    except (ValueError, IOError) as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Failed to read PWM channel duty cycle from hardware: {str(e)}"
+        )
+
+    # 5. Convert 16-bit duty cycle (0-65535) to intensity percentage (0.0-100.0)
+    intensity_percentage = (duty_cycle / 65535) * 100.0
+
+    # 6. Update the database with the live value to re-synchronize state
+    channel_device.current_value = intensity_percentage
+    db.add(channel_device)
+    await db.commit()
+
+    return intensity_percentage
+
 @router.get("", response_model=List[device_schema.Device], summary="List All Registered PWM Channels")
 async def list_all_pwm_channels(
     db: AsyncSession = Depends(get_db),
