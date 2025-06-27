@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """
 SmartOutlet Pydantic Schemas
 
@@ -9,7 +11,6 @@ from typing import Optional, Dict, Any, List
 from uuid import UUID
 from datetime import datetime
 from enum import Enum
-from __future__ import annotations
 
 from pydantic import BaseModel, Field, constr, EmailStr, SecretStr, field_validator, ConfigDict
 import pytz
