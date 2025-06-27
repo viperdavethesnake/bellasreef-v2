@@ -31,11 +31,6 @@ bellasreef-venv/
 
 # Bella's Reef service virtual environments
 */bellasreef-*-venv/
-core/bellasreef-core-venv/
-temp/bellasreef-temp-venv/
-poller/bellasreef-poller-venv/
-scheduler/bellasreef-scheduler-venv/
-control/bellasreef-control-venv/
 
 # Environment files
 .env
@@ -48,3 +43,66 @@ control/bellasreef-control-venv/
 *.p12
 *.pfx
 *.p8
+
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+.AppleDouble
+.LSOverride
+Icon?
+.DocumentRevisions-V100
+.fseventsd
+.TemporaryItems
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Hidden files and directories (Unix/Linux/macOS)
+.*
+!.gitignore
+!.github/
+!.git/
+!.vscode/
+!.idea/
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+.atom/
+.brackets.json
+
+# Logs and temporary files
+*.log
+logs/
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Testing and coverage
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.mypy_cache/
+.ruff_cache/

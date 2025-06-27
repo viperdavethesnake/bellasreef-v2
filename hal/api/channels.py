@@ -18,6 +18,9 @@ logger = get_logger(__name__)
 
 router = APIRouter(prefix="/channels", tags=["Channels"])
 
+# Global dictionary to track active ramp tasks by (controller_address, channel_number)
+_active_ramp_tasks = {}
+
 async def _perform_ramp(
     db: AsyncSession, 
     device_id: int, 
@@ -32,6 +35,9 @@ async def _perform_ramp(
     Background worker function to perform a gradual ramp from start_intensity to end_intensity
     over the specified duration in milliseconds.
     """
+    # Create a unique key for this controller/channel combination
+    ramp_key = (controller_address, channel_number)
+    
     # Calculate ramp parameters
     step_interval_ms = 50  # Update every 50ms for smooth transition
     total_steps = duration_ms // step_interval_ms
@@ -40,6 +46,16 @@ async def _perform_ramp(
     channel_device = await device_crud.get(db, device_id=device_id)
     if not channel_device:
         return  # Device no longer exists
+    
+    # Determine if this is a long ramp (> 10 seconds) for intermediate DB updates
+    is_long_ramp = duration_ms > 10000
+    intermediate_update_interval = 2000  # 2 seconds in milliseconds
+    last_db_update_time = 0
+    
+    # Update database at start of ramp
+    channel_device.current_value = start_intensity
+    db.add(channel_device)
+    await db.commit()
     
     # Perform the ramp
     for step in range(total_steps + 1):  # +1 to include the final step
@@ -69,22 +85,55 @@ async def _perform_ramp(
                 duty_cycle=duty_cycle
             )
             
-            # Update database with current value
-            channel_device.current_value = current_intensity
-            db.add(channel_device)
-            await db.commit()
+            # Update database only at start, end, and every 2 seconds for long ramps
+            current_time = step * step_interval_ms
+            should_update_db = (
+                step == 0 or  # Start of ramp
+                step == total_steps or  # End of ramp
+                (is_long_ramp and current_time - last_db_update_time >= intermediate_update_interval)  # Intermediate updates for long ramps
+            )
+            
+            if should_update_db:
+                channel_device.current_value = current_intensity
+                db.add(channel_device)
+                await db.commit()
+                last_db_update_time = current_time
             
         except Exception as e:
-            # Log error but continue with ramp
+            # Log error with full context
             logger.error(
-                f"Error during ramp step {step} for device {device_id} (Channel {channel_number}): {e}",
+                f"Hardware error during ramp step {step}/{total_steps} for device {device_id} "
+                f"(controller={controller_address}, channel={channel_number}, "
+                f"intended_intensity={current_intensity}%, duty_cycle={duty_cycle}): {e}",
                 exc_info=True
             )
-            break
+            
+            # Attempt one retry for this step
+            try:
+                logger.info(f"Retrying ramp step {step} for device {device_id} (controller={controller_address}, channel={channel_number})")
+                pca9685_driver.set_channel_duty_cycle(
+                    address=controller_address,
+                    channel=channel_number,
+                    duty_cycle=duty_cycle
+                )
+                logger.info(f"Retry successful for ramp step {step} for device {device_id}")
+            except Exception as retry_e:
+                logger.error(
+                    f"Retry failed for ramp step {step} for device {device_id} "
+                    f"(controller={controller_address}, channel={channel_number}, "
+                    f"intended_intensity={current_intensity}%, duty_cycle={duty_cycle}): {retry_e}",
+                    exc_info=True
+                )
+                # Abort the ramp after retry failure
+                break
         
         # Sleep for the step interval (except on the last step)
         if step < total_steps:
             await asyncio.sleep(step_interval_ms / 1000.0)  # Convert ms to seconds
+    
+    # Clean up the ramp task from the active tasks dictionary
+    if ramp_key in _active_ramp_tasks:
+        del _active_ramp_tasks[ramp_key]
 
 @router.post("/{channel_id}/control", status_code=status.HTTP_200_OK)
 async def set_pwm_channel_duty_cycle(
@@ -124,25 +173,38 @@ async def set_pwm_channel_duty_cycle(
         # This is a ramped request
         start_intensity = channel_device.current_value or 0.0
         
-        # Add the ramp task to background tasks
-        background_tasks.add_task(
-            _perform_ramp,
-            db=db,
-            device_id=channel_id,
-            start_intensity=start_intensity,
-            end_intensity=constrained_intensity,
-            duration_ms=request.duration_ms,
-            controller_address=controller_address,
-            channel_number=channel_number,
-            curve=request.curve
+        # Create a unique key for this controller/channel combination
+        ramp_key = (controller_address, channel_number)
+        
+        # Cancel any existing ramp for this channel
+        if ramp_key in _active_ramp_tasks:
+            existing_task = _active_ramp_tasks[ramp_key]
+            if not existing_task.done():
+                existing_task.cancel()
+                logger.info(f"Cancelled existing ramp for controller {controller_address}, channel {channel_number}")
+        
+        # Create and store the new ramp task
+        ramp_task = asyncio.create_task(
+            _perform_ramp(
+                db=db,
+                device_id=channel_id,
+                start_intensity=start_intensity,
+                end_intensity=constrained_intensity,
+                duration_ms=request.duration_ms,
+                controller_address=controller_address,
+                channel_number=channel_number,
+                curve=request.curve
+            )
         )
+        _active_ramp_tasks[ramp_key] = ramp_task
         
         return {
             "message": f"Ramp initiated for device '{channel_device.name}' (Channel {channel_number}): {start_intensity}% → {constrained_intensity}% over {request.duration_ms}ms",
             "ramp_started": True,
             "start_intensity": start_intensity,
             "target_intensity": constrained_intensity,
-            "duration_ms": request.duration_ms
+            "duration_ms": request.duration_ms,
+            "note": "Monitor logs for any hardware errors during ramp execution"
         }
     else:
         # This is an immediate request
@@ -162,7 +224,16 @@ async def set_pwm_channel_duty_cycle(
             await db.commit()
             
         except Exception as e:
-            raise HTTPException(status_code=503, detail=f"Failed to set PWM channel duty cycle. Hardware error: {e}")
+            logger.error(
+                f"Hardware error in immediate control for device {channel_id} "
+                f"(controller={controller_address}, channel={channel_number}, "
+                f"intended_intensity={constrained_intensity}%, duty_cycle={duty_cycle}): {e}",
+                exc_info=True
+            )
+            raise HTTPException(
+                status_code=503, 
+                detail=f"Failed to set PWM channel duty cycle. Hardware error: {e}"
+            )
 
         return {
             "message": f"Successfully set device '{channel_device.name}' (Channel {channel_number}) to {constrained_intensity}% intensity.", 
@@ -183,7 +254,12 @@ async def bulk_set_pwm_duty_cycle(
     """
     results = []
     devices_to_update = []
+    
+    # Group immediate operations by controller address for batching
+    immediate_operations = {}  # {controller_address: {channel: duty_cycle, device_info}}
+    ramp_operations = []  # List of ramp operations to process individually
 
+    # First pass: validate and group operations
     for request in requests:
         try:
             # 1. Fetch the channel device from the database
@@ -214,58 +290,105 @@ async def bulk_set_pwm_duty_cycle(
             constrained_intensity = max(channel_device.min_value, min(channel_device.max_value, request.intensity))
 
             if request.duration_ms and request.duration_ms > 0:
-                # Handle ramped request
-                start_intensity = channel_device.current_value or 0.0
-                
-                # Add the ramp task to background tasks
-                background_tasks.add_task(
-                    _perform_ramp,
-                    db=db,
-                    device_id=request.device_id,
-                    start_intensity=start_intensity,
-                    end_intensity=constrained_intensity,
-                    duration_ms=request.duration_ms,
-                    controller_address=controller_address,
-                    channel_number=channel_number,
-                    curve=request.curve
-                )
-                
-                results.append({
-                    "device_id": request.device_id, 
-                    "status": "success", 
-                    "detail": f"Ramp initiated: {start_intensity}% → {constrained_intensity}% over {request.duration_ms}ms"
+                # Handle ramped request - add to individual processing list
+                ramp_operations.append({
+                    "request": request,
+                    "channel_device": channel_device,
+                    "controller_address": controller_address,
+                    "channel_number": channel_number,
+                    "constrained_intensity": constrained_intensity
                 })
             else:
-                # Handle immediate request
+                # Handle immediate request - group by controller address
                 duty_cycle = int((constrained_intensity / 100) * 65535)
+                if controller_address not in immediate_operations:
+                    immediate_operations[controller_address] = {}
                 
-                try:
-                    # Call the driver to set the hardware state
-                    pca9685_driver.set_channel_duty_cycle(
-                        address=controller_address,
-                        channel=channel_number,
-                        duty_cycle=duty_cycle
-                    )
-                    
-                    # Mark device for database update
-                    channel_device.current_value = constrained_intensity
-                    devices_to_update.append(channel_device)
-                    
-                    results.append({
-                        "device_id": request.device_id, 
-                        "status": "success", 
-                        "detail": f"Set to {constrained_intensity}% intensity"
-                    })
-                    
-                except Exception as e:
-                    results.append({
-                        "device_id": request.device_id, 
-                        "status": "error", 
-                        "detail": f"Hardware error: {str(e)}"
-                    })
+                immediate_operations[controller_address][channel_number] = {
+                    "duty_cycle": duty_cycle,
+                    "device_id": request.device_id,
+                    "channel_device": channel_device,
+                    "constrained_intensity": constrained_intensity
+                }
 
         except Exception as e:
             results.append({"device_id": request.device_id, "status": "error", "detail": str(e)})
+
+    # Second pass: process batched immediate operations
+    for controller_address, channel_operations in immediate_operations.items():
+        try:
+            # Prepare channel mapping for batch operation
+            channel_duty_cycles = {channel: data["duty_cycle"] for channel, data in channel_operations.items()}
+            
+            # Perform batch hardware update
+            pca9685_driver.set_multiple_channels_duty_cycle(
+                address=controller_address,
+                channel_duty_cycles=channel_duty_cycles
+            )
+            
+            # Mark all devices for database update
+            for channel_data in channel_operations.values():
+                channel_data["channel_device"].current_value = channel_data["constrained_intensity"]
+                devices_to_update.append(channel_data["channel_device"])
+                
+                results.append({
+                    "device_id": channel_data["device_id"], 
+                    "status": "success", 
+                    "detail": f"Set to {channel_data['constrained_intensity']}% intensity (batched)"
+                })
+                
+        except Exception as e:
+            logger.error(
+                f"Hardware error in bulk batch control for controller {controller_address}: {e}",
+                exc_info=True
+            )
+            # Mark all channels for this controller as failed
+            for channel_data in channel_operations.values():
+                results.append({
+                    "device_id": channel_data["device_id"], 
+                    "status": "error", 
+                    "detail": f"Hardware error: {str(e)}"
+                })
+
+    # Third pass: process individual ramp operations
+    for ramp_op in ramp_operations:
+        try:
+            start_intensity = ramp_op["channel_device"].current_value or 0.0
+            
+            # Create a unique key for this controller/channel combination
+            ramp_key = (ramp_op["controller_address"], ramp_op["channel_number"])
+            
+            # Cancel any existing ramp for this channel
+            if ramp_key in _active_ramp_tasks:
+                existing_task = _active_ramp_tasks[ramp_key]
+                if not existing_task.done():
+                    existing_task.cancel()
+                    logger.info(f"Cancelled existing ramp for controller {ramp_op['controller_address']}, channel {ramp_op['channel_number']}")
+            
+            # Create and store the new ramp task
+            ramp_task = asyncio.create_task(
+                _perform_ramp(
+                    db=db,
+                    device_id=ramp_op["request"].device_id,
+                    start_intensity=start_intensity,
+                    end_intensity=ramp_op["constrained_intensity"],
+                    duration_ms=ramp_op["request"].duration_ms,
+                    controller_address=ramp_op["controller_address"],
+                    channel_number=ramp_op["channel_number"],
+                    curve=ramp_op["request"].curve
+                )
+            )
+            _active_ramp_tasks[ramp_key] = ramp_task
+            
+            results.append({
+                "device_id": ramp_op["request"].device_id, 
+                "status": "success", 
+                "detail": f"Ramp initiated: {start_intensity}% → {ramp_op['constrained_intensity']}% over {ramp_op['request'].duration_ms}ms",
+                "note": "Monitor logs for any hardware errors during ramp execution"
+            })
+            
+        except Exception as e:
+            results.append({"device_id": ramp_op["request"].device_id, "status": "error", "detail": str(e)})
 
     # Commit all database updates in a single transaction
     if devices_to_update:
@@ -335,6 +458,50 @@ async def get_pwm_channel_live_state(
     channel_device.current_value = intensity_percentage
     db.add(channel_device)
     await db.commit()
+
+    return intensity_percentage
+
+@router.get("/{channel_id}/hw_state", response_model=float, summary="Get Hardware PWM State")
+async def get_pwm_channel_hw_state(
+    channel_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_or_service)
+):
+    """
+    Gets the current intensity directly from the hardware without updating the database.
+    This provides a read-only hardware state for diagnostics and monitoring.
+    """
+    # 1. Fetch the channel device from the database
+    channel_device = await device_crud.get(db, device_id=channel_id)
+    if not channel_device or channel_device.device_type != "pwm_channel":
+        raise HTTPException(status_code=404, detail="PWM Channel device not found.")
+
+    # 2. Get the parent controller to find its address
+    if not channel_device.parent_device_id:
+        raise HTTPException(status_code=400, detail="Channel device is not linked to a parent controller.")
+    
+    parent_controller = await device_crud.get(db, device_id=channel_device.parent_device_id)
+    if not parent_controller:
+        raise HTTPException(status_code=404, detail="Parent controller not found for this channel.")
+
+    # 3. Get hardware-specific info from the config fields
+    controller_address = int(parent_controller.address)
+    channel_number = channel_device.config.get("channel_number")
+
+    if channel_number is None:
+        raise HTTPException(status_code=500, detail="Channel number is not configured for this device.")
+
+    # 4. Read the current duty cycle from the hardware
+    try:
+        duty_cycle = pca9685_driver.get_current_duty_cycle(controller_address, channel_number)
+    except (ValueError, IOError) as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Failed to read PWM channel duty cycle from hardware: {str(e)}"
+        )
+
+    # 5. Convert 16-bit duty cycle (0-65535) to intensity percentage (0.0-100.0)
+    intensity_percentage = (duty_cycle / 65535) * 100.0
 
     return intensity_percentage
 
