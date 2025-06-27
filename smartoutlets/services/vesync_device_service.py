@@ -177,6 +177,7 @@ class VeSyncDeviceService:
         """
         try:
             manager = await self._get_manager(account)
+            await asyncio.to_thread(manager.update)
             
             # Find and control device in outlets
             if hasattr(manager, 'outlets') and manager.outlets:
@@ -221,6 +222,7 @@ class VeSyncDeviceService:
         """
         try:
             manager = await self._get_manager(account)
+            await asyncio.to_thread(manager.update)
             
             # Find and control device in outlets
             if hasattr(manager, 'outlets') and manager.outlets:

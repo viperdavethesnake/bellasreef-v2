@@ -3,7 +3,7 @@
 # Versions for critical hardware libraries are pinned to ensure stable, reproducible builds.
 
 # --- Core FastAPI & Web ---
-fastapi
+fastapi==0.111.0
 uvicorn[standard]
 python-multipart
 pydantic>=2.5.0
@@ -27,14 +27,13 @@ email-validator
 RPi.GPIO==0.7.1 ; sys_platform == 'linux'
 Adafruit-Blinka==8.61.2 ; sys_platform == 'linux'
 adafruit-circuitpython-pca9685==3.4.19 ; sys_platform == 'linux'
-w1thermsensor[async] ; sys_platform == 'linux' # TODO: Pin version after testing temp module
-psutil ; sys_platform == 'linux' # TODO: Pin version after testing
+w1thermsensor[async]==2.3.0 ; sys_platform == 'linux'
+psutil ; sys_platform == 'linux'
 
 # --- Smart Outlet Drivers (Cross-Platform) ---
-# TODO: Pin versions after testing each smart outlet type
 python-kasa==0.7.1
-aioshelly==7.1.1
-pyvesync==3.2.1
+aioshelly==13.7.0
+pyvesync==2.1.18
 
 # --- General Utilities ---
 aiohttp
@@ -44,6 +43,4 @@ tenacity
 
 # --- Worker/Scheduler (Future Use) ---
 apscheduler==3.10.4
-celery==5.3.4
-
-aiosqlite
+celery==5.4.0
