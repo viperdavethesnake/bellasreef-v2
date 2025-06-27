@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from typing import Optional, List
@@ -347,4 +347,28 @@ async def list_all_pwm_channels(
     Retrieves a list of all devices configured with the 'pwm_channel' role across all controllers.
     """
     channels = await device_crud.get_multi(db, device_type="pwm_channel")
-    return channels 
+    return channels
+
+@router.delete("/{channel_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a Single PWM Channel")
+async def delete_pwm_channel(
+    channel_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user_or_service)
+):
+    """
+    Deletes a single registered PWM channel device by its database ID.
+    """
+    # First, fetch the device to ensure it exists and is a PWM channel
+    device_to_delete = await device_crud.get(db, device_id=channel_id)
+
+    if not device_to_delete or device_to_delete.device_type != "pwm_channel":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PWM Channel with ID {channel_id} not found."
+        )
+
+    # If it exists and is the correct type, remove it
+    await device_crud.remove(db, device_id=channel_id)
+
+    # Return a 204 No Content response to indicate success
+    return Response(status_code=status.HTTP_204_NO_CONTENT) 
