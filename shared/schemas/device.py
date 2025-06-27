@@ -23,6 +23,7 @@ class DeviceCreate(DeviceBase):
 
 class DeviceUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
+    role: Optional[str] = Field(None, description="The new high-level role of the device.")
     device_type: Optional[str] = Field(None, min_length=1, max_length=50)
     address: Optional[str] = Field(None, min_length=1, max_length=100)
     poll_enabled: Optional[bool] = None

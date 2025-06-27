@@ -30,4 +30,13 @@ class PWMControlRequestWithDevice(BaseModel):
     duration_ms: Optional[int] = Field(None, ge=0, description="The duration of the ramp in milliseconds. If not provided, the change is immediate.")
 
 class PWMFrequencyUpdateRequest(BaseModel):
-    frequency: int = Field(..., ge=24, le=1526, description="The PWM frequency to set for the board.") 
+    frequency: int = Field(..., ge=24, le=1526, description="The PWM frequency to set for the board.")
+
+class ControllerUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="The new user-friendly name for the controller.")
+
+class PWMChannelUpdateRequest(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, max_length=100, description="The new user-friendly name for this channel.")
+    role: Optional[DeviceRole] = Field(None, description="The new specific role of this channel.")
+    min_value: Optional[int] = Field(None, ge=0, le=100, description="The new minimum allowed intensity percentage (0-100).")
+    max_value: Optional[int] = Field(None, ge=0, le=100, description="The new maximum allowed intensity percentage (0-100).") 

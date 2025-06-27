@@ -12,7 +12,7 @@ from shared.utils.logger import get_logger
 from ..deps import get_current_user_or_service
 
 from ..drivers import pca9685_driver
-from .schemas import PWMControlRequest, PWMControlRequestWithDevice
+from .schemas import PWMControlRequest, PWMControlRequestWithDevice, PWMChannelUpdateRequest
 
 logger = get_logger(__name__)
 
@@ -371,4 +371,42 @@ async def delete_pwm_channel(
     await device_crud.remove(db, device_id=channel_id)
 
     # Return a 204 No Content response to indicate success
-    return Response(status_code=status.HTTP_204_NO_CONTENT) 
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+@router.get("/{channel_id}", response_model=device_schema.Device, summary="Get Single Channel Details")
+async def get_channel_by_id(
+    channel_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user_or_service)
+):
+    """
+    Retrieves the configuration of a single PWM channel by its database ID.
+    """
+    channel = await device_crud.get(db, device_id=channel_id)
+    if not channel or channel.device_type != "pwm_channel":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PWM Channel with ID {channel_id} not found."
+        )
+    return channel
+
+@router.patch("/{channel_id}", response_model=device_schema.Device, summary="Update a Channel's Properties")
+async def update_channel(
+    channel_id: int,
+    update_data: PWMChannelUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user_or_service)
+):
+    """
+    Updates the properties (e.g., name, role, min/max values) of a registered PWM channel.
+    """
+    channel = await device_crud.get(db, device_id=channel_id)
+    if not channel or channel.device_type != "pwm_channel":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PWM Channel with ID {channel_id} not found."
+        )
+
+    device_update_data = device_schema.DeviceUpdate(**update_data.model_dump(exclude_unset=True))
+    updated_device = await device_crud.update(db, db_obj=channel, obj_in=device_update_data)
+    return updated_device 

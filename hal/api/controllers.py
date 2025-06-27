@@ -13,7 +13,7 @@ from shared.schemas.user import User
 from ..deps import get_current_user_or_service
 
 from ..drivers import pca9685_driver
-from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChannelRegistrationRequest, PWMFrequencyUpdateRequest
+from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChannelRegistrationRequest, PWMFrequencyUpdateRequest, ControllerUpdateRequest
 
 router = APIRouter(prefix="/controllers", tags=["Controllers"])
 
@@ -234,4 +234,42 @@ async def update_pwm_frequency(
     await db.commit()
     await db.refresh(controller)
     
-    return controller 
+    return controller
+
+@router.get("/{controller_id}", response_model=device_schema.Device, summary="Get Single Controller Details")
+async def get_controller_by_id(
+    controller_id: int,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user_or_service)
+):
+    """
+    Retrieves the details of a single registered PCA9685 controller by its database ID.
+    """
+    controller = await device_crud.get(db, device_id=controller_id)
+    if not controller or controller.role != "controller":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Controller with ID {controller_id} not found."
+        )
+    return controller
+
+@router.patch("/{controller_id}", response_model=device_schema.Device, summary="Update a Controller's Properties")
+async def update_controller(
+    controller_id: int,
+    update_data: ControllerUpdateRequest,
+    db: AsyncSession = Depends(get_db),
+    user=Depends(get_current_user_or_service)
+):
+    """
+    Updates the properties (e.g., name) of a registered PCA9685 controller.
+    """
+    controller = await device_crud.get(db, device_id=controller_id)
+    if not controller or controller.role != "controller":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Controller with ID {controller_id} not found."
+        )
+
+    device_update_data = device_schema.DeviceUpdate(**update_data.model_dump(exclude_unset=True))
+    updated_device = await device_crud.update(db, db_obj=controller, obj_in=device_update_data)
+    return updated_device 
