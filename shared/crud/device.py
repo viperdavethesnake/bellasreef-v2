@@ -23,7 +23,8 @@ class DeviceCRUD:
         device_type: Optional[str] = None,
         is_active: Optional[bool] = None,
         unit: Optional[str] = None,
-        role: Optional[str] = None
+        role: Optional[str] = None,
+        parent_device_id: Optional[int] = None
     ) -> List[Device]:
         query = select(Device)
         
@@ -37,6 +38,8 @@ class DeviceCRUD:
             query = query.filter(Device.unit == unit)
         if role is not None:
             query = query.filter(Device.role == role)
+        if parent_device_id is not None:
+            query = query.filter(Device.parent_device_id == parent_device_id)
         
         result = await db.execute(query.offset(skip).limit(limit))
         return result.scalars().all()

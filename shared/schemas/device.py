@@ -8,6 +8,7 @@ class DeviceBase(BaseModel):
     device_type: str = Field(..., min_length=1, max_length=50)
     address: str = Field(..., min_length=1, max_length=100)
     role: str = Field(..., description="Device role (e.g., 'controller', 'general', 'light_blue')")
+    parent_device_id: Optional[int] = Field(None, description="The DB ID of the parent device, if any.")
     poll_enabled: bool = Field(default=True)
     poll_interval: int = Field(default=60, ge=1, le=86400)  # 1 second to 1 day
     unit: Optional[str] = Field(None, max_length=20, description="Unit of measurement (e.g., 'C', 'F', 'ppt', 'ms/cm', 'pH', 'W', 'state')")

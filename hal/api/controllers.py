@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from sqlalchemy import select
 from typing import List
 
 from shared.db.database import get_db
 from shared.crud import device as device_crud
 from shared.schemas import device as device_schema
+from shared.db.models import Device as DeviceModel
 from shared.schemas.enums import DeviceRole
 from shared.schemas.user import User
 from ..deps import get_current_user_or_service
@@ -113,7 +116,10 @@ async def register_pwm_channel(
     Registers an individual PWM channel as a new 'child' device, linked to a parent PCA9685 controller.
     """
     # 1. Verify the parent controller exists and is a PCA9685 controller
-    parent_controller = await device_crud.get(db, device_id=controller_id)
+    # Explicitly load the parent controller with its children to prevent lazy loading errors
+    query = select(DeviceModel).options(selectinload(DeviceModel.children)).filter(DeviceModel.id == controller_id)
+    result = await db.execute(query)
+    parent_controller = result.scalar_one_or_none()
     if not parent_controller or parent_controller.role != DeviceRole.CONTROLLER.value or parent_controller.device_type != "pca9685":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -155,7 +161,10 @@ async def get_configured_channels(
     Retrieves a list of all PWM channels that have been configured for a specific PCA9685 controller.
     """
     # Verify the parent controller exists
-    parent_controller = await device_crud.get(db, device_id=controller_id)
+    # Explicitly load the parent controller with its children to prevent lazy loading errors
+    query = select(DeviceModel).options(selectinload(DeviceModel.children)).filter(DeviceModel.id == controller_id)
+    result = await db.execute(query)
+    parent_controller = result.scalar_one_or_none()
     if not parent_controller or parent_controller.role != DeviceRole.CONTROLLER.value or parent_controller.device_type != "pca9685":
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
