@@ -9,7 +9,7 @@ from shared.schemas.enums import DeviceRole
 from shared.schemas.user import User
 from shared.schemas import device as device_schema
 from shared.utils.logger import get_logger
-from core.api.deps import get_current_user
+from ..deps import get_current_user_or_service
 
 from ..drivers import pca9685_driver
 from .schemas import PWMControlRequest, PWMControlRequestWithDevice
@@ -92,7 +92,7 @@ async def set_pwm_channel_duty_cycle(
     request: PWMControlRequest,
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Sets the intensity (duty cycle) for a configured PWM channel device.
@@ -175,7 +175,7 @@ async def bulk_set_pwm_duty_cycle(
     requests: List[PWMControlRequestWithDevice],
     background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Sets the intensity for multiple PWM channels in a single request.
@@ -278,7 +278,7 @@ async def bulk_set_pwm_duty_cycle(
 async def get_pwm_channel_state(
     channel_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Gets the last known intensity for a configured PWM channel device from the database.
@@ -293,7 +293,7 @@ async def get_pwm_channel_state(
 async def get_pwm_channel_live_state(
     channel_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Gets the current intensity directly from the hardware and updates the database.
@@ -341,7 +341,7 @@ async def get_pwm_channel_live_state(
 @router.get("", response_model=List[device_schema.Device], summary="List All Registered PWM Channels")
 async def list_all_pwm_channels(
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Retrieves a list of all devices configured with the 'pwm_channel' role across all controllers.
