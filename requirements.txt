@@ -27,7 +27,7 @@ email-validator
 RPi.GPIO==0.7.1 ; sys_platform == 'linux'
 Adafruit-Blinka==8.61.2 ; sys_platform == 'linux'
 adafruit-circuitpython-pca9685==3.4.19 ; sys_platform == 'linux'
-w1thermsensor ; sys_platform == 'linux' # TODO: Pin version after testing temp module
+w1thermsensor[async] ; sys_platform == 'linux' # TODO: Pin version after testing temp module
 psutil ; sys_platform == 'linux' # TODO: Pin version after testing
 
 # --- Smart Outlet Drivers (Cross-Platform) ---

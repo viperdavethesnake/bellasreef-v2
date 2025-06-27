@@ -1,7 +1,8 @@
 import os
-from w1thermsensor import W1ThermSensor, NoSensorFoundError, KernelModuleLoadError
+import asyncio
 from typing import List, Optional
 from pydantic import BaseModel
+from w1thermsensor import AsyncW1ThermSensor, NoSensorFoundError, KernelModuleLoadError, Unit
 
 class OneWireCheckResult(BaseModel):
     subsystem_available: bool
@@ -10,30 +11,39 @@ class OneWireCheckResult(BaseModel):
     details: Optional[str] = None
 
 class TemperatureService:
-    def discover_sensors(self) -> List[str]:
+    async def discover_sensors(self) -> List[str]:
+        """Asynchronously discovers all attached 1-wire temperature sensors."""
         try:
-            return [sensor.id for sensor in W1ThermSensor.get_available_sensors()]
+            sensors = await AsyncW1ThermSensor.get_available_sensors()
+            return [sensor.id for sensor in sensors]
         except (NoSensorFoundError, KernelModuleLoadError):
             return []
 
-    def get_current_reading(self, hardware_id: str) -> Optional[float]:
+    async def get_current_reading(self, hardware_id: str, unit_str: str = 'C') -> Optional[float]:
+        """Asynchronously gets the current temperature from a sensor in the specified unit."""
         try:
-            sensor = W1ThermSensor(sensor_id=hardware_id)
-            return sensor.get_temperature()
+            sensor = AsyncW1ThermSensor(sensor_id=hardware_id)
+            unit = Unit.DEGREES_F if unit_str.upper() == 'F' else Unit.DEGREES_C
+            # Use the library's built-in unit conversion
+            return await sensor.get_temperature(unit)
         except NoSensorFoundError:
             return None
 
-    def check_1wire_subsystem(self) -> OneWireCheckResult:
+    async def check_1wire_subsystem(self) -> OneWireCheckResult:
+        """Asynchronously checks the 1-wire subsystem status."""
         W1_DEVICE_DIR = "/sys/bus/w1/devices"
-        if not os.path.isdir(W1_DEVICE_DIR):
+        
+        # Run the blocking I/O call in a separate thread
+        is_dir = await asyncio.to_thread(os.path.isdir, W1_DEVICE_DIR)
+        if not is_dir:
             return OneWireCheckResult(
                 subsystem_available=False,
                 device_count=0,
                 error="1-wire device directory not found.",
-                details=f"The directory {W1_DEVICE_DIR} does not exist. Ensure the w1-gpio overlay is enabled in /boot/config.txt and the module is loaded."
+                details=f"The directory {W1_DEVICE_DIR} does not exist. Ensure the w1-gpio overlay is enabled."
             )
         try:
-            sensors = W1ThermSensor.get_available_sensors()
+            sensors = await AsyncW1ThermSensor.get_available_sensors()
             return OneWireCheckResult(
                 subsystem_available=True,
                 device_count=len(sensors)
@@ -52,4 +62,5 @@ class TemperatureService:
                 details=str(e)
             )
 
+# Create a single instance of the service for the application to use
 temperature_service = TemperatureService()
