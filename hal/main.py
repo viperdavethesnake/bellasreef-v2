@@ -5,7 +5,7 @@ Bella's Reef - HAL Service
 Main FastAPI application for the Hardware Abstraction Layer.
 """
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, status, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from shared.core.config import settings
 from shared.utils.logger import get_logger
@@ -156,75 +156,89 @@ async def debug_pca_test(
 ):
     """
     Debug endpoint to test PCA9685 instantiation and basic functionality.
-    Instantiates a PCA9685 using busio.I2C(board.SCL, board.SDA), 
-    sets channel 0 to 100% and channel 1 to 0%, and returns results.
+    Instantiates a PCA9685 using busio.I2C(board.SCL, board.SDA),
+    sets frequency to 1000, fades channel 0 up and channel 1 down, then turns both off.
+    Returns detailed results.
     """
     import traceback
     import board
     import busio
+    import time
     from adafruit_pca9685 import PCA9685
-    
+
     result = {
         "success": False,
         "address": hex(address),
         "steps": [],
         "error": None,
-        "traceback": None
+        "traceback": None,
+        "fade_log": []
     }
-    
+
     try:
         # Step 1: Create I2C bus
         result["steps"].append("Creating I2C bus with busio.I2C(board.SCL, board.SDA)")
         i2c_bus = busio.I2C(board.SCL, board.SDA)
         result["steps"].append("I2C bus created successfully")
-        
+
         # Step 2: Create PCA9685 instance
         result["steps"].append(f"Creating PCA9685 instance at address {hex(address)}")
         pca = PCA9685(i2c_bus, address=address)
         result["steps"].append("PCA9685 instance created successfully")
-        
-        # Step 3: Set channel 0 to 100% (duty cycle 65535)
-        result["steps"].append("Setting channel 0 to 100% (duty cycle 65535)")
-        pca.channels[0].duty_cycle = 65535
-        result["steps"].append("Channel 0 set to 100% successfully")
-        
-        # Step 4: Set channel 1 to 0% (duty cycle 0)
-        result["steps"].append("Setting channel 1 to 0% (duty cycle 0)")
+
+        # Step 3: Set frequency to 1000
+        result["steps"].append("Setting frequency to 1000 Hz")
+        pca.frequency = 1000
+        result["steps"].append(f"Frequency set to {pca.frequency} Hz")
+
+        # Step 4: Fade Ch0 up and Ch1 down
+        steps = 100
+        delay = 0.03
+        result["steps"].append("Fading Ch0 up and Ch1 down...")
+        for i in range(steps + 1):
+            duty_ch0 = int(65535 * (i / steps))
+            duty_ch1 = int(65535 * ((steps - i) / steps))
+            pca.channels[0].duty_cycle = duty_ch0
+            pca.channels[1].duty_cycle = duty_ch1
+            # Optionally log a few steps for diagnostics
+            if i in (0, steps//2, steps):
+                result["fade_log"].append({"step": i, "ch0": duty_ch0, "ch1": duty_ch1})
+            time.sleep(delay)
+
+        # Step 5: Turn both channels off
+        result["steps"].append("Turning both channels off.")
+        pca.channels[0].duty_cycle = 0
         pca.channels[1].duty_cycle = 0
-        result["steps"].append("Channel 1 set to 0% successfully")
-        
-        # Step 5: Verify the settings
-        result["steps"].append("Verifying channel settings")
-        channel_0_duty = pca.channels[0].duty_cycle
-        channel_1_duty = pca.channels[1].duty_cycle
-        
-        result["steps"].append(f"Channel 0 duty cycle: {channel_0_duty}")
-        result["steps"].append(f"Channel 1 duty cycle: {channel_1_duty}")
-        
-        # Step 6: Cleanup
+
+        # Step 6: Read back final values
+        ch0_final = pca.channels[0].duty_cycle
+        ch1_final = pca.channels[1].duty_cycle
+        result["steps"].append(f"Final channel values: ch0={ch0_final}, ch1={ch1_final}")
+
+        # Step 7: Cleanup
         result["steps"].append("Cleaning up I2C bus")
         i2c_bus.deinit()
         result["steps"].append("I2C bus deinitialized successfully")
-        
+
         result["success"] = True
         result["final_state"] = {
-            "channel_0_duty_cycle": channel_0_duty,
-            "channel_1_duty_cycle": channel_1_duty,
-            "channel_0_percentage": round((channel_0_duty / 65535) * 100, 2),
-            "channel_1_percentage": round((channel_1_duty / 65535) * 100, 2)
+            "channel_0_duty_cycle": ch0_final,
+            "channel_1_duty_cycle": ch1_final,
+            "channel_0_percentage": round((ch0_final / 65535) * 100, 2),
+            "channel_1_percentage": round((ch1_final / 65535) * 100, 2)
         }
-        
-        logger.info(f"PCA9685 debug test successful for address {hex(address)}")
-        
+
+        logger.info(f"PCA9685 debug test (fade) successful for address {hex(address)}")
+
     except Exception as e:
         result["success"] = False
         result["error"] = str(e)
         result["traceback"] = traceback.format_exc()
         result["exception_type"] = type(e).__name__
-        
-        logger.error(f"PCA9685 debug test failed for address {hex(address)}: {e}")
+
+        logger.error(f"PCA9685 debug test (fade) failed for address {hex(address)}: {e}")
         logger.error(f"Full traceback: {traceback.format_exc()}")
-    
+
     return result
 
 # --- Main Entry Point ---

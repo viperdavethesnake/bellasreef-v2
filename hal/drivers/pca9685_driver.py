@@ -98,6 +98,7 @@ class PCA9685ControllerManager:
                 logger.info(f"PCA9685ControllerManager: Creating new controller at 0x{address:02X}")
                 i2c_bus = self._get_i2c_bus()
                 controller = PCA9685(i2c_bus, address=address)
+                controller.frequency = 1000  # Always set frequency immediately after instantiation
                 self._controllers[address] = controller
                 self._channel_cache[address] = {}
                 
