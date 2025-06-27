@@ -2,38 +2,23 @@ from enum import Enum
 
 class DeviceRole(str, Enum):
     """
-    Standardized APPLICATION roles for devices across the Bella's Reef system.
-    This defines WHAT A DEVICE DOES in the context of the aquarium.
+    Standardized high-level categories for devices across the Bella's Reef system.
+    This defines WHAT a device is, not its specific purpose.
     """
-    # Lighting Roles
-    LIGHT_DAYLIGHT = "light_daylight"
-    LIGHT_ROYAL_BLUE = "light_royal_blue"
-    LIGHT_ACTINIC = "light_actinic"
-    LIGHT_MOONLIGHT = "light_moonlight"
-    LIGHT_REFUGIUM = "light_refugium"
-
-    # Water Movement Roles
-    PUMP_RETURN = "pump_return"
-    PUMP_WAVEMAKER = "pump_wavemaker"
-    PUMP_CLOSED_LOOP = "pump_closed_loop"
-
-    # Equipment Roles
-    SKIMMER = "skimmer"
+    # General Categories
+    LIGHT = "light"
+    PUMP_CIRCULATION = "pump_circulation"
+    PUMP_DOSING = "pump_dosing"
     HEATER = "heater"
     CHILLER = "chiller"
-    FAN_CANOPY = "fan_canopy"
-    FAN_SUMP = "fan_sump"
+    FAN = "fan"
+    FEEDER = "feeder"
+    SKIMMER = "skimmer"
     UV_STERILIZER = "uv_sterilizer"
     OZONE_GENERATOR = "ozone_generator"
+    ATO = "ato"
 
-    # Dosing & Feeding Roles
-    PUMP_DOSING_ALK = "pump_dosing_alk"
-    PUMP_DOSING_CA = "pump_dosing_ca"
-    PUMP_DOSING_MG = "pump_dosing_mg"
-    FEEDER_FISH = "feeder_fish"
-    FEEDER_CORAL = "feeder_coral"
-
-    # Generic & System Roles
-    CONTROLLER = "controller"  # A generic role for parent devices
+    # System & Generic Roles
+    CONTROLLER = "controller"
     GENERAL = "general"
     OTHER = "other" 
