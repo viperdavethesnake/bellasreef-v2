@@ -1,3 +1,4 @@
+import json
 from sqlalchemy import (
     Boolean, Column, Integer, String, DateTime, Index, ForeignKey,
     JSON, Float, Text, ARRAY, LargeBinary, UniqueConstraint
@@ -5,12 +6,32 @@ from sqlalchemy import (
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
+from sqlalchemy.types import TypeDecorator, TEXT
 from uuid import uuid4
 from datetime import datetime
 
 from shared.db.database import Base
 from shared.schemas.enums import DeviceRole
 from .db_encryption import EncryptedJSON
+
+
+class JsonEncodedList(TypeDecorator):
+    """Enables storing a Python list in a single text-based database column.
+    
+    It will be stored as a JSON-encoded string.
+    """
+    impl = TEXT
+    cache_ok = True
+    
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        return json.dumps(value)
+    
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        return json.loads(value)
 
 
 class User(Base):
@@ -128,7 +149,7 @@ class Schedule(Base):
     __tablename__ = "schedules"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
-    device_ids = Column(ARRAY(Integer), nullable=True)
+    device_ids = Column(JsonEncodedList(), nullable=True)
     schedule_type = Column(String, nullable=False, index=True)
     cron_expression = Column(String, nullable=True)
     interval_seconds = Column(Integer, nullable=True)

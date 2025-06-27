@@ -1,6 +1,6 @@
 from datetime import datetime
 from typing import Optional, List, Dict, Any, Union
-from pydantic import BaseModel, Field, ConfigDict, validator
+from pydantic import BaseModel, Field, ConfigDict, field_validator
 from enum import Enum
 
 class ScheduleTypeEnum(str, Enum):
@@ -34,6 +34,8 @@ class RunStatusEnum(str, Enum):
     SKIPPED = "skipped"
 
 class ScheduleBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     name: str = Field(..., min_length=1, max_length=100, description="Schedule name")
     device_ids: Optional[List[int]] = Field(None, description="Array of device IDs for group actions")
     schedule_type: ScheduleTypeEnum = Field(..., description="Type of schedule")
@@ -46,25 +48,29 @@ class ScheduleBase(BaseModel):
     action_type: ActionTypeEnum = Field(..., description="Type of action to perform")
     action_params: Optional[Dict[str, Any]] = Field(None, description="Action parameters")
 
-    @validator('cron_expression')
-    def validate_cron_expression(cls, v, values):
-        if values.get('schedule_type') == ScheduleTypeEnum.CRON and not v:
+    @field_validator('cron_expression')
+    @classmethod
+    def validate_cron_expression(cls, v, info):
+        if info.data.get('schedule_type') == ScheduleTypeEnum.CRON and not v:
             raise ValueError("Cron expression is required for cron schedules")
         return v
 
-    @validator('interval_seconds')
-    def validate_interval_seconds(cls, v, values):
-        if values.get('schedule_type') == ScheduleTypeEnum.INTERVAL and not v:
+    @field_validator('interval_seconds')
+    @classmethod
+    def validate_interval_seconds(cls, v, info):
+        if info.data.get('schedule_type') == ScheduleTypeEnum.INTERVAL and not v:
             raise ValueError("Interval seconds is required for interval schedules")
         return v
 
-    @validator('start_time')
-    def validate_start_time(cls, v, values):
-        if values.get('schedule_type') == ScheduleTypeEnum.ONE_OFF and not v:
+    @field_validator('start_time')
+    @classmethod
+    def validate_start_time(cls, v, info):
+        if info.data.get('schedule_type') == ScheduleTypeEnum.ONE_OFF and not v:
             raise ValueError("Start time is required for one-off schedules")
         return v
 
-    @validator('timezone')
+    @field_validator('timezone')
+    @classmethod
     def validate_timezone(cls, v):
         # Basic timezone validation - could be enhanced with pytz
         valid_timezones = [
@@ -82,6 +88,8 @@ class ScheduleCreate(ScheduleBase):
     pass
 
 class ScheduleUpdate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     device_ids: Optional[List[int]] = None
     schedule_type: Optional[ScheduleTypeEnum] = None
@@ -95,8 +103,6 @@ class ScheduleUpdate(BaseModel):
     action_params: Optional[Dict[str, Any]] = None
 
 class Schedule(ScheduleBase):
-    model_config = ConfigDict(from_attributes=True)
-    
     id: int
     next_run: Optional[datetime] = None
     last_run: Optional[datetime] = None
@@ -106,6 +112,8 @@ class Schedule(ScheduleBase):
 
 class ScheduleExecution(BaseModel):
     """Schema for tracking schedule execution history"""
+    model_config = ConfigDict(from_attributes=True)
+    
     schedule_id: int = Field(..., description="ID of the schedule that was executed")
     executed_at: datetime = Field(..., description="When the schedule was executed")
     status: RunStatusEnum = Field(..., description="Execution status")
@@ -113,14 +121,13 @@ class ScheduleExecution(BaseModel):
     result: Optional[Dict[str, Any]] = Field(None, description="Execution result data")
     error_message: Optional[str] = Field(None, description="Error message if execution failed")
 
-    class Config:
-        from_attributes = True
-
 class ScheduleWithActions(Schedule):
     """Schedule with device actions included"""
     device_actions: List['DeviceAction'] = Field(default_factory=list)
 
 class DeviceActionBase(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     device_id: int = Field(..., description="Device ID to perform action on")
     action_type: ActionTypeEnum = Field(..., description="Type of action to perform")
     parameters: Optional[Dict[str, Any]] = Field(None, description="Action parameters")
@@ -130,6 +137,8 @@ class DeviceActionCreate(DeviceActionBase):
     schedule_id: Optional[int] = Field(None, description="Associated schedule ID (nullable for manual actions)")
 
 class DeviceActionUpdate(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    
     action_type: Optional[ActionTypeEnum] = None
     parameters: Optional[Dict[str, Any]] = None
     status: Optional[ActionStatusEnum] = None
@@ -139,8 +148,6 @@ class DeviceActionUpdate(BaseModel):
     error_message: Optional[str] = None
 
 class DeviceAction(DeviceActionBase):
-    model_config = ConfigDict(from_attributes=True)
-    
     id: int
     schedule_id: Optional[int] = None
     status: ActionStatusEnum = Field(default=ActionStatusEnum.PENDING)
@@ -160,6 +167,8 @@ class DeviceActionWithSchedule(DeviceAction):
 
 class ScheduleStats(BaseModel):
     """Schedule statistics"""
+    model_config = ConfigDict(from_attributes=True)
+    
     total_schedules: int
     enabled_schedules: int
     schedules_by_type: Dict[str, int] = Field(..., description="Schedule count by type")
@@ -167,6 +176,8 @@ class ScheduleStats(BaseModel):
 
 class DeviceActionStats(BaseModel):
     """Device action statistics"""
+    model_config = ConfigDict(from_attributes=True)
+    
     total_actions: int
     pending_actions: int
     successful_actions: int
@@ -175,6 +186,8 @@ class DeviceActionStats(BaseModel):
 
 class SchedulerHealth(BaseModel):
     """Scheduler worker health status"""
+    model_config = ConfigDict(from_attributes=True)
+    
     status: str = Field(..., description="Worker status: 'healthy', 'degraded', 'unhealthy'")
     uptime_seconds: float = Field(..., description="Worker uptime in seconds")
     last_check: datetime = Field(..., description="Last health check time")
