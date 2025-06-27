@@ -41,31 +41,10 @@ control/bellasreef-control-venv/
 .env
 *.env
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# Logs
-*.log
-logs/
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# Temporary files
-*.tmp
-*.temp 
+# Security and credentials
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*.p8
