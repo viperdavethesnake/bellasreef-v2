@@ -16,6 +16,8 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     phone_number: Optional[str] = None
     password: Optional[str] = Field(None, min_length=8)
+    is_active: Optional[bool] = None
+    is_admin: Optional[bool] = None
 
 class UserInDB(UserBase):
     model_config = ConfigDict(from_attributes=True)

@@ -96,5 +96,4 @@ class AlertHistory(BaseModel):
     resolution_value: Optional[float] = Field(None, description="Value when alert was resolved")
     alert_metadata: Optional[dict] = Field(None, description="Additional context")
 
-    class Config:
-        from_attributes = True 
+    model_config = ConfigDict(from_attributes=True) 

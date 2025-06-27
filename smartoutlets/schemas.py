@@ -9,8 +9,9 @@ from typing import Optional, Dict, Any, List
 from uuid import UUID
 from datetime import datetime
 from enum import Enum
+from __future__ import annotations
 
-from pydantic import BaseModel, Field, constr, EmailStr, SecretStr, field_validator
+from pydantic import BaseModel, Field, constr, EmailStr, SecretStr, field_validator, ConfigDict
 import pytz
 from .driver_types import SmartOutletDriverType
 from shared.schemas import DeviceRole
@@ -85,8 +86,7 @@ class SmartOutletRead(BaseModel):
     created_at: datetime = Field(..., description="Creation timestamp")
     updated_at: datetime = Field(..., description="Last update timestamp")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class SmartOutletUpdate(BaseModel):
@@ -275,8 +275,7 @@ class VeSyncAccountRead(VeSyncAccountBase):
     last_synced_at: Optional[datetime] = None
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # VeSync Device Management Schemas

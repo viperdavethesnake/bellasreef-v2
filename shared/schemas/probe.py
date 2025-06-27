@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from datetime import datetime
 from typing import Optional, Dict, Any
 
@@ -22,8 +22,7 @@ class Probe(ProbeBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 # ProbeHistory Schemas
 class ProbeHistoryBase(BaseModel):
@@ -38,5 +37,4 @@ class ProbeHistory(ProbeHistoryBase):
     probe_hardware_id: str
     timestamp: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

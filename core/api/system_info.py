@@ -3,8 +3,10 @@ import psutil
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
+from core.api.deps import get_current_user
+from shared.schemas.user import User
 
 router = APIRouter(tags=["system"])
 
@@ -113,7 +115,7 @@ def get_hardware_model() -> str:
 
 
 @router.get("/host-info", response_model=HostInfo)
-async def get_host_info() -> HostInfo:
+async def get_host_info(current_user: User = Depends(get_current_user)) -> HostInfo:
     """
     Get detailed host system information.
     
@@ -136,7 +138,7 @@ async def get_host_info() -> HostInfo:
 
 
 @router.get("/system-usage", response_model=SystemUsage)
-async def get_system_usage() -> SystemUsage:
+async def get_system_usage(current_user: User = Depends(get_current_user)) -> SystemUsage:
     """
     Get system resource utilization metrics.
     

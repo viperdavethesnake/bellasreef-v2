@@ -9,7 +9,7 @@ from core.main import app
 # Import all models to ensure they are registered with the Base
 from shared.db.models import Base, User, Device, Schedule, Alert, History  # Add all models
 from shared.db.database import get_db
-from shared.core.security import create_access_token
+from shared.core.security import create_access_token, get_password_hash
 from datetime import timedelta
 
 # --- Test Database Setup ---
@@ -48,16 +48,27 @@ async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
     del app.dependency_overrides[get_db]
 
 @pytest_asyncio.fixture(scope="function")
-async def test_user(db_session: AsyncSession) -> User:
+async def test_user(db_session: AsyncSession) -> dict:
     """Creates a fresh admin user in the clean database for each test."""
-    user = User(username="testadmin", email="admin@example.com", hashed_password="fakepassword", is_admin=True)
+    # Define plaintext password for testing
+    plain_password = "supersecret"
+    
+    # Create user with properly hashed password
+    user = User(
+        username="testadmin", 
+        email="admin@example.com", 
+        hashed_password=get_password_hash(plain_password), 
+        is_admin=True
+    )
     db_session.add(user)
     await db_session.commit()
     await db_session.refresh(user)
-    return user
+    
+    # Yield both user object and plaintext password
+    yield {"user": user, "password": plain_password}
 
 @pytest_asyncio.fixture
-def auth_headers(test_user: User) -> dict[str, str]:
+def auth_headers(test_user: dict) -> dict[str, str]:
     """Generates valid authentication headers for the test user."""
-    token = create_access_token(data={"sub": test_user.username})
+    token = create_access_token(data={"sub": test_user["user"].username})
     return {"Authorization": f"Bearer {token}"} 
