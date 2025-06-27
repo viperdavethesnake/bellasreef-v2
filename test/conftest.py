@@ -1,16 +1,18 @@
 import pytest_asyncio
-from typing import AsyncGenerator
+import asyncio
+from typing import AsyncGenerator, Dict
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-
-# IMPORTANT: We are testing the Core service first.
-from core.main import app
-
-# Import all models to ensure they are registered with the Base
-from shared.db.models import Base, User, Device, Schedule, Alert, History  # Add all models
+from sqlalchemy.pool import StaticPool
+from temp.main import app
 from shared.db.database import get_db
+from shared.db.models import Base, User, Device, Schedule, Alert, History  # Add all models
 from shared.core.security import create_access_token, get_password_hash
+from shared.crud.user import create_user
+from shared.schemas.user import UserCreate
 from datetime import timedelta
+from temp.deps import get_current_user_or_service
+from fastapi import Request
 
 # --- Test Database Setup ---
 TEST_SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///:memory:"
@@ -36,16 +38,22 @@ async def db_session() -> AsyncGenerator[AsyncSession, None]:
         await conn.run_sync(Base.metadata.drop_all)
 
 @pytest_asyncio.fixture(scope="function")
-async def client(db_session: AsyncSession) -> AsyncGenerator[AsyncClient, None]:
-    """Provides a fully configured, async-native test client for our FastAPI app."""
+async def client(db_session: AsyncSession, test_user: dict) -> AsyncGenerator[AsyncClient, None]:
+    """Provides an async test client with intelligent dependency overrides."""
     def override_get_db():
         yield db_session
-
+    async def override_get_user_or_service(request: Request):
+        if "authorization" in request.headers:
+            yield test_user["user"]
+        else:
+            yield None
     app.dependency_overrides[get_db] = override_get_db
+    app.dependency_overrides[get_current_user_or_service] = override_get_user_or_service
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
     del app.dependency_overrides[get_db]
+    del app.dependency_overrides[get_current_user_or_service]
 
 @pytest_asyncio.fixture(scope="function")
 async def test_user(db_session: AsyncSession) -> dict:

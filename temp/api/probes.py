@@ -13,8 +13,10 @@ from ..services.temperature import temperature_service, OneWireCheckResult
 router = APIRouter(prefix="/probe", tags=["Temperature Probes"])
 
 @router.get("/discover", response_model=List[str], summary="Discover 1-Wire Temperature Sensors")
-def discover_probes():
+def discover_probes(user=Depends(get_current_user_or_service)):
     """Discover all attached 1-wire temperature sensors by their hardware IDs."""
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     return temperature_service.discover_sensors()
 
 @router.get("/check", response_model=OneWireCheckResult, summary="Check 1-Wire Subsystem Status")
