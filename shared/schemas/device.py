@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Dict, Any, Union
+from typing import Optional, Dict, Any, Union, List
 from pydantic import BaseModel, Field, ConfigDict
 from shared.schemas.enums import DeviceRole
 
