@@ -32,9 +32,9 @@ psutil ; sys_platform == 'linux' # TODO: Pin version after testing
 
 # --- Smart Outlet Drivers (Cross-Platform) ---
 # TODO: Pin versions after testing each smart outlet type
-python-kasa
-aioshelly>=1.0.0
-pyvesync
+python-kasa==0.7.1
+aioshelly==7.1.1
+pyvesync==3.2.1
 
 # --- General Utilities ---
 aiohttp
