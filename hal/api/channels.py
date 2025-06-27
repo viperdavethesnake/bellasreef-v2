@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, 
 from sqlalchemy.ext.asyncio import AsyncSession
 import asyncio
 from typing import Optional, List
+import time
 
 from shared.db.database import get_db
 from shared.crud import device as device_crud
@@ -12,6 +13,7 @@ from shared.utils.logger import get_logger
 from ..deps import get_current_user_or_service
 
 from ..drivers import pca9685_driver
+from ..drivers.pca9685_driver import perform_synchronous_hardware_write
 from .schemas import PWMControlRequest, PWMControlRequestWithDevice, PWMChannelUpdateRequest
 
 logger = get_logger(__name__)
@@ -20,6 +22,9 @@ router = APIRouter(prefix="/channels", tags=["Channels"])
 
 # Global dictionary to track active ramp tasks by (controller_address, channel_number)
 _active_ramp_tasks = {}
+
+# Global dictionary to track ramp schedules for main thread execution
+_ramp_schedules = {}
 
 async def _perform_ramp(
     device_id: int, 
@@ -34,6 +39,9 @@ async def _perform_ramp(
     """
     Background worker function to perform a gradual ramp from start_intensity to end_intensity
     over the specified duration in milliseconds.
+    
+    NOTE: This function no longer performs hardware access directly. Instead, it schedules
+    hardware writes to be executed from the main thread to ensure thread safety.
     """
     # Create a unique key for this controller/channel combination
     ramp_key = (controller_address, channel_number)
@@ -58,7 +66,10 @@ async def _perform_ramp(
         db.add(channel_device)
         await db.commit()
         
-        # Perform the ramp
+        # Create a ramp schedule for main thread execution
+        ramp_schedule = []
+        
+        # Calculate all ramp steps
         for step in range(total_steps + 1):  # +1 to include the final step
             # Calculate current intensity for this step based on curve type
             if curve == 'exponential':
@@ -78,64 +89,93 @@ async def _perform_ramp(
             # Convert intensity to duty cycle
             duty_cycle = int((current_intensity / 100) * 65535)
             
-            try:
-                # Update hardware
-                pca9685_driver.set_channel_duty_cycle(
-                    address=controller_address,
-                    channel=channel_number,
-                    duty_cycle=duty_cycle
-                )
-                
-                # Update database only at start, end, and every 2 seconds for long ramps
-                current_time = step * step_interval_ms
-                should_update_db = (
+            # Schedule this step for main thread execution
+            step_time = step * step_interval_ms
+            ramp_schedule.append({
+                'step': step,
+                'total_steps': total_steps,
+                'step_time': step_time,
+                'current_intensity': current_intensity,
+                'duty_cycle': duty_cycle,
+                'should_update_db': (
                     step == 0 or  # Start of ramp
                     step == total_steps or  # End of ramp
-                    (is_long_ramp and current_time - last_db_update_time >= intermediate_update_interval)  # Intermediate updates for long ramps
+                    (is_long_ramp and step_time - last_db_update_time >= intermediate_update_interval)  # Intermediate updates for long ramps
                 )
-                
-                if should_update_db:
-                    channel_device.current_value = current_intensity
-                    db.add(channel_device)
-                    await db.commit()
-                    last_db_update_time = current_time
-                
-            except Exception as e:
-                # Log error with full context
-                logger.error(
-                    f"Hardware error during ramp step {step}/{total_steps} for device {device_id} "
-                    f"(controller={controller_address}, channel={channel_number}, "
-                    f"intended_intensity={current_intensity}%, duty_cycle={duty_cycle}): {e}",
-                    exc_info=True
-                )
-                
-                # Attempt one retry for this step
-                try:
-                    logger.info(f"Retrying ramp step {step} for device {device_id} (controller={controller_address}, channel={channel_number})")
-                    pca9685_driver.set_channel_duty_cycle(
-                        address=controller_address,
-                        channel=channel_number,
-                        duty_cycle=duty_cycle
-                    )
-                    logger.info(f"Retry successful for ramp step {step} for device {device_id}")
-                except Exception as retry_e:
-                    logger.error(
-                        f"Retry failed for ramp step {step} for device {device_id} "
-                        f"(controller={controller_address}, channel={channel_number}, "
-                        f"intended_intensity={current_intensity}%, duty_cycle={duty_cycle}): {retry_e}",
-                        exc_info=True
-                    )
-                    # Abort the ramp after retry failure
-                    break
+            })
             
-            # Sleep for the step interval (except on the last step)
-            if step < total_steps:
-                await asyncio.sleep(step_interval_ms / 1000.0)  # Convert ms to seconds
+            if ramp_schedule[-1]['should_update_db']:
+                last_db_update_time = step_time
+        
+        # Store the ramp schedule for main thread execution
+        _ramp_schedules[ramp_key] = {
+            'device_id': device_id,
+            'ramp_schedule': ramp_schedule,
+            'start_time': time.time() * 1000,  # Convert to milliseconds
+            'duration_ms': duration_ms,
+            'active': True
+        }
+        
+        # Sleep for the total duration to simulate the ramp
+        await asyncio.sleep(duration_ms / 1000.0)
         
         # Clean up the ramp task from the active tasks dictionary
         if ramp_key in _active_ramp_tasks:
             del _active_ramp_tasks[ramp_key]
+        if ramp_key in _ramp_schedules:
+            del _ramp_schedules[ramp_key]
         break  # Only need one session context
+
+def execute_pending_ramp_steps():
+    """
+    Execute any pending ramp steps from the main thread.
+    This function should be called periodically from the main thread to process ramp schedules.
+    """
+    current_time = time.time() * 1000  # Convert to milliseconds
+    
+    for ramp_key, ramp_data in list(_ramp_schedules.items()):
+        if not ramp_data['active']:
+            continue
+            
+        controller_address, channel_number = ramp_key
+        ramp_schedule = ramp_data['ramp_schedule']
+        start_time = ramp_data['start_time']
+        
+        # Find steps that should be executed now
+        steps_to_execute = []
+        for step_data in ramp_schedule:
+            step_time = start_time + step_data['step_time']
+            if step_time <= current_time:
+                steps_to_execute.append(step_data)
+        
+        # Execute the steps
+        for step_data in steps_to_execute:
+            try:
+                # Perform hardware write from main thread
+                success = perform_synchronous_hardware_write(
+                    address=controller_address,
+                    channel=channel_number,
+                    duty_cycle=step_data['duty_cycle']
+                )
+                
+                if not success:
+                    logger.error(f"Failed to execute ramp step {step_data['step']} for {ramp_key}")
+                    # Mark ramp as failed
+                    ramp_data['active'] = False
+                    break
+                    
+            except Exception as e:
+                logger.error(f"Error executing ramp step {step_data['step']} for {ramp_key}: {e}")
+                ramp_data['active'] = False
+                break
+        
+        # Remove executed steps from schedule
+        for step_data in steps_to_execute:
+            ramp_schedule.remove(step_data)
+        
+        # If all steps are done, mark ramp as complete
+        if not ramp_schedule:
+            ramp_data['active'] = False
 
 @router.post("/{channel_id}/control", status_code=status.HTTP_200_OK)
 async def set_pwm_channel_duty_cycle(

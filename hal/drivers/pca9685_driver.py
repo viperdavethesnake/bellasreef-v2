@@ -440,4 +440,64 @@ def get_manager_status() -> Dict[str, Any]:
         return {
             "error": f"Failed to get manager status: {str(e)}",
             "manager_available": False
-        } 
+        }
+
+def perform_synchronous_hardware_write(address: int, channel: int, duty_cycle: int) -> bool:
+    """
+    Perform a synchronous hardware write from the main thread.
+    This function ensures all hardware access happens in the main thread context.
+    
+    Args:
+        address: The I2C address of the PCA9685 board.
+        channel: The channel number to control (0-15).
+        duty_cycle: The 16-bit duty cycle value (0-65535).
+        
+    Returns:
+        True if successful, False otherwise.
+    """
+    try:
+        # Validate inputs
+        if not 0 <= channel <= 15:
+            logger.error(f"Invalid channel {channel} for address {hex(address)}")
+            return False
+        if not 0 <= duty_cycle <= 65535:
+            logger.error(f"Invalid duty cycle {duty_cycle} for address {hex(address)}, channel {channel}")
+            return False
+        
+        # Get the manager and perform the write
+        manager = get_manager()
+        
+        # Check cache to see if value has changed
+        if address in manager._channel_cache and channel in manager._channel_cache[address]:
+            cached_value = manager._channel_cache[address][channel]
+            if cached_value == duty_cycle:
+                logger.debug(f"SYNC_HARDWARE_SKIP: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle} (no change)")
+                return True  # Value hasn't changed, consider it successful
+        
+        logger.info(f"SYNC_HARDWARE_WRITE: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
+        
+        # Perform the hardware write
+        pca = manager.get_controller(address)
+        
+        # WARNING level logging and side effect for hardware write confirmation
+        logger.warning(f"SYNC_HARDWARE_EXECUTING: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, About to write to PCA9685 hardware")
+        try:
+            os.system("touch /tmp/hal-api-write")
+            logger.warning(f"SYNC_HARDWARE_SIDE_EFFECT: Created /tmp/hal-api-write to confirm sync hardware write execution")
+        except Exception as side_effect_error:
+            logger.warning(f"SYNC_HARDWARE_SIDE_EFFECT_FAILED: Could not create side effect file: {side_effect_error}")
+        
+        # The actual hardware write
+        pca.channels[channel].duty_cycle = duty_cycle
+        
+        # Update cache after successful write
+        if address not in manager._channel_cache:
+            manager._channel_cache[address] = {}
+        manager._channel_cache[address][channel] = duty_cycle
+        
+        logger.info(f"SYNC_HARDWARE_SUCCESS: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"SYNC_HARDWARE_ERROR: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, Error={type(e).__name__}: {e}")
+        return False 
