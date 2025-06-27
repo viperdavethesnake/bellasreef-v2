@@ -23,11 +23,14 @@ class PWMControlRequest(BaseModel):
     intensity: int = Field(..., ge=0, le=100, description="The desired intensity as a percentage (0-100).")
     duration_ms: Optional[int] = Field(None, ge=0, description="The duration of the ramp in milliseconds. If not provided, the change is immediate.")
     curve: Optional[str] = Field('linear', description="The ramp curve type: 'linear' or 'exponential' for more natural lighting effects.")
+    step_interval_ms: Optional[int] = Field(50, ge=10, le=1000, description="The interval between ramp steps in milliseconds (10-1000ms). Defaults to 50ms.")
 
 class PWMControlRequestWithDevice(BaseModel):
     device_id: int = Field(..., description="The database ID of the PWM channel device to control.")
     intensity: int = Field(..., ge=0, le=100, description="The desired intensity as a percentage (0-100).")
     duration_ms: Optional[int] = Field(None, ge=0, description="The duration of the ramp in milliseconds. If not provided, the change is immediate.")
+    curve: Optional[str] = Field('linear', description="The ramp curve type: 'linear' or 'exponential' for more natural lighting effects.")
+    step_interval_ms: Optional[int] = Field(50, ge=10, le=1000, description="The interval between ramp steps in milliseconds (10-1000ms). Defaults to 50ms.")
 
 class PWMFrequencyUpdateRequest(BaseModel):
     frequency: int = Field(..., ge=24, le=1526, description="The PWM frequency to set for the board.")

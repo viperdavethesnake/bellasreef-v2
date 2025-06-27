@@ -1,6 +1,9 @@
 import board
 import busio
 import os
+import threading
+import time
+from typing import Optional, Dict, Any
 from adafruit_pca9685 import PCA9685
 from shared.utils.logger import get_logger
 
@@ -15,56 +18,158 @@ except Exception as e:
 
 class PCA9685ControllerManager:
     """
-    Singleton manager for PCA9685 controllers.
+    Thread-safe singleton manager for PCA9685 controllers.
     Manages a single shared I2C bus instance and maintains PCA9685 objects indexed by address.
+    Implements robust connection pooling and error recovery.
     """
-    _instance = None
-    _i2c_bus = None
-    _controllers = {}
-    _channel_cache = {}  # {address: {channel: last_duty_cycle}}
-
+    _instance: Optional['PCA9685ControllerManager'] = None
+    _lock = threading.RLock()  # Reentrant lock for thread safety
+    _initialized = False
+    
     def __new__(cls):
         if cls._instance is None:
-            cls._instance = super(PCA9685ControllerManager, cls).__new__(cls)
+            with cls._lock:
+                if cls._instance is None:  # Double-checked locking
+                    cls._instance = super(PCA9685ControllerManager, cls).__new__(cls)
         return cls._instance
 
     def __init__(self):
-        if not hasattr(self, '_initialized'):
-            self._initialized = True
+        if not self._initialized:
+            with self._lock:
+                if not self._initialized:  # Double-checked locking
+                    self._i2c_bus: Optional[busio.I2C] = None
+                    self._controllers: Dict[int, PCA9685] = {}
+                    self._channel_cache: Dict[int, Dict[int, int]] = {}  # {address: {channel: last_duty_cycle}}
+                    self._connection_errors: Dict[int, float] = {}  # {address: last_error_timestamp}
+                    self._max_retry_interval = 30.0  # seconds
+                    self._initialized = True
+                    logger.info("PCA9685ControllerManager: Initialized singleton instance")
 
-    @classmethod
-    def get_controller(cls, address: int) -> PCA9685:
+    def _get_i2c_bus(self) -> busio.I2C:
+        """Get or create the I2C bus with error handling."""
+        if self._i2c_bus is None:
+            try:
+                logger.info("PCA9685ControllerManager: Creating new I2C bus")
+                self._i2c_bus = busio.I2C(board.SCL, board.SDA)
+                logger.info("PCA9685ControllerManager: I2C bus created successfully")
+            except Exception as e:
+                logger.error(f"PCA9685ControllerManager: Failed to create I2C bus: {e}")
+                raise
+        return self._i2c_bus
+
+    def _should_retry_connection(self, address: int) -> bool:
+        """Check if enough time has passed to retry a failed connection."""
+        if address not in self._connection_errors:
+            return True
+        time_since_error = time.time() - self._connection_errors[address]
+        return time_since_error > self._max_retry_interval
+
+    def _mark_connection_error(self, address: int):
+        """Mark a connection error for an address."""
+        self._connection_errors[address] = time.time()
+
+    def get_controller(self, address: int) -> PCA9685:
         """
-        Get or create a PCA9685 controller for the given address.
+        Get or create a PCA9685 controller for the given address with error recovery.
         
         Args:
             address: The I2C address of the PCA9685 board.
             
         Returns:
             PCA9685 object for the given address.
+            
+        Raises:
+            ValueError: If the device is not found and retry is not allowed.
+            IOError: On persistent communication errors.
         """
-        if cls._i2c_bus is None:
-            logger.info(f"HARDWARE_INIT: Creating new I2C bus for PCA9685 controllers")
-            cls._i2c_bus = busio.I2C(board.SCL, board.SDA)
-        
-        if address not in cls._controllers:
-            logger.info(f"HARDWARE_INIT: Creating new PCA9685 controller at I2C address 0x{address:02X}")
-            cls._controllers[address] = PCA9685(cls._i2c_bus, address=address)
-            cls._channel_cache[address] = {}  # Initialize cache for this controller
-            logger.info(f"HARDWARE_INIT: Successfully created PCA9685 controller at 0x{address:02X}")
-        else:
-            logger.debug(f"HARDWARE_INIT: Reusing existing PCA9685 controller at 0x{address:02X}")
-        
-        return cls._controllers[address]
+        with self._lock:
+            # Check if we should retry a previously failed connection
+            if address in self._connection_errors and not self._should_retry_connection(address):
+                time_until_retry = self._max_retry_interval - (time.time() - self._connection_errors[address])
+                raise IOError(f"Connection to address 0x{address:02X} failed recently. Retry in {time_until_retry:.1f} seconds")
+            
+            # Return existing controller if available
+            if address in self._controllers:
+                logger.debug(f"PCA9685ControllerManager: Reusing existing controller at 0x{address:02X}")
+                return self._controllers[address]
+            
+            # Create new controller
+            try:
+                logger.info(f"PCA9685ControllerManager: Creating new controller at 0x{address:02X}")
+                i2c_bus = self._get_i2c_bus()
+                controller = PCA9685(i2c_bus, address=address)
+                self._controllers[address] = controller
+                self._channel_cache[address] = {}
+                
+                # Clear any previous connection errors for this address
+                if address in self._connection_errors:
+                    del self._connection_errors[address]
+                
+                logger.info(f"PCA9685ControllerManager: Successfully created controller at 0x{address:02X}")
+                return controller
+                
+            except Exception as e:
+                self._mark_connection_error(address)
+                logger.error(f"PCA9685ControllerManager: Failed to create controller at 0x{address:02X}: {e}")
+                raise
 
-    @classmethod
-    def cleanup(cls):
-        """Clean up I2C bus and controllers."""
-        if cls._i2c_bus:
-            cls._i2c_bus.deinit()
-            cls._i2c_bus = None
-            cls._controllers.clear()
-            cls._channel_cache.clear()
+    def remove_controller(self, address: int):
+        """Remove a controller from the cache (useful for cleanup or reconnection)."""
+        with self._lock:
+            if address in self._controllers:
+                logger.info(f"PCA9685ControllerManager: Removing controller at 0x{address:02X}")
+                del self._controllers[address]
+            if address in self._channel_cache:
+                del self._channel_cache[address]
+            if address in self._connection_errors:
+                del self._connection_errors[address]
+
+    def cleanup(self):
+        """Clean up I2C bus and all controllers."""
+        with self._lock:
+            logger.info("PCA9685ControllerManager: Starting cleanup")
+            if self._i2c_bus:
+                try:
+                    self._i2c_bus.deinit()
+                    logger.info("PCA9685ControllerManager: I2C bus deinitialized")
+                except Exception as e:
+                    logger.error(f"PCA9685ControllerManager: Error deinitializing I2C bus: {e}")
+                finally:
+                    self._i2c_bus = None
+            
+            self._controllers.clear()
+            self._channel_cache.clear()
+            self._connection_errors.clear()
+            logger.info("PCA9685ControllerManager: Cleanup completed")
+
+    def get_status(self) -> Dict[str, Any]:
+        """Get the current status of the manager for debugging."""
+        with self._lock:
+            return {
+                "i2c_bus_active": self._i2c_bus is not None,
+                "controllers_count": len(self._controllers),
+                "cached_channels_count": sum(len(cache) for cache in self._channel_cache.values()),
+                "connection_errors_count": len(self._connection_errors),
+                "controller_addresses": list(self._controllers.keys()),
+                "error_addresses": list(self._connection_errors.keys())
+            }
+
+# Global singleton instance
+_manager_instance: Optional[PCA9685ControllerManager] = None
+
+def get_manager() -> PCA9685ControllerManager:
+    """Get the global singleton manager instance."""
+    global _manager_instance
+    if _manager_instance is None:
+        _manager_instance = PCA9685ControllerManager()
+    return _manager_instance
+
+def cleanup_manager():
+    """Clean up the global manager instance."""
+    global _manager_instance
+    if _manager_instance is not None:
+        _manager_instance.cleanup()
+        _manager_instance = None
 
 def check_board(address: int) -> bool:
     """
@@ -78,7 +183,7 @@ def check_board(address: int) -> bool:
     """
     for attempt in range(2):  # Try once, retry once
         try:
-            manager = PCA9685ControllerManager()
+            manager = get_manager()
             manager.get_controller(address)
             return True
         except ValueError:
@@ -113,7 +218,7 @@ def set_channel_duty_cycle(address: int, channel: int, duty_cycle: int):
         raise ValueError(f"Duty cycle must be between 0 and 65535 inclusive, got {duty_cycle}")
     
     # Check cache to see if value has changed
-    manager = PCA9685ControllerManager()
+    manager = get_manager()
     if address in manager._channel_cache and channel in manager._channel_cache[address]:
         cached_value = manager._channel_cache[address][channel]
         if cached_value == duty_cycle:
@@ -173,7 +278,7 @@ def set_frequency(address: int, frequency: int):
     
     for attempt in range(2):  # Try once, retry once
         try:
-            manager = PCA9685ControllerManager()
+            manager = get_manager()
             pca = manager.get_controller(address)
             logger.info(f"HARDWARE_FREQ_ATTEMPT: I2C=0x{address:02X}, Frequency={frequency}Hz, Attempt={attempt+1}")
             
@@ -218,7 +323,7 @@ def get_current_duty_cycle(address: int, channel: int) -> int:
     
     for attempt in range(2):  # Try once, retry once
         try:
-            manager = PCA9685ControllerManager()
+            manager = get_manager()
             pca = manager.get_controller(address)
             return pca.channels[channel].duty_cycle
         except (ValueError, IOError) as e:
@@ -254,7 +359,7 @@ def set_multiple_channels_duty_cycle(address: int, channel_duty_cycles: dict):
     logger.info(f"HARDWARE_BULK_START: I2C=0x{address:02X}, Channels={channel_duty_cycles}")
     
     # Filter channels that have actually changed
-    manager = PCA9685ControllerManager()
+    manager = get_manager()
     changed_channels = {}
     
     for channel, duty_cycle in channel_duty_cycles.items():
@@ -305,3 +410,34 @@ def set_multiple_channels_duty_cycle(address: int, channel_duty_cycles: dict):
                 logger.error(f"Hardware error in set_multiple_channels_duty_cycle (retry failed): controller={address}, function=set_multiple_channels_duty_cycle, error={type(e).__name__}: {e}")
                 # Re-raise to be handled by the API layer.
                 raise e 
+
+def reconnect_controller(address: int) -> bool:
+    """
+    Attempt to reconnect to a previously failed controller.
+    
+    Args:
+        address: The I2C address of the controller to reconnect.
+        
+    Returns:
+        True if reconnection was successful, False otherwise.
+    """
+    try:
+        manager = get_manager()
+        manager.remove_controller(address)  # Remove from cache to force recreation
+        manager.get_controller(address)  # Attempt to recreate
+        logger.info(f"Successfully reconnected to controller at 0x{address:02X}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to reconnect to controller at 0x{address:02X}: {e}")
+        return False
+
+def get_manager_status() -> Dict[str, Any]:
+    """Get the current status of the hardware manager."""
+    try:
+        manager = get_manager()
+        return manager.get_status()
+    except Exception as e:
+        return {
+            "error": f"Failed to get manager status: {str(e)}",
+            "manager_available": False
+        } 

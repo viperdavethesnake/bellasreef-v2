@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select
 from typing import List
+import time
 
 from shared.db.database import get_db
 from shared.crud import device as device_crud
@@ -13,6 +14,7 @@ from shared.schemas.user import User
 from ..deps import get_current_user_or_service
 
 from ..drivers import pca9685_driver
+from ..drivers.pca9685_driver import reconnect_controller, get_manager_status
 from .schemas import PCA9685DiscoveryResult, PCA9685RegistrationRequest, PWMChannelRegistrationRequest, PWMFrequencyUpdateRequest, ControllerUpdateRequest
 
 router = APIRouter(prefix="/controllers", tags=["Controllers"])
@@ -272,4 +274,51 @@ async def update_controller(
 
     device_update_data = device_schema.DeviceUpdate(**update_data.model_dump(exclude_unset=True))
     updated_device = await device_crud.update(db, db_obj=controller, obj_in=device_update_data)
-    return updated_device 
+    return updated_device
+
+@router.post("/{controller_id}/reconnect", status_code=status.HTTP_200_OK)
+async def reconnect_controller_endpoint(
+    controller_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_or_service)
+):
+    """
+    Attempts to reconnect to a PCA9685 controller that may have failed.
+    """
+    # Retrieve the controller device from the database
+    controller = await device_crud.get(db, device_id=controller_id)
+    if not controller or controller.role != DeviceRole.CONTROLLER.value or controller.device_type != "pca9685":
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"PCA9685 controller with ID {controller_id} not found."
+        )
+    
+    # Attempt to reconnect to the hardware
+    controller_address = int(controller.address)
+    success = reconnect_controller(controller_address)
+    
+    if success:
+        return {
+            "message": f"Successfully reconnected to controller at address {hex(controller_address)}",
+            "controller_id": controller_id,
+            "address": controller_address,
+            "status": "reconnected"
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Failed to reconnect to controller at address {hex(controller_address)}"
+        )
+
+@router.get("/hardware-manager/status", status_code=status.HTTP_200_OK)
+async def get_hardware_manager_status(
+    current_user: User = Depends(get_current_user_or_service)
+):
+    """
+    Get the current status of the hardware manager for debugging.
+    """
+    status = get_manager_status()
+    return {
+        "hardware_manager_status": status,
+        "timestamp": time.time()
+    } 

@@ -22,14 +22,14 @@ router = APIRouter(prefix="/channels", tags=["Channels"])
 _active_ramp_tasks = {}
 
 async def _perform_ramp(
-    db: AsyncSession, 
     device_id: int, 
     start_intensity: float, 
     end_intensity: int, 
     duration_ms: int,
     controller_address: int,
     channel_number: int,
-    curve: str = 'linear'
+    curve: str = 'linear',
+    step_interval_ms: int = 50
 ):
     """
     Background worker function to perform a gradual ramp from start_intensity to end_intensity
@@ -38,102 +38,104 @@ async def _perform_ramp(
     # Create a unique key for this controller/channel combination
     ramp_key = (controller_address, channel_number)
     
-    # Calculate ramp parameters
-    step_interval_ms = 50  # Update every 50ms for smooth transition
-    total_steps = duration_ms // step_interval_ms
-    
-    # Get the device for database updates
-    channel_device = await device_crud.get(db, device_id=device_id)
-    if not channel_device:
-        return  # Device no longer exists
-    
-    # Determine if this is a long ramp (> 10 seconds) for intermediate DB updates
-    is_long_ramp = duration_ms > 10000
-    intermediate_update_interval = 2000  # 2 seconds in milliseconds
-    last_db_update_time = 0
-    
-    # Update database at start of ramp
-    channel_device.current_value = start_intensity
-    db.add(channel_device)
-    await db.commit()
-    
-    # Perform the ramp
-    for step in range(total_steps + 1):  # +1 to include the final step
-        # Calculate current intensity for this step based on curve type
-        if curve == 'exponential':
-            # Exponential curve (ease-in) for more natural lighting effects
-            progress = step / total_steps
-            eased_progress = progress * progress  # Quadratic ease-in
-            current_intensity = start_intensity + (end_intensity - start_intensity) * eased_progress
-        else:
-            # Linear curve (default)
-            intensity_change_per_step = (end_intensity - start_intensity) / total_steps
-            current_intensity = start_intensity + (intensity_change_per_step * step)
+    # Create and manage our own DB session
+    async for db in get_db():
+        # Calculate ramp parameters
+        total_steps = duration_ms // step_interval_ms
         
-        # Ensure we reach exactly the target intensity on the final step
-        if step == total_steps:
-            current_intensity = end_intensity
+        # Get the device for database updates
+        channel_device = await device_crud.get(db, device_id=device_id)
+        if not channel_device:
+            return  # Device no longer exists
         
-        # Convert intensity to duty cycle
-        duty_cycle = int((current_intensity / 100) * 65535)
+        # Determine if this is a long ramp (> 10 seconds) for intermediate DB updates
+        is_long_ramp = duration_ms > 10000
+        intermediate_update_interval = 2000  # 2 seconds in milliseconds
+        last_db_update_time = 0
         
-        try:
-            # Update hardware
-            pca9685_driver.set_channel_duty_cycle(
-                address=controller_address,
-                channel=channel_number,
-                duty_cycle=duty_cycle
-            )
+        # Update database at start of ramp
+        channel_device.current_value = start_intensity
+        db.add(channel_device)
+        await db.commit()
+        
+        # Perform the ramp
+        for step in range(total_steps + 1):  # +1 to include the final step
+            # Calculate current intensity for this step based on curve type
+            if curve == 'exponential':
+                # Exponential curve (ease-in) for more natural lighting effects
+                progress = step / total_steps
+                eased_progress = progress * progress  # Quadratic ease-in
+                current_intensity = start_intensity + (end_intensity - start_intensity) * eased_progress
+            else:
+                # Linear curve (default)
+                intensity_change_per_step = (end_intensity - start_intensity) / total_steps
+                current_intensity = start_intensity + (intensity_change_per_step * step)
             
-            # Update database only at start, end, and every 2 seconds for long ramps
-            current_time = step * step_interval_ms
-            should_update_db = (
-                step == 0 or  # Start of ramp
-                step == total_steps or  # End of ramp
-                (is_long_ramp and current_time - last_db_update_time >= intermediate_update_interval)  # Intermediate updates for long ramps
-            )
+            # Ensure we reach exactly the target intensity on the final step
+            if step == total_steps:
+                current_intensity = end_intensity
             
-            if should_update_db:
-                channel_device.current_value = current_intensity
-                db.add(channel_device)
-                await db.commit()
-                last_db_update_time = current_time
+            # Convert intensity to duty cycle
+            duty_cycle = int((current_intensity / 100) * 65535)
             
-        except Exception as e:
-            # Log error with full context
-            logger.error(
-                f"Hardware error during ramp step {step}/{total_steps} for device {device_id} "
-                f"(controller={controller_address}, channel={channel_number}, "
-                f"intended_intensity={current_intensity}%, duty_cycle={duty_cycle}): {e}",
-                exc_info=True
-            )
-            
-            # Attempt one retry for this step
             try:
-                logger.info(f"Retrying ramp step {step} for device {device_id} (controller={controller_address}, channel={channel_number})")
+                # Update hardware
                 pca9685_driver.set_channel_duty_cycle(
                     address=controller_address,
                     channel=channel_number,
                     duty_cycle=duty_cycle
                 )
-                logger.info(f"Retry successful for ramp step {step} for device {device_id}")
-            except Exception as retry_e:
+                
+                # Update database only at start, end, and every 2 seconds for long ramps
+                current_time = step * step_interval_ms
+                should_update_db = (
+                    step == 0 or  # Start of ramp
+                    step == total_steps or  # End of ramp
+                    (is_long_ramp and current_time - last_db_update_time >= intermediate_update_interval)  # Intermediate updates for long ramps
+                )
+                
+                if should_update_db:
+                    channel_device.current_value = current_intensity
+                    db.add(channel_device)
+                    await db.commit()
+                    last_db_update_time = current_time
+                
+            except Exception as e:
+                # Log error with full context
                 logger.error(
-                    f"Retry failed for ramp step {step} for device {device_id} "
+                    f"Hardware error during ramp step {step}/{total_steps} for device {device_id} "
                     f"(controller={controller_address}, channel={channel_number}, "
-                    f"intended_intensity={current_intensity}%, duty_cycle={duty_cycle}): {retry_e}",
+                    f"intended_intensity={current_intensity}%, duty_cycle={duty_cycle}): {e}",
                     exc_info=True
                 )
-                # Abort the ramp after retry failure
-                break
+                
+                # Attempt one retry for this step
+                try:
+                    logger.info(f"Retrying ramp step {step} for device {device_id} (controller={controller_address}, channel={channel_number})")
+                    pca9685_driver.set_channel_duty_cycle(
+                        address=controller_address,
+                        channel=channel_number,
+                        duty_cycle=duty_cycle
+                    )
+                    logger.info(f"Retry successful for ramp step {step} for device {device_id}")
+                except Exception as retry_e:
+                    logger.error(
+                        f"Retry failed for ramp step {step} for device {device_id} "
+                        f"(controller={controller_address}, channel={channel_number}, "
+                        f"intended_intensity={current_intensity}%, duty_cycle={duty_cycle}): {retry_e}",
+                        exc_info=True
+                    )
+                    # Abort the ramp after retry failure
+                    break
+            
+            # Sleep for the step interval (except on the last step)
+            if step < total_steps:
+                await asyncio.sleep(step_interval_ms / 1000.0)  # Convert ms to seconds
         
-        # Sleep for the step interval (except on the last step)
-        if step < total_steps:
-            await asyncio.sleep(step_interval_ms / 1000.0)  # Convert ms to seconds
-    
-    # Clean up the ramp task from the active tasks dictionary
-    if ramp_key in _active_ramp_tasks:
-        del _active_ramp_tasks[ramp_key]
+        # Clean up the ramp task from the active tasks dictionary
+        if ramp_key in _active_ramp_tasks:
+            del _active_ramp_tasks[ramp_key]
+        break  # Only need one session context
 
 @router.post("/{channel_id}/control", status_code=status.HTTP_200_OK)
 async def set_pwm_channel_duty_cycle(
@@ -184,18 +186,16 @@ async def set_pwm_channel_duty_cycle(
                 logger.info(f"Cancelled existing ramp for controller {controller_address}, channel {channel_number}")
         
         # Create and store the new ramp task
-        ramp_task = asyncio.create_task(
-            _perform_ramp(
-                db=db,
-                device_id=channel_id,
-                start_intensity=start_intensity,
-                end_intensity=constrained_intensity,
-                duration_ms=request.duration_ms,
-                controller_address=controller_address,
-                channel_number=channel_number,
-                curve=request.curve
-            )
-        )
+        ramp_task = asyncio.create_task(_perform_ramp(
+            device_id=channel_id,
+            start_intensity=start_intensity,
+            end_intensity=constrained_intensity,
+            duration_ms=request.duration_ms,
+            controller_address=controller_address,
+            channel_number=channel_number,
+            curve=request.curve,
+            step_interval_ms=request.step_interval_ms
+        ))
         _active_ramp_tasks[ramp_key] = ramp_task
         
         return {
@@ -366,18 +366,16 @@ async def bulk_set_pwm_duty_cycle(
                     logger.info(f"Cancelled existing ramp for controller {ramp_op['controller_address']}, channel {ramp_op['channel_number']}")
             
             # Create and store the new ramp task
-            ramp_task = asyncio.create_task(
-                _perform_ramp(
-                    db=db,
-                    device_id=ramp_op["request"].device_id,
-                    start_intensity=start_intensity,
-                    end_intensity=ramp_op["constrained_intensity"],
-                    duration_ms=ramp_op["request"].duration_ms,
-                    controller_address=ramp_op["controller_address"],
-                    channel_number=ramp_op["channel_number"],
-                    curve=ramp_op["request"].curve
-                )
-            )
+            ramp_task = asyncio.create_task(_perform_ramp(
+                device_id=ramp_op["request"].device_id,
+                start_intensity=start_intensity,
+                end_intensity=ramp_op["constrained_intensity"],
+                duration_ms=ramp_op["request"].duration_ms,
+                controller_address=ramp_op["controller_address"],
+                channel_number=ramp_op["channel_number"],
+                curve=ramp_op["request"].curve,
+                step_interval_ms=ramp_op["request"].step_interval_ms
+            ))
             _active_ramp_tasks[ramp_key] = ramp_task
             
             results.append({
@@ -576,4 +574,45 @@ async def update_channel(
 
     device_update_data = device_schema.DeviceUpdate(**update_data.model_dump(exclude_unset=True))
     updated_device = await device_crud.update(db, db_obj=channel, obj_in=device_update_data)
-    return updated_device 
+    return updated_device
+
+@router.post("/debug/pca_write", status_code=status.HTTP_200_OK, summary="Debug PCA9685 Hardware Write")
+async def debug_pca_write(
+    address: int,
+    channel: int,
+    duty_cycle: int,
+    current_user: User = Depends(get_current_user_or_service)
+):
+    """
+    Temporary debug endpoint to perform a single hardware write to PCA9685.
+    For real-time diagnostics only.
+    """
+    logger.info(f"DEBUG_PCA_WRITE: Starting debug hardware write - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
+    
+    try:
+        # Validate inputs
+        if not 0 <= channel <= 15:
+            raise HTTPException(status_code=400, detail=f"Channel must be between 0 and 15 inclusive, got {channel}")
+        if not 0 <= duty_cycle <= 65535:
+            raise HTTPException(status_code=400, detail=f"Duty cycle must be between 0 and 65535 inclusive, got {duty_cycle}")
+        
+        # Perform the hardware write
+        pca9685_driver.set_channel_duty_cycle(address=address, channel=channel, duty_cycle=duty_cycle)
+        
+        logger.info(f"DEBUG_PCA_WRITE_SUCCESS: Hardware write completed - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
+        
+        return {
+            "status": "success",
+            "message": f"Hardware write completed successfully",
+            "address": f"0x{address:02X}",
+            "channel": channel,
+            "duty_cycle": duty_cycle,
+            "timestamp": "now"
+        }
+        
+    except Exception as e:
+        logger.error(f"DEBUG_PCA_WRITE_ERROR: Hardware write failed - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, Error={type(e).__name__}: {e}")
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Hardware write failed: {type(e).__name__}: {e}"
+        ) 
