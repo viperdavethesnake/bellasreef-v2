@@ -59,6 +59,7 @@ class Device(Base):
     min_value = Column(Float, nullable=True)
     max_value = Column(Float, nullable=True)
     current_value = Column(Float, nullable=True, default=0.0)
+    resolution = Column(Integer, nullable=True, comment="The bit resolution for temperature sensors (9-12).")
     config = Column(JSON, nullable=True)
     is_active = Column(Boolean, default=True, index=True)
     poll_enabled = Column(Boolean, default=True, nullable=False, index=True)

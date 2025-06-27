@@ -15,6 +15,7 @@ class DeviceBase(BaseModel):
     max_value: Optional[float] = Field(None, description="Maximum expected value for future alerting")
     config: Optional[Dict[str, Any]] = Field(default=None)
     is_active: bool = Field(default=True)
+    resolution: Optional[int] = Field(None, ge=9, le=12, description="The bit resolution for the sensor (9, 10, 11, or 12).")
 
 class DeviceCreate(DeviceBase):
     pass
@@ -30,6 +31,7 @@ class DeviceUpdate(BaseModel):
     max_value: Optional[float] = None
     config: Optional[Dict[str, Any]] = None
     is_active: Optional[bool] = None
+    resolution: Optional[int] = Field(None, ge=9, le=12)
 
 class Device(DeviceBase):
     model_config = ConfigDict(from_attributes=True)

@@ -32,14 +32,24 @@ async def check_1wire():
 async def get_current_reading(
     hardware_id: str,
     unit: str = Query("C", enum=["C", "F"], description="Specify the temperature unit: C for Celsius, F for Fahrenheit."),
-    user=Depends(get_current_user_or_service)
+    user=Depends(get_current_user_or_service),
+    db: AsyncSession = Depends(get_db)
 ):
     """Get the current temperature reading for a specific sensor by its hardware ID."""
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
-    reading = await temperature_service.get_current_reading(hardware_id, unit_str=unit)
+    
+    device = await device_crud.get_by_address(db, address=hardware_id)
+    if not device:
+        raise HTTPException(status_code=404, detail=f"Device with hardware ID {hardware_id} not registered.")
+        
+    reading = await temperature_service.get_current_reading(
+        hardware_id=hardware_id, 
+        unit_str=unit, 
+        resolution=device.resolution
+    )
     if reading is None:
-        raise HTTPException(status_code=404, detail="Probe not found or could not be read.")
+        raise HTTPException(status_code=404, detail="Probe could not be read.")
     return reading
 
 # The following endpoints now operate on the standard 'devices' table.
@@ -86,7 +96,7 @@ async def update_probe_device(
     device_update: device_schema.DeviceUpdate,
     db: AsyncSession = Depends(get_db)
 ):
-    """Update a registered temperature probe's properties."""
+    """Update a registered temperature probe's properties, including resolution."""
     device = await device_crud.get(db, device_id=device_id)
     if not device or device.device_type != 'temperature_sensor':
         raise HTTPException(status_code=404, detail="Temperature sensor device not found.")

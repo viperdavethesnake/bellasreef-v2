@@ -2,7 +2,10 @@ import os
 import asyncio
 from typing import List, Optional
 from pydantic import BaseModel
-from w1thermsensor import AsyncW1ThermSensor, NoSensorFoundError, KernelModuleLoadError, Unit
+from w1thermsensor import AsyncW1ThermSensor, NoSensorFoundError, KernelModuleLoadError, Unit, W1ThermSensorError
+from shared.utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 class OneWireCheckResult(BaseModel):
     subsystem_available: bool
@@ -11,20 +14,37 @@ class OneWireCheckResult(BaseModel):
     details: Optional[str] = None
 
 class TemperatureService:
+    def __init__(self):
+        """Initialize the TemperatureService."""
+        self.logger = logger
+
     async def discover_sensors(self) -> List[str]:
         """Asynchronously discovers all attached 1-wire temperature sensors."""
         try:
-            sensors = await AsyncW1ThermSensor.get_available_sensors()
+            # Run the synchronous, blocking call in a separate thread to avoid the TypeError
+            sensors = await asyncio.to_thread(AsyncW1ThermSensor.get_available_sensors)
             return [sensor.id for sensor in sensors]
         except (NoSensorFoundError, KernelModuleLoadError):
             return []
 
-    async def get_current_reading(self, hardware_id: str, unit_str: str = 'C') -> Optional[float]:
-        """Asynchronously gets the current temperature from a sensor in the specified unit."""
+    async def get_current_reading(self, hardware_id: str, unit_str: str = 'C', resolution: Optional[int] = None) -> Optional[float]:
+        """Asynchronously gets the current temperature from a sensor in the specified unit and resolution."""
         try:
             sensor = AsyncW1ThermSensor(sensor_id=hardware_id)
+
+            # Set resolution if provided, but handle potential errors gracefully.
+            if resolution is not None:
+                try:
+                    await sensor.set_resolution(resolution, persist=False)
+                except W1ThermSensorError as e:
+                    # Log a warning if resolution cannot be set (e.g., due to permissions)
+                    # and continue with the sensor's current resolution.
+                    self.logger.warning(f"Could not set resolution for sensor {hardware_id}: {e}")
+
+            # Select the correct unit enum
             unit = Unit.DEGREES_F if unit_str.upper() == 'F' else Unit.DEGREES_C
-            # Use the library's built-in unit conversion
+
+            # Get the temperature using the library's unit conversion
             return await sensor.get_temperature(unit)
         except NoSensorFoundError:
             return None
@@ -33,7 +53,7 @@ class TemperatureService:
         """Asynchronously checks the 1-wire subsystem status."""
         W1_DEVICE_DIR = "/sys/bus/w1/devices"
         
-        # Run the blocking I/O call in a separate thread
+        # Run the blocking os.path.isdir in a separate thread
         is_dir = await asyncio.to_thread(os.path.isdir, W1_DEVICE_DIR)
         if not is_dir:
             return OneWireCheckResult(
@@ -62,5 +82,5 @@ class TemperatureService:
                 details=str(e)
             )
 
-# Create a single instance of the service for the application to use
+# Create a single instance of the service
 temperature_service = TemperatureService()
