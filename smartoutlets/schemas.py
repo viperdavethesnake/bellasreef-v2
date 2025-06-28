@@ -138,12 +138,12 @@ class VeSyncDiscoveryRequest(BaseModel):
 
     Attributes:
         email (str): VeSync account email
-        password (str): VeSync account password
+        password (SecretStr): VeSync account password
         time_zone (str): IANA timezone for VeSync API communications
     """
     
     email: str = Field(..., description="VeSync account email")
-    password: str = Field(..., description="VeSync account password")
+    password: SecretStr = Field(..., description="VeSync account password")
     time_zone: str = Field(..., description="IANA timezone for VeSync API communications")
 
     @field_validator('time_zone')

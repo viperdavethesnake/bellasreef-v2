@@ -568,7 +568,7 @@ echo -e "${CHECK} Successfully verified outlet deletion.\n"
 # --- Step 13: Test Error Handling ---
 echo -e "${MAGENTA}${BOLD}--- Step 13: Testing Error Handling ---${RESET}"
 echo -e "${ARROW} Testing get state of non-existent outlet..."
-GET_NONEXISTENT_RESPONSE=$(curl -s -X GET "${SMARTOUTLETS_URL}/api/smartoutlets/outlets/nonexistent-id/state" \
+GET_NONEXISTENT_RESPONSE=$(curl -s -X GET "${SMARTOUTLETS_URL}/api/smartoutlets/outlets/00000000-0000-0000-0000-000000000000/state" \
   -H "Authorization: Bearer $AUTH_TOKEN")
 NONEXISTENT_STATUS=$(echo "$GET_NONEXISTENT_RESPONSE" | jq -r '.detail')
 if [[ "$NONEXISTENT_STATUS" == "null" ]]; then
@@ -578,7 +578,7 @@ fi
 echo -e "${CHECK} Successfully handled non-existent outlet error: $NONEXISTENT_STATUS"
 
 echo -e "${ARROW} Testing control of non-existent outlet..."
-CONTROL_NONEXISTENT_RESPONSE=$(curl -s -X POST "${SMARTOUTLETS_URL}/api/smartoutlets/outlets/nonexistent-id/turn_on" \
+CONTROL_NONEXISTENT_RESPONSE=$(curl -s -X POST "${SMARTOUTLETS_URL}/api/smartoutlets/outlets/00000000-0000-0000-0000-000000000000/turn_on" \
   -H "Authorization: Bearer $AUTH_TOKEN")
 CONTROL_NONEXISTENT_STATUS=$(echo "$CONTROL_NONEXISTENT_RESPONSE" | jq -r '.detail')
 if [[ "$CONTROL_NONEXISTENT_STATUS" == "null" ]]; then
