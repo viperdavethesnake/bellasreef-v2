@@ -105,53 +105,20 @@ if [[ $(echo "$BLUES_REG_RESPONSE" | jq -r '.success') != "true" ]]; then
     echo "❌ ERROR: Failed to register Blues channel. Response: $BLUES_REG_RESPONSE"
     exit 1
 fi
-echo "✅ Blues channel registered with lighting service."
-
-# --- Step 4: Create Lighting Behaviors ---
-echo -e "\n--- Step 4: Creating Lighting Behaviors ---"
-echo "Creating a 'Daylight Whites' static behavior (80% intensity)..."
-WHITES_BEHAVIOR_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/behaviors/" \
-  -H "Authorization: Bearer $AUTH_TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "Daylight Whites", "behavior_type": "Fixed", "behavior_config": {"intensity": 0.80}, "enabled": true}')
-WHITES_BEHAVIOR_ID=$(echo "$WHITES_BEHAVIOR_RESPONSE" | jq -r '.id')
-if [[ -z "$WHITES_BEHAVIOR_ID" || "$WHITES_BEHAVIOR_ID" == "null" ]]; then
-    echo "❌ ERROR: Failed to create Whites behavior. Response: $WHITES_BEHAVIOR_RESPONSE"
-    exit 1
-fi
-echo "✅ Behavior 'Daylight Whites' created with ID: $WHITES_BEHAVIOR_ID"
-
-echo "Creating a 'Royal Blues' static behavior (100% intensity)..."
-BLUES_BEHAVIOR_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/behaviors/" \
-  -H "Authorization: Bearer $AUTH_TOKEN" -H "Content-Type: application/json" \
-  -d '{"name": "Royal Blues", "behavior_type": "Fixed", "behavior_config": {"intensity": 1.0}, "enabled": true}')
-BLUES_BEHAVIOR_ID=$(echo "$BLUES_BEHAVIOR_RESPONSE" | jq -r '.id')
-if [[ -z "$BLUES_BEHAVIOR_ID" || "$BLUES_BEHAVIOR_ID" == "null" ]]; then
-    echo "❌ ERROR: Failed to create Blues behavior. Response: $BLUES_BEHAVIOR_RESPONSE"
-    exit 1
-fi
-echo "✅ Behavior 'Royal Blues' created with ID: $BLUES_BEHAVIOR_ID"
-
-# --- Step 5: Assign Behaviors to Channels ---
-echo -e "\n--- Step 5: Assigning Behaviors to Channels ---"
-echo "Assigning 'Daylight Whites' to the 'Whites' channel..."
-ASSIGN_WHITES_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/assignments/channel/${WHITES_CHANNEL_ID}/assign/${WHITES_BEHAVIOR_ID}" \
-  -H "Authorization: Bearer $AUTH_TOKEN")
-ASSIGN_WHITES_ID=$(echo "$ASSIGN_WHITES_RESPONSE" | jq -r '.assignment.id')
-if [[ -z "$ASSIGN_WHITES_ID" || "$ASSIGN_WHITES_ID" == "null" ]]; then
-    echo "❌ ERROR: Failed to assign Whites behavior. Response: $ASSIGN_WHITES_RESPONSE"
-    exit 1
-fi
-echo "✅ Assigned behavior ${WHITES_BEHAVIOR_ID} to channel ${WHITES_CHANNEL_ID} with assignment ID: $ASSIGN_WHITES_ID"
-
-echo "Assigning 'Royal Blues' to the 'Blues' channel..."
-ASSIGN_BLUES_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/assignments/channel/${BLUES_CHANNEL_ID}/assign/${BLUES_BEHAVIOR_ID}" \
-  -H "Authorization: Bearer $AUTH_TOKEN")
-ASSIGN_BLUES_ID=$(echo "$ASSIGN_BLUES_RESPONSE" | jq -r '.assignment.id')
-if [[ -z "$ASSIGN_BLUES_ID" || "$ASSIGN_BLUES_ID" == "null" ]]; then
-    echo "❌ ERROR: Failed to assign Blues behavior. Response: $ASSIGN_BLUES_RESPONSE"
-    exit 1
-fi
 echo "✅ Assigned behavior ${BLUES_BEHAVIOR_ID} to channel ${BLUES_CHANNEL_ID} with assignment ID: $ASSIGN_BLUES_ID"
+
+# --- Step 5b: Starting the Lighting Scheduler ---
+echo -e "\n--- Step 5b: Starting the Lighting Scheduler ---"
+echo "Starting the background lighting scheduler..."
+START_SCHEDULER_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/scheduler/start" \
+  -H "Authorization: Bearer $AUTH_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"interval_seconds": 30}')
+if [[ $(echo "$START_SCHEDULER_RESPONSE" | jq -r '.success') != "true" ]]; then
+    echo "❌ ERROR: Failed to start the scheduler. Response: $START_SCHEDULER_RESPONSE"
+    exit 1
+fi
+echo "✅ Scheduler started successfully."
 
 # --- Step 6: Trigger Runner and Verify Hardware State ---
 echo -e "\n--- Step 6: Triggering Runner and Verifying Hardware States ---"
@@ -194,6 +161,8 @@ echo "✅ SUCCESS: Hardware states match the assigned behaviors' intensities."
 
 # --- Step 7: Cleanup ---
 echo -e "\n--- Step 7: Cleaning Up ---"
+echo "Stopping the background lighting scheduler..."
+curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/scheduler/stop" -H "Authorization: Bearer $AUTH_TOKEN" > /dev/null
 echo "Deleting behavior assignments..."
 curl -s --max-time 30 -X DELETE "${LIGHTING_URL}/lighting/assignments/${ASSIGN_WHITES_ID}" -H "Authorization: Bearer $AUTH_TOKEN" > /dev/null
 curl -s --max-time 30 -X DELETE "${LIGHTING_URL}/lighting/assignments/${ASSIGN_BLUES_ID}" -H "Authorization: Bearer $AUTH_TOKEN" > /dev/null
