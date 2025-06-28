@@ -136,7 +136,7 @@ echo -e "\n--- Step 5: Assigning Behaviors to Channels ---"
 echo "Assigning 'Daylight Whites' to the 'Whites' channel..."
 ASSIGN_WHITES_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/assignments/channel/${WHITES_CHANNEL_ID}/assign/${WHITES_BEHAVIOR_ID}" \
   -H "Authorization: Bearer $AUTH_TOKEN")
-ASSIGN_WHITES_ID=$(echo "$ASSIGN_WHITES_RESPONSE" | jq -r '.assignment_id')
+ASSIGN_WHITES_ID=$(echo "$ASSIGN_WHITES_RESPONSE" | jq -r '.assignment.id')
 if [[ -z "$ASSIGN_WHITES_ID" || "$ASSIGN_WHITES_ID" == "null" ]]; then
     echo "❌ ERROR: Failed to assign Whites behavior. Response: $ASSIGN_WHITES_RESPONSE"
     exit 1
@@ -146,7 +146,7 @@ echo "✅ Assigned behavior ${WHITES_BEHAVIOR_ID} to channel ${WHITES_CHANNEL_ID
 echo "Assigning 'Royal Blues' to the 'Blues' channel..."
 ASSIGN_BLUES_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/assignments/channel/${BLUES_CHANNEL_ID}/assign/${BLUES_BEHAVIOR_ID}" \
   -H "Authorization: Bearer $AUTH_TOKEN")
-ASSIGN_BLUES_ID=$(echo "$ASSIGN_BLUES_RESPONSE" | jq -r '.assignment_id')
+ASSIGN_BLUES_ID=$(echo "$ASSIGN_BLUES_RESPONSE" | jq -r '.assignment.id')
 if [[ -z "$ASSIGN_BLUES_ID" || "$ASSIGN_BLUES_ID" == "null" ]]; then
     echo "❌ ERROR: Failed to assign Blues behavior. Response: $ASSIGN_BLUES_RESPONSE"
     exit 1
