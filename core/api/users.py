@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from core.api.deps import get_current_user, get_current_active_admin
+from shared.api.deps import get_current_user, get_current_active_admin
 from shared.crud.user import get_user_by_username, get_users, get_user, update_user, delete_user
 from shared.db.database import get_db
 from shared.schemas.user import User, UserUpdate

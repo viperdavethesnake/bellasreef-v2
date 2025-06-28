@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from core.api.deps import get_current_user
+from shared.api.deps import get_current_user
 from shared.schemas.user import User
 
 router = APIRouter(tags=["system"])

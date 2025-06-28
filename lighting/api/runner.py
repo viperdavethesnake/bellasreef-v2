@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from shared.db.database import get_db
 from shared.schemas.user import User
 from shared.utils.logger import get_logger
-from hal.deps import get_current_user_or_service
+from shared.api.deps import get_current_user_or_service
 
 from lighting.models.schemas import (
     LightingBehaviorLog,

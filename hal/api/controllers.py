@@ -11,7 +11,7 @@ from shared.schemas import device as device_schema
 from shared.db.models import Device as DeviceModel
 from shared.schemas.enums import DeviceRole
 from shared.schemas.user import User
-from ..deps import get_current_user_or_service
+from shared.api.deps import get_current_user_or_service
 
 from ..drivers import pca9685_driver
 from ..drivers.pca9685_driver import reconnect_controller, get_manager_status

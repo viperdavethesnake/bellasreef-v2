@@ -32,7 +32,7 @@ from .discovery_service import DiscoveryService
 from shared.core.config import settings
 from .crypto_utils import encrypt_vesync_password, decrypt_vesync_password
 from .services.vesync_device_service import vesync_device_service
-from core.api.deps import get_current_user
+from shared.api.deps import get_current_user_or_service
 from shared.schemas.user import User
 
 router = APIRouter()
@@ -75,7 +75,7 @@ async def create_outlet(
     outlet_data: SmartOutletCreate,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
     session: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Create a new smart outlet.
@@ -84,7 +84,7 @@ async def create_outlet(
         outlet_data: Smart outlet creation data
         manager: SmartOutletManager instance
         session: Database session
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         SmartOutletRead: Created outlet data
@@ -147,7 +147,7 @@ async def list_outlets(
     include_disabled: bool = Query(False, description="Include disabled outlets"),
     driver_type: Optional[str] = Query(None, description="Filter by driver type (e.g., kasa, vesync)"),
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     List all smart outlets.
@@ -156,7 +156,7 @@ async def list_outlets(
         include_disabled: Whether to include disabled outlets
         driver_type: Optional driver type to filter by
         manager: SmartOutletManager instance
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         List[SmartOutletRead]: List of outlet data
@@ -176,7 +176,7 @@ async def list_outlets(
 async def delete_outlet(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ):
     """
     Delete a smart outlet from the system.
@@ -200,7 +200,7 @@ async def update_outlet(
     outlet_id: str,
     update_data: SmartOutletUpdate,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Update an existing smart outlet configuration.
@@ -209,7 +209,7 @@ async def update_outlet(
         outlet_id: The ID of the outlet to update
         update_data: Update data containing allowed fields
         manager: SmartOutletManager instance
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         SmartOutletRead: Updated outlet data
@@ -227,7 +227,7 @@ async def update_outlet(
 async def get_outlet_state(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Get the current state of a smart outlet.
@@ -235,7 +235,7 @@ async def get_outlet_state(
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         SmartOutletState: Current outlet state
@@ -253,7 +253,7 @@ async def get_outlet_state(
 async def turn_on_outlet(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Turn on a smart outlet.
@@ -261,7 +261,7 @@ async def turn_on_outlet(
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         dict: Success response
@@ -286,7 +286,7 @@ async def turn_on_outlet(
 async def turn_off_outlet(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Turn off a smart outlet.
@@ -294,7 +294,7 @@ async def turn_off_outlet(
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         dict: Success response
@@ -319,7 +319,7 @@ async def turn_off_outlet(
 async def toggle_outlet(
     outlet_id: str,
     manager: SmartOutletManager = Depends(get_smart_outlet_manager),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Toggle a smart outlet.
@@ -327,7 +327,7 @@ async def toggle_outlet(
     Args:
         outlet_id: The ID of the outlet
         manager: SmartOutletManager instance
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         SmartOutletState: Current outlet state after toggle
@@ -346,13 +346,13 @@ async def toggle_outlet(
     tags=["Discovery"]
 )
 async def start_local_discovery(
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Start local device discovery.
 
     Args:
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         DiscoveryTaskResponse: Discovery task information
@@ -401,14 +401,14 @@ async def get_local_discovery_results(task_id: str):
 )
 async def discover_vesync_devices(
     request: VeSyncDiscoveryRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Discover VeSync cloud devices.
 
     Args:
         request: VeSync discovery request with credentials
-        current_user: Current authenticated user
+        current_user: Current authenticated user or service
 
     Returns:
         List[DiscoveredDevice]: List of discovered devices
@@ -474,7 +474,7 @@ vesync_router = APIRouter(
 async def create_vesync_account(
     account: VeSyncAccountCreate, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Create a new VeSync account.
@@ -515,7 +515,7 @@ async def read_vesync_accounts(
     skip: int = 0, 
     limit: int = 100, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Retrieve all VeSync accounts.
@@ -529,7 +529,7 @@ async def read_vesync_accounts(
 async def delete_vesync_account(
     account_id: int, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Delete a VeSync account.
@@ -544,7 +544,7 @@ async def delete_vesync_account(
 async def verify_vesync_account(
     account_id: int, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Verify the credentials for a VeSync account by attempting to log in.
@@ -593,7 +593,7 @@ async def verify_vesync_account(
 async def discover_vesync_devices_for_account(
     account_id: int, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Discover all devices available for a VeSync account that are not yet managed locally.
@@ -628,7 +628,7 @@ async def add_vesync_device(
     account_id: int, 
     device_data: VeSyncDeviceCreate, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Add a discovered VeSync device to the local management system.
@@ -702,7 +702,7 @@ async def add_vesync_device(
 async def list_vesync_devices(
     account_id: int, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     List all devices managed for a specific VeSync account.
@@ -726,7 +726,7 @@ async def get_vesync_device_state(
     account_id: int, 
     device_id: str, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Get the current state and details of a specific VeSync device.
@@ -771,7 +771,7 @@ async def turn_on_vesync_device(
     account_id: int, 
     device_id: str, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Turn on a specific VeSync device.
@@ -819,7 +819,7 @@ async def turn_off_vesync_device(
     account_id: int, 
     device_id: str, 
     db: AsyncSession = Depends(get_db_session),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(get_current_user_or_service)
 ):
     """
     Turn off a specific VeSync device.

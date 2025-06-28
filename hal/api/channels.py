@@ -10,7 +10,7 @@ from shared.schemas.enums import DeviceRole
 from shared.schemas.user import User
 from shared.schemas import device as device_schema
 from shared.utils.logger import get_logger
-from ..deps import get_current_user_or_service
+from shared.api.deps import get_current_user_or_service
 
 from ..drivers import pca9685_driver
 from ..drivers.pca9685_driver import perform_synchronous_hardware_write

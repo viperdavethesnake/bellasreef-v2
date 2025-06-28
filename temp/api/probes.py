@@ -7,7 +7,7 @@ from shared.crud import device as device_crud
 from shared.schemas import device as device_schema
 
 from shared.db.database import get_db
-from ..deps import get_current_user_or_service
+from shared.api.deps import get_current_user_or_service
 from ..services.temperature import temperature_service, OneWireCheckResult
 
 router = APIRouter(prefix="/probe", tags=["Temperature Probes"])

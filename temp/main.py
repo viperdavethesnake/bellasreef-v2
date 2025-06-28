@@ -10,7 +10,7 @@ if not settings.TEMP_ENABLED:
     sys.exit(0)
 
 from .api import probes
-from core.api.deps import get_current_user
+from shared.api.deps import get_current_user
 from shared.schemas.user import User
 
 app = FastAPI(

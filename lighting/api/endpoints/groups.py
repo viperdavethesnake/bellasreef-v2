@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.db.database import get_db
 from shared.schemas.user import User
-from hal.deps import get_current_user_or_service
+from shared.api.deps import get_current_user_or_service
 
 from lighting.services.crud import lighting_group
 from lighting.models.schemas import (

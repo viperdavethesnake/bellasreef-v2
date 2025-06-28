@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from datetime import datetime, timezone
-from core.api.deps import get_current_user, get_current_active_admin
+from shared.api.deps import get_current_user, get_current_active_admin
 from shared.crud.schedule import schedule as schedule_crud, device_action as device_action_crud
 from shared.crud.device import device as device_crud
 from shared.db.database import get_db

@@ -8,7 +8,7 @@ from datetime import datetime
 
 from shared.db.database import get_db
 from shared.schemas.user import User
-from hal.deps import get_current_user_or_service
+from shared.api.deps import get_current_user_or_service
 
 from lighting.services.crud import lighting_behavior_assignment, lighting_behavior, lighting_group, lighting_behavior_log
 from lighting.services.behavior_manager import lighting_behavior_manager
