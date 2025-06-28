@@ -164,13 +164,23 @@ class IntensityCalculator:
         Returns:
             Fixed intensity value (0.0-1.0)
         """
-        intensity = config.get("intensity", 0.5)
-        
-        # Validate intensity is within bounds
-        if not isinstance(intensity, (int, float)) or intensity < 0.0 or intensity > 1.0:
-            return 0.5  # Default to 50% if invalid
+        try:
+            intensity = config.get("intensity", 0.5)
             
-        return float(intensity)
+            # Validate intensity is a number and within bounds
+            if not isinstance(intensity, (int, float)):
+                logger.error(f"Invalid 'intensity' for fixed behavior: {intensity} (not a number)")
+                return 0.0  # Safe default: off
+                
+            if intensity < 0.0 or intensity > 1.0:
+                logger.error(f"Invalid 'intensity' for fixed behavior: {intensity} (must be 0.0-1.0)")
+                return 0.0  # Safe default: off
+                
+            return float(intensity)
+            
+        except Exception as e:
+            logger.error(f"Error in fixed intensity calculation: {e}")
+            return 0.0  # Safe default: off
 
     def _calculate_diurnal_intensity(
         self, config: Dict[str, Any], current_time: datetime
@@ -185,38 +195,71 @@ class IntensityCalculator:
         Returns:
             Diurnal intensity value (0.0-1.0)
         """
-        # Extract configuration parameters
-        sunrise_hour = config.get("sunrise_hour", 6.0)
-        sunset_hour = config.get("sunset_hour", 18.0)
-        peak_intensity = config.get("peak_intensity", 1.0)
-        min_intensity = config.get("min_intensity", 0.0)
-        ramp_duration = config.get("ramp_duration", 2.0)  # hours
-        
-        # Validate parameters
-        peak_intensity = max(0.0, min(1.0, peak_intensity))
-        min_intensity = max(0.0, min(1.0, min_intensity))
-        ramp_duration = max(0.5, min(6.0, ramp_duration))
-        
-        # Calculate current time in hours
-        current_hour = current_time.hour + current_time.minute / 60.0
-        
-        # Handle day/night cycle
-        if sunrise_hour <= current_hour <= sunset_hour:
-            # Daytime - calculate peak intensity
-            if current_hour <= sunrise_hour + ramp_duration:
-                # Sunrise ramp
-                progress = (current_hour - sunrise_hour) / ramp_duration
-                return min_intensity + (peak_intensity - min_intensity) * self._smooth_ramp(progress)
-            elif current_hour >= sunset_hour - ramp_duration:
-                # Sunset ramp
-                progress = (sunset_hour - current_hour) / ramp_duration
-                return min_intensity + (peak_intensity - min_intensity) * self._smooth_ramp(progress)
+        try:
+            # Extract configuration parameters with validation
+            sunrise_hour = config.get("sunrise_hour", 6.0)
+            sunset_hour = config.get("sunset_hour", 18.0)
+            peak_intensity = config.get("peak_intensity", 1.0)
+            min_intensity = config.get("min_intensity", 0.0)
+            ramp_duration = config.get("ramp_duration", 2.0)  # hours
+            
+            # Validate all parameters are numbers
+            for param_name, param_value in [
+                ("sunrise_hour", sunrise_hour),
+                ("sunset_hour", sunset_hour),
+                ("peak_intensity", peak_intensity),
+                ("min_intensity", min_intensity),
+                ("ramp_duration", ramp_duration)
+            ]:
+                if not isinstance(param_value, (int, float)):
+                    logger.error(f"Invalid '{param_name}' for diurnal behavior: {param_value} (not a number)")
+                    return 0.0  # Safe default: off
+            
+            # Validate parameter ranges
+            if not (0.0 <= sunrise_hour <= 23.0):
+                logger.error(f"Invalid 'sunrise_hour' for diurnal behavior: {sunrise_hour} (must be 0.0-23.0)")
+                return 0.0
+                
+            if not (0.0 <= sunset_hour <= 23.0):
+                logger.error(f"Invalid 'sunset_hour' for diurnal behavior: {sunset_hour} (must be 0.0-23.0)")
+                return 0.0
+                
+            if not (0.0 <= peak_intensity <= 1.0):
+                logger.error(f"Invalid 'peak_intensity' for diurnal behavior: {peak_intensity} (must be 0.0-1.0)")
+                return 0.0
+                
+            if not (0.0 <= min_intensity <= 1.0):
+                logger.error(f"Invalid 'min_intensity' for diurnal behavior: {min_intensity} (must be 0.0-1.0)")
+                return 0.0
+                
+            if not (0.5 <= ramp_duration <= 6.0):
+                logger.error(f"Invalid 'ramp_duration' for diurnal behavior: {ramp_duration} (must be 0.5-6.0)")
+                return 0.0
+            
+            # Calculate current time in hours
+            current_hour = current_time.hour + current_time.minute / 60.0
+            
+            # Handle day/night cycle
+            if sunrise_hour <= current_hour <= sunset_hour:
+                # Daytime - calculate peak intensity
+                if current_hour <= sunrise_hour + ramp_duration:
+                    # Sunrise ramp
+                    progress = (current_hour - sunrise_hour) / ramp_duration
+                    return min_intensity + (peak_intensity - min_intensity) * self._smooth_ramp(progress)
+                elif current_hour >= sunset_hour - ramp_duration:
+                    # Sunset ramp
+                    progress = (sunset_hour - current_hour) / ramp_duration
+                    return min_intensity + (peak_intensity - min_intensity) * self._smooth_ramp(progress)
+                else:
+                    # Peak daylight
+                    return peak_intensity
             else:
-                # Peak daylight
-                return peak_intensity
-        else:
-            # Nighttime
-            return min_intensity
+                # Nighttime
+                return min_intensity
+                
+        except Exception as e:
+            logger.error(f"Error in diurnal intensity calculation: {e}")
+            return 0.0  # Safe default: off
 
     async def _calculate_lunar_intensity(
         self, config: Dict[str, Any], current_time: datetime
@@ -231,33 +274,49 @@ class IntensityCalculator:
         Returns:
             Lunar intensity value (0.0-1.0)
         """
-        # Extract configuration parameters
-        max_lunar_intensity = config.get("max_lunar_intensity", 0.3)
-        weather_influence = config.get("weather_influence", True)
-        
-        # Validate parameters
-        max_lunar_intensity = max(0.0, min(1.0, max_lunar_intensity))
-        
-        # Calculate lunar phase (simplified - 0.0 = new moon, 1.0 = full moon)
-        lunar_phase = self._calculate_lunar_phase(current_time)
-        
-        # Calculate lunar elevation (simplified - 0.0 = below horizon, 1.0 = zenith)
-        lunar_elevation = self._calculate_lunar_elevation(current_time)
-        
-        # Calculate base lunar intensity
-        base_intensity = max_lunar_intensity * lunar_phase * lunar_elevation
-        
-        # Apply weather influence if enabled
-        if weather_influence:
-            # Get location from config for weather lookup
-            latitude = config.get("latitude", 0.0)
-            longitude = config.get("longitude", 0.0)
+        try:
+            # Extract configuration parameters with validation
+            max_lunar_intensity = config.get("max_lunar_intensity", 0.3)
+            weather_influence = config.get("weather_influence", True)
             
-            if latitude != 0.0 and longitude != 0.0:
-                weather_factor = await self._get_weather_factor(latitude, longitude)
-                base_intensity *= weather_factor
+            # Validate max_lunar_intensity is a number and within bounds
+            if not isinstance(max_lunar_intensity, (int, float)):
+                logger.error(f"Invalid 'max_lunar_intensity' for lunar behavior: {max_lunar_intensity} (not a number)")
+                return 0.0  # Safe default: off
+                
+            if not (0.0 <= max_lunar_intensity <= 1.0):
+                logger.error(f"Invalid 'max_lunar_intensity' for lunar behavior: {max_lunar_intensity} (must be 0.0-1.0)")
+                return 0.0  # Safe default: off
             
-        return base_intensity
+            # Calculate lunar phase (simplified - 0.0 = new moon, 1.0 = full moon)
+            lunar_phase = self._calculate_lunar_phase(current_time)
+            
+            # Calculate lunar elevation (simplified - 0.0 = below horizon, 1.0 = zenith)
+            lunar_elevation = self._calculate_lunar_elevation(current_time)
+            
+            # Calculate base lunar intensity
+            base_intensity = max_lunar_intensity * lunar_phase * lunar_elevation
+            
+            # Apply weather influence if enabled
+            if weather_influence:
+                # Get location from config for weather lookup
+                latitude = config.get("latitude", 0.0)
+                longitude = config.get("longitude", 0.0)
+                
+                # Validate location coordinates
+                if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+                    logger.error(f"Invalid location coordinates for lunar behavior: lat={latitude}, lon={longitude}")
+                    return base_intensity  # Return base intensity without weather
+                    
+                if latitude != 0.0 and longitude != 0.0:
+                    weather_factor = await self._get_weather_factor(latitude, longitude)
+                    base_intensity *= weather_factor
+            
+            return base_intensity
+            
+        except Exception as e:
+            logger.error(f"Error in lunar intensity calculation: {e}")
+            return 0.0  # Safe default: off
 
     async def _calculate_moonlight_intensity(
         self, config: Dict[str, Any], current_time: datetime
@@ -272,38 +331,66 @@ class IntensityCalculator:
         Returns:
             Moonlight intensity value (0.0-1.0)
         """
-        # Extract configuration parameters
-        moonlight_start_hour = config.get("moonlight_start_hour", 20.0)
-        moonlight_end_hour = config.get("moonlight_end_hour", 6.0)
-        lunar_phase_influence = config.get("lunar_phase_influence", True)
-        weather_influence = config.get("weather_influence", True)
-        
-        # Calculate current time in hours
-        current_hour = current_time.hour + current_time.minute / 60.0
-        
-        # Check if we're in moonlight period
-        if self._is_moonlight_period(current_hour, moonlight_start_hour, moonlight_end_hour):
-            # Calculate base moonlight intensity
-            base_intensity = 0.2  # Base moonlight level
+        try:
+            # Extract configuration parameters with validation
+            moonlight_start_hour = config.get("moonlight_start_hour", 20.0)
+            moonlight_end_hour = config.get("moonlight_end_hour", 6.0)
+            lunar_phase_influence = config.get("lunar_phase_influence", True)
+            weather_influence = config.get("weather_influence", True)
             
-            # Apply lunar phase influence
-            if lunar_phase_influence:
-                lunar_phase = self._calculate_lunar_phase(current_time)
-                base_intensity *= lunar_phase
+            # Validate time parameters are numbers
+            for param_name, param_value in [
+                ("moonlight_start_hour", moonlight_start_hour),
+                ("moonlight_end_hour", moonlight_end_hour)
+            ]:
+                if not isinstance(param_value, (int, float)):
+                    logger.error(f"Invalid '{param_name}' for moonlight behavior: {param_value} (not a number)")
+                    return 0.0  # Safe default: off
+                    
+            # Validate time ranges
+            if not (0.0 <= moonlight_start_hour <= 23.0):
+                logger.error(f"Invalid 'moonlight_start_hour' for moonlight behavior: {moonlight_start_hour} (must be 0.0-23.0)")
+                return 0.0
                 
-            # Apply weather influence
-            if weather_influence:
-                # Get location from config for weather lookup
-                latitude = config.get("latitude", 0.0)
-                longitude = config.get("longitude", 0.0)
+            if not (0.0 <= moonlight_end_hour <= 23.0):
+                logger.error(f"Invalid 'moonlight_end_hour' for moonlight behavior: {moonlight_end_hour} (must be 0.0-23.0)")
+                return 0.0
+            
+            # Calculate current time in hours
+            current_hour = current_time.hour + current_time.minute / 60.0
+            
+            # Check if we're in moonlight period
+            if self._is_moonlight_period(current_hour, moonlight_start_hour, moonlight_end_hour):
+                # Calculate base moonlight intensity
+                base_intensity = 0.2  # Base moonlight level
                 
-                if latitude != 0.0 and longitude != 0.0:
-                    weather_factor = await self._get_weather_factor(latitude, longitude)
-                    base_intensity *= weather_factor
+                # Apply lunar phase influence
+                if lunar_phase_influence:
+                    lunar_phase = self._calculate_lunar_phase(current_time)
+                    base_intensity *= lunar_phase
+                    
+                # Apply weather influence
+                if weather_influence:
+                    # Get location from config for weather lookup
+                    latitude = config.get("latitude", 0.0)
+                    longitude = config.get("longitude", 0.0)
+                    
+                    # Validate location coordinates
+                    if not isinstance(latitude, (int, float)) or not isinstance(longitude, (int, float)):
+                        logger.error(f"Invalid location coordinates for moonlight behavior: lat={latitude}, lon={longitude}")
+                        return base_intensity  # Return base intensity without weather
+                        
+                    if latitude != 0.0 and longitude != 0.0:
+                        weather_factor = await self._get_weather_factor(latitude, longitude)
+                        base_intensity *= weather_factor
+                    
+                return base_intensity
+            else:
+                return 0.0
                 
-            return base_intensity
-        else:
-            return 0.0
+        except Exception as e:
+            logger.error(f"Error in moonlight intensity calculation: {e}")
+            return 0.0  # Safe default: off
 
     def _calculate_circadian_intensity(
         self, config: Dict[str, Any], current_time: datetime
@@ -318,42 +405,61 @@ class IntensityCalculator:
         Returns:
             Circadian intensity value (0.0-1.0)
         """
-        # Extract configuration parameters
-        photoperiod = config.get("photoperiod", 12.0)  # hours of light
-        peak_time = config.get("peak_time", 12.0)  # hour of peak intensity
-        species_pattern = config.get("species_pattern", "standard")
-        
-        # Validate parameters
-        photoperiod = max(6.0, min(18.0, photoperiod))
-        peak_time = max(0.0, min(23.0, peak_time))
-        
-        # Calculate current time in hours
-        current_hour = current_time.hour + current_time.minute / 60.0
-        
-        # Calculate circadian rhythm based on photoperiod
-        if photoperiod <= 12.0:
-            # Short day pattern
-            if current_hour < peak_time - photoperiod/2 or current_hour > peak_time + photoperiod/2:
+        try:
+            # Extract configuration parameters with validation
+            photoperiod = config.get("photoperiod", 12.0)  # hours of light
+            peak_time = config.get("peak_time", 12.0)  # hour of peak intensity
+            species_pattern = config.get("species_pattern", "standard")
+            
+            # Validate numeric parameters
+            for param_name, param_value in [
+                ("photoperiod", photoperiod),
+                ("peak_time", peak_time)
+            ]:
+                if not isinstance(param_value, (int, float)):
+                    logger.error(f"Invalid '{param_name}' for circadian behavior: {param_value} (not a number)")
+                    return 0.0  # Safe default: off
+                    
+            # Validate parameter ranges
+            if not (6.0 <= photoperiod <= 18.0):
+                logger.error(f"Invalid 'photoperiod' for circadian behavior: {photoperiod} (must be 6.0-18.0)")
                 return 0.0
-            else:
-                # Calculate intensity based on distance from peak
-                distance_from_peak = abs(current_hour - peak_time)
-                progress = 1.0 - (distance_from_peak / (photoperiod/2))
-                return max(0.0, min(1.0, progress))
-        else:
-            # Long day pattern
-            if current_hour < peak_time - photoperiod/2:
-                current_hour += 24.0  # Wrap around
-            elif current_hour > peak_time + photoperiod/2:
-                current_hour -= 24.0  # Wrap around
                 
-            if peak_time - photoperiod/2 <= current_hour <= peak_time + photoperiod/2:
-                # Calculate intensity based on distance from peak
-                distance_from_peak = abs(current_hour - peak_time)
-                progress = 1.0 - (distance_from_peak / (photoperiod/2))
-                return max(0.0, min(1.0, progress))
-            else:
+            if not (0.0 <= peak_time <= 23.0):
+                logger.error(f"Invalid 'peak_time' for circadian behavior: {peak_time} (must be 0.0-23.0)")
                 return 0.0
+            
+            # Calculate current time in hours
+            current_hour = current_time.hour + current_time.minute / 60.0
+            
+            # Calculate circadian rhythm based on photoperiod
+            if photoperiod <= 12.0:
+                # Short day pattern
+                if current_hour < peak_time - photoperiod/2 or current_hour > peak_time + photoperiod/2:
+                    return 0.0
+                else:
+                    # Calculate intensity based on distance from peak
+                    distance_from_peak = abs(current_hour - peak_time)
+                    progress = 1.0 - (distance_from_peak / (photoperiod/2))
+                    return max(0.0, min(1.0, progress))
+            else:
+                # Long day pattern
+                if current_hour < peak_time - photoperiod/2:
+                    current_hour += 24.0  # Wrap around
+                elif current_hour > peak_time + photoperiod/2:
+                    current_hour -= 24.0  # Wrap around
+                    
+                if peak_time - photoperiod/2 <= current_hour <= peak_time + photoperiod/2:
+                    # Calculate intensity based on distance from peak
+                    distance_from_peak = abs(current_hour - peak_time)
+                    progress = 1.0 - (distance_from_peak / (photoperiod/2))
+                    return max(0.0, min(1.0, progress))
+                else:
+                    return 0.0
+                    
+        except Exception as e:
+            logger.error(f"Error in circadian intensity calculation: {e}")
+            return 0.0  # Safe default: off
 
     async def _calculate_location_based_intensity(
         self, config: Dict[str, Any], current_time: datetime
@@ -368,38 +474,57 @@ class IntensityCalculator:
         Returns:
             Location-based intensity value (0.0-1.0)
         """
-        # Extract configuration parameters
-        latitude = config.get("latitude", 0.0)
-        longitude = config.get("longitude", 0.0)
-        location_name = config.get("location_name", "Default")
-        weather_influence = config.get("weather_influence", True)
-        
-        # Validate parameters
-        latitude = max(-90.0, min(90.0, latitude))
-        longitude = max(-180.0, min(180.0, longitude))
-        
-        # Calculate location-specific sunrise/sunset times
-        sunrise_hour, sunset_hour = self._calculate_location_sun_times(
-            latitude, longitude, current_time
-        )
-        
-        # Use diurnal calculation with location-specific times
-        diurnal_config = {
-            "sunrise_hour": sunrise_hour,
-            "sunset_hour": sunset_hour,
-            "peak_intensity": config.get("peak_intensity", 1.0),
-            "min_intensity": config.get("min_intensity", 0.0),
-            "ramp_duration": config.get("ramp_duration", 2.0),
-        }
-        
-        base_intensity = self._calculate_diurnal_intensity(diurnal_config, current_time)
-        
-        # Apply weather influence if enabled
-        if weather_influence:
-            weather_factor = await self._get_weather_factor(latitude, longitude)
-            base_intensity *= weather_factor
+        try:
+            # Extract configuration parameters with validation
+            latitude = config.get("latitude", 0.0)
+            longitude = config.get("longitude", 0.0)
+            location_name = config.get("location_name", "Default")
+            weather_influence = config.get("weather_influence", True)
             
-        return base_intensity
+            # Validate location coordinates are numbers
+            for param_name, param_value in [
+                ("latitude", latitude),
+                ("longitude", longitude)
+            ]:
+                if not isinstance(param_value, (int, float)):
+                    logger.error(f"Invalid '{param_name}' for location-based behavior: {param_value} (not a number)")
+                    return 0.0  # Safe default: off
+                    
+            # Validate coordinate ranges
+            if not (-90.0 <= latitude <= 90.0):
+                logger.error(f"Invalid 'latitude' for location-based behavior: {latitude} (must be -90.0 to 90.0)")
+                return 0.0
+                
+            if not (-180.0 <= longitude <= 180.0):
+                logger.error(f"Invalid 'longitude' for location-based behavior: {longitude} (must be -180.0 to 180.0)")
+                return 0.0
+            
+            # Calculate location-specific sunrise/sunset times
+            sunrise_hour, sunset_hour = self._calculate_location_sun_times(
+                latitude, longitude, current_time
+            )
+            
+            # Use diurnal calculation with location-specific times
+            diurnal_config = {
+                "sunrise_hour": sunrise_hour,
+                "sunset_hour": sunset_hour,
+                "peak_intensity": config.get("peak_intensity", 1.0),
+                "min_intensity": config.get("min_intensity", 0.0),
+                "ramp_duration": config.get("ramp_duration", 2.0),
+            }
+            
+            base_intensity = self._calculate_diurnal_intensity(diurnal_config, current_time)
+            
+            # Apply weather influence if enabled
+            if weather_influence:
+                weather_factor = await self._get_weather_factor(latitude, longitude)
+                base_intensity *= weather_factor
+                
+            return base_intensity
+            
+        except Exception as e:
+            logger.error(f"Error in location-based intensity calculation: {e}")
+            return 0.0  # Safe default: off
 
     def _calculate_override_intensity(
         self, config: Dict[str, Any], current_time: datetime
@@ -414,19 +539,42 @@ class IntensityCalculator:
         Returns:
             Override intensity value (0.0-1.0)
         """
-        # Extract configuration parameters
-        override_intensity = config.get("override_intensity", 0.5)
-        override_duration = config.get("override_duration", 60)  # minutes
-        override_priority = config.get("override_priority", 10)
-        
-        # Validate parameters
-        override_intensity = max(0.0, min(1.0, override_intensity))
-        override_duration = max(1, min(1440, override_duration))  # 1 minute to 24 hours
-        override_priority = max(1, min(100, override_priority))
-        
-        # Check if override is still valid (simplified - would need start time in config)
-        # For now, assume override is always active
-        return override_intensity
+        try:
+            # Extract configuration parameters with validation
+            override_intensity = config.get("override_intensity", 0.5)
+            override_duration = config.get("override_duration", 60)  # minutes
+            override_priority = config.get("override_priority", 10)
+            
+            # Validate numeric parameters
+            for param_name, param_value in [
+                ("override_intensity", override_intensity),
+                ("override_duration", override_duration),
+                ("override_priority", override_priority)
+            ]:
+                if not isinstance(param_value, (int, float)):
+                    logger.error(f"Invalid '{param_name}' for override behavior: {param_value} (not a number)")
+                    return 0.0  # Safe default: off
+                    
+            # Validate parameter ranges
+            if not (0.0 <= override_intensity <= 1.0):
+                logger.error(f"Invalid 'override_intensity' for override behavior: {override_intensity} (must be 0.0-1.0)")
+                return 0.0
+                
+            if not (1 <= override_duration <= 1440):
+                logger.error(f"Invalid 'override_duration' for override behavior: {override_duration} (must be 1-1440 minutes)")
+                return 0.0
+                
+            if not (1 <= override_priority <= 100):
+                logger.error(f"Invalid 'override_priority' for override behavior: {override_priority} (must be 1-100)")
+                return 0.0
+            
+            # Check if override is still valid (simplified - would need start time in config)
+            # For now, assume override is always active
+            return override_intensity
+            
+        except Exception as e:
+            logger.error(f"Error in override intensity calculation: {e}")
+            return 0.0  # Safe default: off
 
     def _calculate_effect_intensity(
         self, config: Dict[str, Any], current_time: datetime
@@ -441,23 +589,46 @@ class IntensityCalculator:
         Returns:
             Effect intensity value (0.0-1.0)
         """
-        # Extract configuration parameters
-        effect_type = config.get("effect_type", "fade")
-        effect_duration = config.get("effect_duration", 60)  # minutes
-        effect_parameters = config.get("effect_parameters", {})
-        
-        # Validate parameters
-        effect_duration = max(1, min(1440, effect_duration))  # 1 minute to 24 hours
-        
-        # Calculate effect based on type
-        if effect_type == "fade":
-            return self._calculate_fade_effect(effect_parameters, current_time)
-        elif effect_type == "pulse":
-            return self._calculate_pulse_effect(effect_parameters, current_time)
-        elif effect_type == "storm":
-            return self._calculate_storm_effect(effect_parameters, current_time)
-        else:
-            return 0.0
+        try:
+            # Extract configuration parameters with validation
+            effect_type = config.get("effect_type", "fade")
+            effect_duration = config.get("effect_duration", 60)  # minutes
+            effect_parameters = config.get("effect_parameters", {})
+            
+            # Validate effect_type is a string
+            if not isinstance(effect_type, str):
+                logger.error(f"Invalid 'effect_type' for effect behavior: {effect_type} (not a string)")
+                return 0.0  # Safe default: off
+                
+            # Validate effect_duration is a number
+            if not isinstance(effect_duration, (int, float)):
+                logger.error(f"Invalid 'effect_duration' for effect behavior: {effect_duration} (not a number)")
+                return 0.0  # Safe default: off
+                
+            # Validate effect_duration range
+            if not (1 <= effect_duration <= 1440):
+                logger.error(f"Invalid 'effect_duration' for effect behavior: {effect_duration} (must be 1-1440 minutes)")
+                return 0.0
+                
+            # Validate effect_parameters is a dictionary
+            if not isinstance(effect_parameters, dict):
+                logger.error(f"Invalid 'effect_parameters' for effect behavior: {effect_parameters} (not a dictionary)")
+                return 0.0  # Safe default: off
+            
+            # Calculate effect based on type
+            if effect_type == "fade":
+                return self._calculate_fade_effect(effect_parameters, current_time)
+            elif effect_type == "pulse":
+                return self._calculate_pulse_effect(effect_parameters, current_time)
+            elif effect_type == "storm":
+                return self._calculate_storm_effect(effect_parameters, current_time)
+            else:
+                logger.error(f"Unknown effect type: {effect_type}")
+                return 0.0  # Safe default: off
+                
+        except Exception as e:
+            logger.error(f"Error in effect intensity calculation: {e}")
+            return 0.0  # Safe default: off
 
     # Helper methods for calculations
 

@@ -52,9 +52,93 @@ class EffectEntry:
         self.priority = priority
         self.created_at = datetime.utcnow()
         
-        # TODO: Add effect validation
-        # TODO: Add parameter validation
-        # TODO: Add channel validation
+        # Validate parameters
+        self._validate_parameters()
+
+    def _validate_parameters(self):
+        """
+        Validate effect parameters based on effect type.
+        
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
+        if self.effect_type == "fade":
+            # Validate fade effect parameters
+            if "target_intensity" in self.parameters:
+                target_intensity = self.parameters["target_intensity"]
+                if not isinstance(target_intensity, (int, float)):
+                    raise ValueError("Fade effect requires a valid numeric 'target_intensity' parameter.")
+                if not (0.0 <= target_intensity <= 1.0):
+                    raise ValueError("Fade effect 'target_intensity' must be between 0.0 and 1.0.")
+                    
+            if "fade_type" in self.parameters:
+                fade_type = self.parameters["fade_type"]
+                if not isinstance(fade_type, str):
+                    raise ValueError("Fade effect 'fade_type' must be a string.")
+                if fade_type not in ["linear", "smooth", "exponential"]:
+                    raise ValueError("Fade effect 'fade_type' must be one of: linear, smooth, exponential.")
+                    
+        elif self.effect_type == "pulse":
+            # Validate pulse effect parameters
+            if "pulse_frequency" not in self.parameters or not isinstance(self.parameters["pulse_frequency"], (int, float)):
+                raise ValueError("Pulse effect requires a valid 'pulse_frequency' parameter.")
+            if self.parameters["pulse_frequency"] <= 0:
+                raise ValueError("Pulse effect 'pulse_frequency' must be greater than 0.")
+                
+            if "pulse_amplitude" not in self.parameters or not isinstance(self.parameters["pulse_amplitude"], (int, float)):
+                raise ValueError("Pulse effect requires a valid 'pulse_amplitude' parameter.")
+            if not (0.0 <= self.parameters["pulse_amplitude"] <= 1.0):
+                raise ValueError("Pulse effect 'pulse_amplitude' must be between 0.0 and 1.0.")
+                
+            if "pulse_phase" in self.parameters:
+                pulse_phase = self.parameters["pulse_phase"]
+                if not isinstance(pulse_phase, (int, float)):
+                    raise ValueError("Pulse effect 'pulse_phase' must be a number.")
+                    
+        elif self.effect_type == "storm":
+            # Validate storm effect parameters
+            if "intensity_variation" in self.parameters:
+                intensity_variation = self.parameters["intensity_variation"]
+                if not isinstance(intensity_variation, (int, float)):
+                    raise ValueError("Storm effect 'intensity_variation' must be a number.")
+                if not (0.0 <= intensity_variation <= 1.0):
+                    raise ValueError("Storm effect 'intensity_variation' must be between 0.0 and 1.0.")
+                    
+            if "frequency" in self.parameters:
+                frequency = self.parameters["frequency"]
+                if not isinstance(frequency, (int, float)):
+                    raise ValueError("Storm effect 'frequency' must be a number.")
+                if frequency <= 0:
+                    raise ValueError("Storm effect 'frequency' must be greater than 0.")
+                    
+            if "storm_intensity" in self.parameters:
+                storm_intensity = self.parameters["storm_intensity"]
+                if not isinstance(storm_intensity, (int, float)):
+                    raise ValueError("Storm effect 'storm_intensity' must be a number.")
+                if not (0.0 <= storm_intensity <= 1.0):
+                    raise ValueError("Storm effect 'storm_intensity' must be between 0.0 and 1.0.")
+                    
+        elif self.effect_type == "dim":
+            # Validate dim effect parameters
+            if "dim_factor" in self.parameters:
+                dim_factor = self.parameters["dim_factor"]
+                if not isinstance(dim_factor, (int, float)):
+                    raise ValueError("Dim effect 'dim_factor' must be a number.")
+                if not (0.0 <= dim_factor <= 1.0):
+                    raise ValueError("Dim effect 'dim_factor' must be between 0.0 and 1.0.")
+                    
+        elif self.effect_type == "boost":
+            # Validate boost effect parameters
+            if "boost_factor" in self.parameters:
+                boost_factor = self.parameters["boost_factor"]
+                if not isinstance(boost_factor, (int, float)):
+                    raise ValueError("Boost effect 'boost_factor' must be a number.")
+                if not (0.0 <= boost_factor <= 1.0):
+                    raise ValueError("Boost effect 'boost_factor' must be between 0.0 and 1.0.")
+                    
+        else:
+            # Unknown effect type
+            raise ValueError(f"Unknown effect type: {self.effect_type}. Supported types: fade, pulse, storm, dim, boost.")
 
     def is_active(self, current_time: datetime) -> bool:
         """
