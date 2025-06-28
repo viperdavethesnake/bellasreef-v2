@@ -23,7 +23,7 @@ from shared.core.config import settings
 from shared.db.database import engine, Base, async_session
 from shared.db.models import User
 from shared.utils.logger import get_logger
-from core.api import health, auth, users, deps, system_info
+from core.api import health, auth, users, system_info
 
 logger = get_logger(__name__)
 

@@ -15,7 +15,7 @@ import threading
 # Import the new routers
 from .api import controllers, channels
 from .drivers.pca9685_driver import get_manager, cleanup_manager
-from .deps import get_current_user_or_service
+from shared.api.deps import get_current_user_or_service
 from shared.schemas.user import User
 from .api.channels import execute_pending_ramp_steps
 
