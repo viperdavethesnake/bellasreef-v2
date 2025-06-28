@@ -123,8 +123,6 @@ async def _perform_ramp(
         # Clean up the ramp task from the active tasks dictionary
         if ramp_key in _active_ramp_tasks:
             del _active_ramp_tasks[ramp_key]
-        if ramp_key in _ramp_schedules:
-            del _ramp_schedules[ramp_key]
         break  # Only need one session context
 
 def execute_pending_ramp_steps():
@@ -174,9 +172,11 @@ def execute_pending_ramp_steps():
         for step_data in steps_to_execute:
             ramp_schedule.remove(step_data)
         
-        # If all steps are done, mark ramp as complete
+        # If all steps are done, remove the ramp schedule to prevent re-processing.
         if not ramp_schedule:
-            ramp_data['active'] = False
+            if ramp_key in _ramp_schedules:
+                del _ramp_schedules[ramp_key]
+                logger.info(f"Ramp for controller {ramp_key[0]}, channel {ramp_key[1]} completed and schedule removed.")
 
 @router.post("/{channel_id}/control", status_code=status.HTTP_200_OK)
 async def set_pwm_channel_duty_cycle(
