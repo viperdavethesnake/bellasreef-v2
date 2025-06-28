@@ -233,13 +233,8 @@ def set_channel_duty_cycle(address: int, channel: int, duty_cycle: int):
             pca = manager.get_controller(address)
             logger.info(f"HARDWARE_WRITE_ATTEMPT: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, Attempt={attempt+1}")
             
-            # WARNING level logging and side effect for hardware write confirmation
-            logger.warning(f"HARDWARE_WRITE_EXECUTING: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, About to write to PCA9685 hardware")
-            try:
-                os.system("touch /tmp/hal-api-write")
-                logger.warning(f"HARDWARE_WRITE_SIDE_EFFECT: Created /tmp/hal-api-write to confirm hardware write execution")
-            except Exception as side_effect_error:
-                logger.warning(f"HARDWARE_WRITE_SIDE_EFFECT_FAILED: Could not create side effect file: {side_effect_error}")
+            # INFO level logging for hardware write confirmation
+            logger.info(f"Executing hardware write: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
             
             # The adafruit_pca9685 library expects a 16-bit value.
             pca.channels[channel].duty_cycle = duty_cycle
@@ -283,13 +278,8 @@ def set_frequency(address: int, frequency: int):
             pca = manager.get_controller(address)
             logger.info(f"HARDWARE_FREQ_ATTEMPT: I2C=0x{address:02X}, Frequency={frequency}Hz, Attempt={attempt+1}")
             
-            # WARNING level logging and side effect for hardware write confirmation
-            logger.warning(f"HARDWARE_FREQ_EXECUTING: I2C=0x{address:02X}, Frequency={frequency}Hz, About to write to PCA9685 hardware")
-            try:
-                os.system("touch /tmp/hal-api-write")
-                logger.warning(f"HARDWARE_FREQ_SIDE_EFFECT: Created /tmp/hal-api-write to confirm frequency write execution")
-            except Exception as side_effect_error:
-                logger.warning(f"HARDWARE_FREQ_SIDE_EFFECT_FAILED: Could not create side effect file: {side_effect_error}")
+            # INFO level logging for hardware write confirmation
+            logger.info(f"Executing hardware write: I2C=0x{address:02X}, Frequency={frequency}Hz")
             
             pca.frequency = frequency
             
@@ -386,13 +376,8 @@ def set_multiple_channels_duty_cycle(address: int, channel_duty_cycles: dict):
             for channel, duty_cycle in changed_channels.items():
                 logger.info(f"HARDWARE_BULK_CHANNEL: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
                 
-                # WARNING level logging and side effect for hardware write confirmation
-                logger.warning(f"HARDWARE_BULK_EXECUTING: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, About to write to PCA9685 hardware")
-                try:
-                    os.system("touch /tmp/hal-api-write")
-                    logger.warning(f"HARDWARE_BULK_SIDE_EFFECT: Created /tmp/hal-api-write to confirm bulk hardware write execution")
-                except Exception as side_effect_error:
-                    logger.warning(f"HARDWARE_BULK_SIDE_EFFECT_FAILED: Could not create side effect file: {side_effect_error}")
+                # INFO level logging for hardware write confirmation
+                logger.info(f"Executing hardware write: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
                 
                 pca.channels[channel].duty_cycle = duty_cycle
                 logger.info(f"HARDWARE_BULK_CHANNEL_SUCCESS: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, Adafruit library call completed")
@@ -410,7 +395,7 @@ def set_multiple_channels_duty_cycle(address: int, channel_duty_cycles: dict):
             elif attempt == 1:
                 logger.error(f"Hardware error in set_multiple_channels_duty_cycle (retry failed): controller={address}, function=set_multiple_channels_duty_cycle, error={type(e).__name__}: {e}")
                 # Re-raise to be handled by the API layer.
-                raise e 
+                raise e
 
 def reconnect_controller(address: int) -> bool:
     """
@@ -480,13 +465,8 @@ def perform_synchronous_hardware_write(address: int, channel: int, duty_cycle: i
         # Perform the hardware write
         pca = manager.get_controller(address)
         
-        # WARNING level logging and side effect for hardware write confirmation
-        logger.warning(f"SYNC_HARDWARE_EXECUTING: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, About to write to PCA9685 hardware")
-        try:
-            os.system("touch /tmp/hal-api-write")
-            logger.warning(f"SYNC_HARDWARE_SIDE_EFFECT: Created /tmp/hal-api-write to confirm sync hardware write execution")
-        except Exception as side_effect_error:
-            logger.warning(f"SYNC_HARDWARE_SIDE_EFFECT_FAILED: Could not create side effect file: {side_effect_error}")
+        # INFO level logging for hardware write confirmation
+        logger.info(f"Executing hardware write: I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
         
         # The actual hardware write
         pca.channels[channel].duty_cycle = duty_cycle
