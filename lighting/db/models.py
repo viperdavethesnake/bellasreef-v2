@@ -53,7 +53,11 @@ class LightingBehavior(Base):
     __tablename__ = "lighting_behavior"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, index=True)
-    behavior_type = Column(SAEnum(LightingBehaviorType), nullable=False, index=True)
+    behavior_type = Column(
+        SAEnum(LightingBehaviorType, values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
+        index=True
+    )
     behavior_config = Column(JSON, nullable=True, comment="Flexible config, varies by type.")
     weather_influence_enabled = Column(Boolean, default=False, nullable=False)
     acclimation_days = Column(Integer, nullable=True, comment="Optional ramp-in period in days.")
