@@ -8,7 +8,7 @@ from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from shared.schemas import (
     BaseCreate,
@@ -108,16 +108,14 @@ class LightingBehaviorAssignmentBase(BaseModel):
     start_time: Optional[datetime] = Field(None, description="Assignment start time (UTC)")
     end_time: Optional[datetime] = Field(None, description="Assignment end time (UTC)")
 
-    @field_validator("channel_id", "group_id")
-    @classmethod
-    def validate_assignment_target(cls, v, info):
+    @model_validator(mode='after')
+    def validate_assignment_target(self):
         """Ensure either channel_id or group_id is provided, but not both."""
-        data = info.data
-        if data.get("channel_id") is None and data.get("group_id") is None:
+        if self.channel_id is None and self.group_id is None:
             raise ValueError("Either channel_id or group_id must be provided")
-        if data.get("channel_id") is not None and data.get("group_id") is not None:
+        if self.channel_id is not None and self.group_id is not None:
             raise ValueError("Cannot assign to both channel and group simultaneously")
-        return v
+        return self
 
 
 class LightingBehaviorAssignmentCreate(LightingBehaviorAssignmentBase):
