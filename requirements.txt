@@ -44,3 +44,6 @@ tenacity
 # --- Worker/Scheduler (Future Use) ---
 apscheduler==3.10.4
 celery==5.4.0
+
+# For accurate sunrise, sunset, and lunar phase calculations in lighting behaviors
+astral
