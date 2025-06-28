@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field
 from shared.db.database import get_db
 from shared.schemas.user import User
 from shared.utils.logger import get_logger
-from shared.deps import get_current_user_or_service
+from hal.deps import get_current_user_or_service
 
 from lighting.models.schemas import (
     LightingBehaviorLog,

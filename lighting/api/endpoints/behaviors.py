@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.db.database import get_db
 from shared.schemas.user import User
-from core.api.deps import get_current_user
+from hal.deps import get_current_user_or_service
 
 from lighting.services.crud import lighting_behavior
 from lighting.models.schemas import (
@@ -26,7 +26,7 @@ async def get_behaviors(
     behavior_type: Optional[str] = Query(None, description="Filter by behavior type"),
     enabled: Optional[bool] = Query(None, description="Filter by enabled status"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingBehavior]:
     """
     Get all lighting behaviors with optional filtering.
@@ -50,7 +50,7 @@ async def get_behaviors(
 async def get_behavior(
     behavior_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehavior:
     """
     Get a specific lighting behavior by ID.
@@ -70,7 +70,7 @@ async def get_behavior(
 async def create_behavior(
     behavior_in: LightingBehaviorCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehavior:
     """
     Create a new lighting behavior.
@@ -95,7 +95,7 @@ async def update_behavior(
     behavior_id: int,
     behavior_update: LightingBehaviorUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehavior:
     """
     Update a lighting behavior.
@@ -127,7 +127,7 @@ async def update_behavior(
 async def delete_behavior(
     behavior_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> None:
     """
     Delete a lighting behavior.

@@ -18,6 +18,7 @@ from lighting.models.schemas import (
     LightingBehaviorAssignmentCreate,
     LightingBehaviorLogCreate,
 )
+from lighting.db.models import LightingBehaviorAssignment
 
 
 class LightingBehaviorManager:
@@ -218,6 +219,45 @@ class LightingBehaviorManager:
                 "notes": "Group preview calculation not yet implemented"
             }
         }
+
+    async def get_active_assignments(
+        self,
+        db: AsyncSession,
+    ) -> List[LightingBehaviorAssignment]:
+        """
+        Get all currently active lighting behavior assignments from the database.
+        
+        An assignment is considered "active" if:
+        - active=True
+        - Current UTC time is within the assignment's start_time and end_time window (if those are set)
+        
+        Returns:
+            List[LightingBehaviorAssignment]: List of all currently active assignments
+            
+        Note:
+            This method uses direct database queries to ensure real-time accuracy
+            for the lighting runner system.
+        """
+        from sqlalchemy import select, and_
+        from datetime import datetime, timezone
+        
+        current_time = datetime.now(timezone.utc)
+        
+        # Build query for active assignments within time windows
+        query = select(LightingBehaviorAssignment).filter(
+            and_(
+                LightingBehaviorAssignment.active == True,
+                # If start_time is set, current time must be >= start_time
+                (LightingBehaviorAssignment.start_time.is_(None) | 
+                 (LightingBehaviorAssignment.start_time <= current_time)),
+                # If end_time is set, current time must be < end_time
+                (LightingBehaviorAssignment.end_time.is_(None) | 
+                 (LightingBehaviorAssignment.end_time > current_time))
+            )
+        )
+        
+        result = await db.execute(query)
+        return result.scalars().all()
 
     async def create_override(
         self,

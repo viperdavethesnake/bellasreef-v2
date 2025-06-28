@@ -12,7 +12,7 @@ import uuid
 from shared.utils.logger import get_logger
 from lighting.runner.intensity_calculator import IntensityCalculator
 from lighting.engine.queue_manager import QueueManager
-from hal.services import get_lighting_hal_service
+from hal.services.lighting_service import get_lighting_hal_service
 
 logger = get_logger(__name__)
 

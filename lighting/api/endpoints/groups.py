@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.db.database import get_db
 from shared.schemas.user import User
-from core.api.deps import get_current_user
+from hal.deps import get_current_user_or_service
 
 from lighting.services.crud import lighting_group
 from lighting.models.schemas import (
@@ -24,7 +24,7 @@ async def get_groups(
     skip: int = Query(0, ge=0, description="Number of records to skip for pagination"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingGroup]:
     """
     Get all lighting groups.
@@ -40,7 +40,7 @@ async def get_groups(
 async def get_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingGroup:
     """
     Get a specific lighting group by ID.
@@ -60,7 +60,7 @@ async def get_group(
 async def create_group(
     group_in: LightingGroupCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingGroup:
     """
     Create a new lighting group.
@@ -85,7 +85,7 @@ async def update_group(
     group_id: int,
     group_update: LightingGroupUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingGroup:
     """
     Update a lighting group.
@@ -117,7 +117,7 @@ async def update_group(
 async def delete_group(
     group_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> None:
     """
     Delete a lighting group.

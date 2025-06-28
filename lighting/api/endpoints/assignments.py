@@ -8,7 +8,7 @@ from datetime import datetime
 
 from shared.db.database import get_db
 from shared.schemas.user import User
-from core.api.deps import get_current_user
+from hal.deps import get_current_user_or_service
 
 from lighting.services.crud import lighting_behavior_assignment, lighting_behavior, lighting_group, lighting_behavior_log
 from lighting.services.behavior_manager import lighting_behavior_manager
@@ -30,7 +30,7 @@ async def get_assignments(
     behavior_id: Optional[int] = Query(None, description="Filter by behavior ID"),
     active: Optional[bool] = Query(None, description="Filter by active status"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingBehaviorAssignment]:
     """
     Get all lighting behavior assignments with optional filtering.
@@ -58,7 +58,7 @@ async def get_assignments(
 async def get_assignment(
     assignment_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehaviorAssignment:
     """
     Get a specific lighting behavior assignment by ID.
@@ -79,7 +79,7 @@ async def get_channel_assignment(
     channel_id: int,
     active_only: bool = Query(True, description="Return only active assignments"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> Optional[LightingBehaviorAssignment]:
     """
     Get the current assignment for a specific channel.
@@ -98,7 +98,7 @@ async def get_group_assignments(
     group_id: int,
     active_only: bool = Query(True, description="Return only active assignments"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingBehaviorAssignment]:
     """
     Get all assignments for a specific group.
@@ -116,7 +116,7 @@ async def get_group_assignments(
 async def create_assignment(
     assignment_in: LightingBehaviorAssignmentCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehaviorAssignment:
     """
     Create a new lighting behavior assignment.
@@ -159,7 +159,7 @@ async def update_assignment(
     assignment_id: int,
     assignment_update: LightingBehaviorAssignmentUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehaviorAssignment:
     """
     Update a lighting behavior assignment.
@@ -204,7 +204,7 @@ async def update_assignment(
 async def delete_assignment(
     assignment_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> None:
     """
     Delete a lighting behavior assignment.
@@ -230,7 +230,7 @@ async def delete_assignment(
 async def deactivate_channel_assignments(
     channel_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> dict:
     """
     Deactivate all assignments for a specific channel.
@@ -257,7 +257,7 @@ async def assign_behavior_to_channel(
     end_time: Optional[datetime] = Query(None, description="Assignment end time (UTC)"),
     notes: Optional[str] = Query(None, description="Assignment notes"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> Dict[str, Any]:
     """
     Assign a behavior to a channel using the behavior manager.
@@ -296,7 +296,7 @@ async def assign_behavior_to_group(
     end_time: Optional[datetime] = Query(None, description="Assignment end time (UTC)"),
     notes: Optional[str] = Query(None, description="Assignment notes"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> Dict[str, Any]:
     """
     Assign a behavior to a group using the behavior manager.
@@ -331,7 +331,7 @@ async def assign_behavior_to_group(
 async def get_channel_status(
     channel_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> Dict[str, Any]:
     """
     Get the current status of a channel including active assignment and any overrides/effects.
@@ -355,7 +355,7 @@ async def get_channel_status(
 async def get_group_status(
     group_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> Dict[str, Any]:
     """
     Get the current status of a group including all channel assignments.
@@ -382,7 +382,7 @@ async def create_override_assignment(
     behavior_id: int,
     duration_minutes: int = Query(..., ge=1, le=1440, description="Override duration in minutes (1-1440)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> Dict[str, Any]:
     """
     Create a temporary override assignment.
@@ -407,7 +407,7 @@ async def create_effect_assignment(
     effect_type: str = Query(..., description="Type of effect (lightning, storm, etc.)"),
     duration_minutes: int = Query(..., ge=1, le=60, description="Effect duration in minutes (1-60)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> Dict[str, Any]:
     """
     Create a temporary effect assignment.
@@ -433,7 +433,7 @@ async def preview_behavior(
     group_id: Optional[int] = Query(None, description="Group ID for preview"),
     preview_time: Optional[datetime] = Query(None, description="Time to preview (UTC)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> Dict[str, Any]:
     """
     Preview what a behavior would do at a given time.

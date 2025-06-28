@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from shared.db.database import get_db
 from shared.schemas.user import User
-from core.api.deps import get_current_user
+from hal.deps import get_current_user_or_service
 
 from lighting.services.crud import lighting_behavior_log
 from lighting.models.schemas import (
@@ -30,7 +30,7 @@ async def get_logs(
     status: Optional[str] = Query(None, description="Filter by status"),
     hours: Optional[int] = Query(None, ge=1, le=8760, description="Filter by hours back (1-8760)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingBehaviorLog]:
     """
     Get lighting behavior logs with optional filtering.
@@ -62,7 +62,7 @@ async def get_logs(
 async def get_log(
     log_id: int,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehaviorLog:
     """
     Get a specific lighting behavior log entry by ID.
@@ -82,7 +82,7 @@ async def get_log(
 async def create_log(
     log_in: LightingBehaviorLogCreate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehaviorLog:
     """
     Create a new lighting behavior log entry.
@@ -99,7 +99,7 @@ async def update_log(
     log_id: int,
     log_update: LightingBehaviorLogUpdate,
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> LightingBehaviorLog:
     """
     Update a lighting behavior log entry.
@@ -128,7 +128,7 @@ async def get_channel_logs(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
     hours: Optional[int] = Query(None, ge=1, le=8760, description="Filter by hours back (1-8760)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingBehaviorLog]:
     """
     Get logs for a specific channel.
@@ -155,7 +155,7 @@ async def get_group_logs(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
     hours: Optional[int] = Query(None, ge=1, le=8760, description="Filter by hours back (1-8760)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingBehaviorLog]:
     """
     Get logs for a specific group.
@@ -182,7 +182,7 @@ async def get_behavior_logs(
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
     hours: Optional[int] = Query(None, ge=1, le=8760, description="Filter by hours back (1-8760)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingBehaviorLog]:
     """
     Get logs for a specific behavior.
@@ -208,7 +208,7 @@ async def get_recent_errors(
     limit: int = Query(50, ge=1, le=1000, description="Maximum number of records to return"),
     hours: int = Query(24, ge=1, le=8760, description="Hours to look back (1-8760)"),
     db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_current_user_or_service),
 ) -> List[LightingBehaviorLog]:
     """
     Get recent error logs.
