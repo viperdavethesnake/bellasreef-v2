@@ -178,26 +178,53 @@ echo -e "${CHECK} Found $VESYNC_ACCOUNT_COUNT existing VeSync account(s)."
 
 # Check if we have VeSync credentials configured
 if [[ -n "$VESYNC_EMAIL" && -n "$VESYNC_PASSWORD" ]]; then
-  echo -e "${ARROW} Testing VeSync device discovery with configured credentials..."
-  VESYNC_DISCOVERY_RESPONSE=$(curl -s -X POST "${SMARTOUTLETS_URL}/api/smartoutlets/outlets/discover/cloud/vesync" \
-    -H "Authorization: Bearer $AUTH_TOKEN" \
-    -H "Content-Type: application/json" \
-    -d "{\"email\":\"$VESYNC_EMAIL\",\"password\":\"$VESYNC_PASSWORD\",\"time_zone\":\"$VESYNC_TZ\"}")
-  
-  VESYNC_ERROR=$(echo "$VESYNC_DISCOVERY_RESPONSE" | jq -r '.detail // empty')
-  if [[ -n "$VESYNC_ERROR" ]]; then
-    echo -e "${YELLOW}VeSync discovery failed: $VESYNC_ERROR${RESET}"
-  else
-    VESYNC_DEVICES=$(echo "$VESYNC_DISCOVERY_RESPONSE" | jq '.')
-    VESYNC_DEVICE_COUNT=$(echo "$VESYNC_DEVICES" | jq '. | length')
-    echo -e "${CHECK} VeSync discovery successful. Found $VESYNC_DEVICE_COUNT device(s)."
+  # Create VeSync account if none exist
+  if [[ "$VESYNC_ACCOUNT_COUNT" -eq 0 ]]; then
+    echo -e "${ARROW} Creating VeSync account with configured credentials..."
+    CREATE_VESYNC_ACCOUNT_RESPONSE=$(curl -s -X POST "${SMARTOUTLETS_URL}/api/smartoutlets/vesync/accounts/" \
+      -H "Authorization: Bearer $AUTH_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{
+        \"email\": \"$VESYNC_EMAIL\",
+        \"password\": \"$VESYNC_PASSWORD\",
+        \"time_zone\": \"$VESYNC_TZ\",
+        \"is_active\": true
+      }")
     
-    # Get first VeSync device for testing
-    VESYNC_DEVICE=$(echo "$VESYNC_DEVICES" | jq -c '.[0]' 2>/dev/null)
-    if [[ -n "$VESYNC_DEVICE" && "$VESYNC_DEVICE" != "null" ]]; then
-      VESYNC_DEVICE_ID=$(echo "$VESYNC_DEVICE" | jq -r '.device_id')
-      VESYNC_DEVICE_NAME=$(echo "$VESYNC_DEVICE" | jq -r '.device_name')
-      echo -e "${CHECK} Selected VeSync device for testing: $VESYNC_DEVICE_NAME"
+    VESYNC_ACCOUNT_ID=$(echo "$CREATE_VESYNC_ACCOUNT_RESPONSE" | jq -r '.id')
+    if [[ -n "$VESYNC_ACCOUNT_ID" && "$VESYNC_ACCOUNT_ID" != "null" ]]; then
+      echo -e "${CHECK} Successfully created VeSync account with ID: $VESYNC_ACCOUNT_ID"
+    else
+      echo -e "${CROSS} ${RED}ERROR:${RESET} Failed to create VeSync account. Response: $CREATE_VESYNC_ACCOUNT_RESPONSE"
+      VESYNC_ACCOUNT_ID=""
+    fi
+  else
+    # Use existing account
+    VESYNC_ACCOUNT_ID=$(echo "$LIST_VESYNC_RESPONSE" | jq -r '.[0].id')
+    echo -e "${CHECK} Using existing VeSync account with ID: $VESYNC_ACCOUNT_ID"
+  fi
+  
+  # Discover VeSync devices if we have an account
+  if [[ -n "$VESYNC_ACCOUNT_ID" ]]; then
+    echo -e "${ARROW} Discovering VeSync devices using account..."
+    VESYNC_DISCOVERY_RESPONSE=$(curl -s -X GET "${SMARTOUTLETS_URL}/api/smartoutlets/vesync/accounts/${VESYNC_ACCOUNT_ID}/devices/discover" \
+      -H "Authorization: Bearer $AUTH_TOKEN")
+    
+    VESYNC_ERROR=$(echo "$VESYNC_DISCOVERY_RESPONSE" | jq -r '.detail // empty')
+    if [[ -n "$VESYNC_ERROR" ]]; then
+      echo -e "${YELLOW}VeSync discovery failed: $VESYNC_ERROR${RESET}"
+    else
+      VESYNC_DEVICES=$(echo "$VESYNC_DISCOVERY_RESPONSE" | jq '.')
+      VESYNC_DEVICE_COUNT=$(echo "$VESYNC_DEVICES" | jq '. | length')
+      echo -e "${CHECK} VeSync discovery successful. Found $VESYNC_DEVICE_COUNT device(s)."
+      
+      # Get first VeSync device for testing
+      VESYNC_DEVICE=$(echo "$VESYNC_DEVICES" | jq -c '.[0]' 2>/dev/null)
+      if [[ -n "$VESYNC_DEVICE" && "$VESYNC_DEVICE" != "null" ]]; then
+        VESYNC_DEVICE_ID=$(echo "$VESYNC_DEVICE" | jq -r '.device_id')
+        VESYNC_DEVICE_NAME=$(echo "$VESYNC_DEVICE" | jq -r '.device_name')
+        echo -e "${CHECK} Selected VeSync device for testing: $VESYNC_DEVICE_NAME"
+      fi
     fi
   fi
 else
@@ -237,9 +264,9 @@ else
 fi
 
 # Create VeSync outlet if device was found
-if [[ -n "$VESYNC_DEVICE_ID" ]]; then
+if [[ -n "$VESYNC_DEVICE_ID" && -n "$VESYNC_ACCOUNT_ID" ]]; then
   echo -e "${ARROW} Creating VeSync outlet..."
-  CREATE_VESYNC_RESPONSE=$(curl -s -X POST "${SMARTOUTLETS_URL}/api/smartoutlets/vesync/accounts/1/devices" \
+  CREATE_VESYNC_RESPONSE=$(curl -s -X POST "${SMARTOUTLETS_URL}/api/smartoutlets/vesync/accounts/${VESYNC_ACCOUNT_ID}/devices" \
     -H "Authorization: Bearer $AUTH_TOKEN" \
     -H "Content-Type: application/json" \
     -d "{
