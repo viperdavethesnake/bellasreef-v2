@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select
+from sqlalchemy.orm.attributes import flag_modified
 from typing import List
 import time
 
@@ -230,6 +231,9 @@ async def update_pwm_frequency(
     if not controller.config:
         controller.config = {}
     controller.config["frequency"] = request.frequency
+    
+    # Mark the 'config' field as modified so SQLAlchemy knows to save it.
+    flag_modified(controller, "config")
     
     # Save the changes to the database
     db.add(controller)
