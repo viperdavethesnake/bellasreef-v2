@@ -69,24 +69,44 @@ class VeSyncDriver(AbstractSmartOutletDriver):
             if not login_success:
                 raise OutletAuthenticationError(f"VeSync authentication failed for {email}")
             
-            # Update to populate devices - outlets are available in manager.outlets after this
+            # Update to populate devices - outlets and switches are available after this
             await loop.run_in_executor(None, manager.update)
             
             devices = []
-            for outlet in manager.outlets:
-                try:
-                    # Extract device information
-                    device_data = {
-                        "driver_type": "vesync",
-                        "driver_device_id": outlet.cid,  # CID as driver_device_id
-                        "ip_address": None,  # No IP address for cloud devices
-                        "name": outlet.device_name
-                    }
-                    devices.append(device_data)
-                    
-                except Exception as e:
-                    logger.warning(f"Failed to process discovered VeSync device: {e}")
-                    continue
+            
+            # Process Outlets
+            if hasattr(manager, 'outlets') and manager.outlets:
+                for outlet in manager.outlets:
+                    try:
+                        # Extract device information
+                        device_data = {
+                            "driver_type": "vesync",
+                            "driver_device_id": outlet.cid,  # CID as driver_device_id
+                            "ip_address": None,  # No IP address for cloud devices
+                            "name": outlet.device_name
+                        }
+                        devices.append(device_data)
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to process discovered VeSync outlet: {e}")
+                        continue
+            
+            # Process Switches
+            if hasattr(manager, 'switches') and manager.switches:
+                for switch in manager.switches:
+                    try:
+                        # Extract device information
+                        device_data = {
+                            "driver_type": "vesync",
+                            "driver_device_id": switch.cid,  # CID as driver_device_id
+                            "ip_address": None,  # No IP address for cloud devices
+                            "name": switch.device_name
+                        }
+                        devices.append(device_data)
+                        
+                    except Exception as e:
+                        logger.warning(f"Failed to process discovered VeSync switch: {e}")
+                        continue
             
             logger.info(f"Discovered {len(devices)} VeSync devices")
             return devices
