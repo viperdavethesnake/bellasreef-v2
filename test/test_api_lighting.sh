@@ -156,7 +156,7 @@ echo "✅ Assigned behavior ${BLUES_BEHAVIOR_ID} to channel ${BLUES_CHANNEL_ID} 
 # --- Step 6: Trigger Runner and Verify Hardware State ---
 echo -e "\n--- Step 6: Triggering Runner and Verifying Hardware States ---"
 echo "Manually triggering a lighting runner iteration..."
-RUN_ITERATION_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/scheduler/run-iteration" \
+RUN_ITERATION_RESPONSE=$(curl -s --max-time 30 -X POST "${LIGHTING_URL}/lighting/scheduler/run-single-iteration" \
   -H "Authorization: Bearer $AUTH_TOKEN")
 if [[ $(echo "$RUN_ITERATION_RESPONSE" | jq -r '.success') != "true" ]]; then
     echo "❌ ERROR: Failed to run iteration. Response: $RUN_ITERATION_RESPONSE"
