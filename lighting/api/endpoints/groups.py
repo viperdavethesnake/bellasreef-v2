@@ -16,7 +16,7 @@ from lighting.models.schemas import (
     LightingGroupUpdate,
 )
 
-router = APIRouter(prefix="/lighting/groups", tags=["lighting-groups"])
+router = APIRouter(prefix="/groups", tags=["lighting-groups"])
 
 
 @router.get("/", response_model=List[LightingGroup])

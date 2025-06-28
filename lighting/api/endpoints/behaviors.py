@@ -16,7 +16,7 @@ from lighting.models.schemas import (
     LightingBehaviorUpdate,
 )
 
-router = APIRouter(prefix="/lighting/behaviors", tags=["lighting-behaviors"])
+router = APIRouter(prefix="/behaviors", tags=["lighting-behaviors"])
 
 
 @router.get("/", response_model=List[LightingBehavior])
