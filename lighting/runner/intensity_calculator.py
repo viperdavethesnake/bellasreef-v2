@@ -5,11 +5,19 @@ This module provides profile functions for each behavior type that return
 the target intensity for a given time, using the behavior's configuration.
 """
 import math
+import httpx
 from datetime import datetime, time
 from typing import Any, Dict, Optional
+from astral.sun import sun
+from astral.moon import phase
+from astral import Observer
+from datetime import timezone
+import logging
 
 from lighting.models.schemas import LightingBehavior, LightingBehaviorType
+from shared.core.config import settings
 
+logger = logging.getLogger(__name__)
 
 class IntensityCalculator:
     """
@@ -29,12 +37,19 @@ class IntensityCalculator:
 
     def __init__(self):
         """Initialize the intensity calculator."""
+        # Initialize HTTP client for weather API calls
+        self.http_client = httpx.AsyncClient(timeout=10.0)
+        
+        # Initialize weather cache
+        self.weather_cache = {}
+        self.weather_cache_expiry_seconds = 600  # Cache weather for 10 minutes
+        
         # TODO: Initialize weather service integration
         # TODO: Initialize location service integration
         # TODO: Initialize lunar phase calculator
         # TODO: Initialize caching system
 
-    def calculate_behavior_intensity(
+    async def calculate_behavior_intensity(
         self, behavior: LightingBehavior, current_time: datetime
     ) -> float:
         """
@@ -55,17 +70,26 @@ class IntensityCalculator:
             return 0.0
             
         # TODO: Apply acclimation period if configured
-        # TODO: Apply weather influence if enabled
         
         # Calculate base intensity based on behavior type
-        base_intensity = self._calculate_base_intensity(behavior, current_time)
+        base_intensity = await self._calculate_base_intensity(behavior, current_time)
         
-        # TODO: Apply weather modifications
+        # Apply weather influence if enabled
+        if hasattr(behavior, 'weather_influence_enabled') and behavior.weather_influence_enabled:
+            # Get location from behavior config for weather lookup
+            config = behavior.behavior_config or {}
+            latitude = config.get("latitude", 0.0)
+            longitude = config.get("longitude", 0.0)
+            
+            if latitude != 0.0 and longitude != 0.0:
+                weather_factor = await self._get_weather_factor(latitude, longitude)
+                base_intensity *= weather_factor
+        
         # TODO: Apply acclimation modifications
         
         return max(0.0, min(1.0, base_intensity))  # Clamp to valid range
 
-    def _calculate_base_intensity(
+    async def _calculate_base_intensity(
         self, behavior: LightingBehavior, current_time: datetime
     ) -> float:
         """
@@ -86,13 +110,13 @@ class IntensityCalculator:
         elif behavior_type == LightingBehaviorType.DIURNAL:
             return self._calculate_diurnal_intensity(config, current_time)
         elif behavior_type == LightingBehaviorType.LUNAR:
-            return self._calculate_lunar_intensity(config, current_time)
+            return await self._calculate_lunar_intensity(config, current_time)
         elif behavior_type == LightingBehaviorType.MOONLIGHT:
-            return self._calculate_moonlight_intensity(config, current_time)
+            return await self._calculate_moonlight_intensity(config, current_time)
         elif behavior_type == LightingBehaviorType.CIRCADIAN:
             return self._calculate_circadian_intensity(config, current_time)
         elif behavior_type == LightingBehaviorType.LOCATION_BASED:
-            return self._calculate_location_based_intensity(config, current_time)
+            return await self._calculate_location_based_intensity(config, current_time)
         elif behavior_type == LightingBehaviorType.OVERRIDE:
             return self._calculate_override_intensity(config, current_time)
         elif behavior_type == LightingBehaviorType.EFFECT:
@@ -165,7 +189,7 @@ class IntensityCalculator:
             # Nighttime
             return min_intensity
 
-    def _calculate_lunar_intensity(
+    async def _calculate_lunar_intensity(
         self, config: Dict[str, Any], current_time: datetime
     ) -> float:
         """
@@ -196,12 +220,17 @@ class IntensityCalculator:
         
         # Apply weather influence if enabled
         if weather_influence:
-            weather_factor = self._get_weather_factor(current_time)
-            base_intensity *= weather_factor
+            # Get location from config for weather lookup
+            latitude = config.get("latitude", 0.0)
+            longitude = config.get("longitude", 0.0)
+            
+            if latitude != 0.0 and longitude != 0.0:
+                weather_factor = await self._get_weather_factor(latitude, longitude)
+                base_intensity *= weather_factor
             
         return base_intensity
 
-    def _calculate_moonlight_intensity(
+    async def _calculate_moonlight_intensity(
         self, config: Dict[str, Any], current_time: datetime
     ) -> float:
         """
@@ -235,8 +264,13 @@ class IntensityCalculator:
                 
             # Apply weather influence
             if weather_influence:
-                weather_factor = self._get_weather_factor(current_time)
-                base_intensity *= weather_factor
+                # Get location from config for weather lookup
+                latitude = config.get("latitude", 0.0)
+                longitude = config.get("longitude", 0.0)
+                
+                if latitude != 0.0 and longitude != 0.0:
+                    weather_factor = await self._get_weather_factor(latitude, longitude)
+                    base_intensity *= weather_factor
                 
             return base_intensity
         else:
@@ -292,7 +326,7 @@ class IntensityCalculator:
             else:
                 return 0.0
 
-    def _calculate_location_based_intensity(
+    async def _calculate_location_based_intensity(
         self, config: Dict[str, Any], current_time: datetime
     ) -> float:
         """
@@ -333,7 +367,7 @@ class IntensityCalculator:
         
         # Apply weather influence if enabled
         if weather_influence:
-            weather_factor = self._get_weather_factor(current_time)
+            weather_factor = await self._get_weather_factor(latitude, longitude)
             base_intensity *= weather_factor
             
         return base_intensity
@@ -404,12 +438,35 @@ class IntensityCalculator:
         return 3 * progress * progress - 2 * progress * progress * progress
 
     def _calculate_lunar_phase(self, current_time: datetime) -> float:
-        """Calculate lunar phase (0.0 = new moon, 1.0 = full moon)."""
-        # Simplified lunar phase calculation
-        # In reality, this would use astronomical algorithms
-        days_since_new_moon = (current_time - datetime(2024, 1, 1)).days % 29.53
-        phase = (days_since_new_moon / 29.53) * 2 * math.pi
-        return (math.sin(phase) + 1) / 2
+        """
+        Calculate lunar phase using astral library.
+        
+        Args:
+            current_time: Current UTC time
+            
+        Returns:
+            Lunar phase intensity (0.0 = new moon, 1.0 = full moon)
+        """
+        try:
+            # Get lunar phase from astral library (0-27 days)
+            moon_phase_day = phase(current_time)
+            
+            # Convert 0-27 value to 0.0-1.0 intensity scale
+            # Full moon is around day 14, so we calculate distance from full moon
+            distance_from_full = abs(14 - moon_phase_day)
+            
+            # Use a smooth function to convert distance to intensity
+            # At full moon (distance = 0): intensity = 1.0
+            # At new moon (distance = 14): intensity = 0.0
+            intensity = max(0.0, 1.0 - (distance_from_full / 14.0))
+            
+            return intensity
+            
+        except Exception as e:
+            # Fallback to simplified calculation if astral library fails
+            days_since_new_moon = (current_time - datetime(2024, 1, 1)).days % 29.53
+            phase_radians = (days_since_new_moon / 29.53) * 2 * math.pi
+            return (math.sin(phase_radians) + 1) / 2
 
     def _calculate_lunar_elevation(self, current_time: datetime) -> float:
         """Calculate lunar elevation (0.0 = below horizon, 1.0 = zenith)."""
@@ -420,11 +477,68 @@ class IntensityCalculator:
         elevation = math.sin((hour - 12) * math.pi / 12)
         return max(0.0, elevation)
 
-    def _get_weather_factor(self, current_time: datetime) -> float:
-        """Get weather influence factor (0.0-1.0)."""
-        # Simplified weather factor - in reality would use weather API
-        # For now, return a constant factor
-        return 0.8  # 80% clear skies
+    async def _get_weather_factor(self, latitude: float, longitude: float) -> float:
+        """
+        Get weather influence factor (0.0-1.0) from OpenWeatherMap API.
+        
+        Args:
+            latitude: Location latitude in degrees
+            longitude: Location longitude in degrees
+            
+        Returns:
+            Weather factor (0.0-1.0) where 1.0 = clear skies, 0.3 = heavy clouds
+        """
+        # Create cache key for this location
+        cache_key = f"{latitude:.3f},{longitude:.3f}"
+        current_time = datetime.now()
+        
+        # Check cache first
+        if cache_key in self.weather_cache:
+            cached_data = self.weather_cache[cache_key]
+            cache_age = (current_time - cached_data['timestamp']).total_seconds()
+            
+            if cache_age < self.weather_cache_expiry_seconds:
+                return cached_data['factor']
+        
+        # Check if API key is configured
+        api_key = getattr(settings, 'LIGHTING_WEATHER_API_KEY', None)
+        if not api_key or api_key == "changeme":
+            logger.warning("Weather API key not configured. Weather influence disabled.")
+            return 1.0  # No weather effect
+        
+        try:
+            # Make API call to OpenWeatherMap
+            url = "https://api.openweathermap.org/data/3.0/onecall"
+            params = {
+                'lat': latitude,
+                'lon': longitude,
+                'appid': api_key,
+                'exclude': 'minutely,hourly,daily,alerts'
+            }
+            
+            response = await self.http_client.get(url, params=params)
+            response.raise_for_status()
+            
+            # Parse response
+            data = response.json()
+            cloud_percentage = data['current']['clouds']
+            
+            # Convert cloud percentage (0-100) to intensity multiplier (1.0-0.3)
+            # 0% clouds = 1.0 multiplier (clear skies)
+            # 100% clouds = 0.3 multiplier (heavy cloud cover)
+            multiplier = 1.0 - (cloud_percentage / 100.0) * 0.7
+            
+            # Cache the result
+            self.weather_cache[cache_key] = {
+                'factor': multiplier,
+                'timestamp': current_time
+            }
+            
+            return multiplier
+            
+        except Exception as e:
+            logger.error(f"Weather API call failed: {e}")
+            return 1.0  # Default to no weather effect on failure
 
     def _is_moonlight_period(self, current_hour: float, start_hour: float, end_hour: float) -> bool:
         """Check if current time is within moonlight period."""
@@ -436,18 +550,46 @@ class IntensityCalculator:
             return current_hour >= start_hour or current_hour <= end_hour
 
     def _calculate_location_sun_times(self, latitude: float, longitude: float, current_time: datetime) -> tuple[float, float]:
-        """Calculate sunrise and sunset times for a location."""
-        # Simplified calculation - in reality would use astronomical algorithms
-        # For now, return approximate times based on latitude
-        if abs(latitude) < 30:
-            # Tropical region
-            return 6.0, 18.0
-        elif abs(latitude) < 60:
-            # Temperate region
-            return 7.0, 17.0
-        else:
-            # Polar region
-            return 8.0, 16.0
+        """
+        Calculate sunrise and sunset times for a location using astral library.
+        
+        Args:
+            latitude: Location latitude in degrees
+            longitude: Location longitude in degrees
+            current_time: Current UTC time
+            
+        Returns:
+            Tuple of (sunrise_hour, sunset_hour) as float values
+        """
+        try:
+            # Create an Observer instance with the provided coordinates
+            observer = Observer(latitude=latitude, longitude=longitude)
+            
+            # Get solar events for the current date
+            solar_events = sun(observer.observer, date=current_time.date(), tzinfo=timezone.utc)
+            
+            # Extract sunrise and sunset times
+            sunrise_time = solar_events['sunrise']
+            sunset_time = solar_events['sunset']
+            
+            # Convert to hours as float values
+            sunrise_hour = sunrise_time.hour + sunrise_time.minute / 60.0 + sunrise_time.second / 3600.0
+            sunset_hour = sunset_time.hour + sunset_time.minute / 60.0 + sunset_time.second / 3600.0
+            
+            return sunrise_hour, sunset_hour
+            
+        except Exception as e:
+            # Fallback to simplified calculation if astral library fails
+            # This could happen with invalid coordinates or extreme latitudes
+            if abs(latitude) < 30:
+                # Tropical region
+                return 6.0, 18.0
+            elif abs(latitude) < 60:
+                # Temperate region
+                return 7.0, 17.0
+            else:
+                # Polar region
+                return 8.0, 16.0
 
     def _calculate_fade_effect(self, parameters: Dict[str, Any], current_time: datetime) -> float:
         """Calculate fade effect intensity."""
