@@ -11,6 +11,7 @@ from shared.schemas.user import User
 from shared.schemas import device as device_schema
 from shared.utils.logger import get_logger
 from shared.api.deps import get_current_user_or_service
+from shared.core.config import settings
 
 from ..drivers import pca9685_driver
 from ..drivers.pca9685_driver import perform_synchronous_hardware_write
@@ -616,43 +617,44 @@ async def update_channel(
     updated_device = await device_crud.update(db, db_obj=channel, obj_in=device_update_data)
     return updated_device
 
-@router.post("/debug/pca_write", status_code=status.HTTP_200_OK, summary="Debug PCA9685 Hardware Write")
-async def debug_pca_write(
-    address: int,
-    channel: int,
-    duty_cycle: int,
-    current_user: User = Depends(get_current_user_or_service)
-):
-    """
-    Temporary debug endpoint to perform a single hardware write to PCA9685.
-    For real-time diagnostics only.
-    """
-    logger.info(f"DEBUG_PCA_WRITE: Starting debug hardware write - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
-    
-    try:
-        # Validate inputs
-        if not 0 <= channel <= 15:
-            raise HTTPException(status_code=400, detail=f"Channel must be between 0 and 15 inclusive, got {channel}")
-        if not 0 <= duty_cycle <= 65535:
-            raise HTTPException(status_code=400, detail=f"Duty cycle must be between 0 and 65535 inclusive, got {duty_cycle}")
+if settings.DEBUG:
+    @router.post("/debug/pca_write", status_code=status.HTTP_200_OK, summary="Debug PCA9685 Hardware Write")
+    async def debug_pca_write(
+        address: int,
+        channel: int,
+        duty_cycle: int,
+        current_user: User = Depends(get_current_user_or_service)
+    ):
+        """
+        Temporary debug endpoint to perform a single hardware write to PCA9685.
+        For real-time diagnostics only.
+        """
+        logger.info(f"DEBUG_PCA_WRITE: Starting debug hardware write - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
         
-        # Perform the hardware write
-        pca9685_driver.set_channel_duty_cycle(address=address, channel=channel, duty_cycle=duty_cycle)
-        
-        logger.info(f"DEBUG_PCA_WRITE_SUCCESS: Hardware write completed - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
-        
-        return {
-            "status": "success",
-            "message": f"Hardware write completed successfully",
-            "address": f"0x{address:02X}",
-            "channel": channel,
-            "duty_cycle": duty_cycle,
-            "timestamp": "now"
-        }
-        
-    except Exception as e:
-        logger.error(f"DEBUG_PCA_WRITE_ERROR: Hardware write failed - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, Error={type(e).__name__}: {e}")
-        raise HTTPException(
-            status_code=503, 
-            detail=f"Hardware write failed: {type(e).__name__}: {e}"
-        ) 
+        try:
+            # Validate inputs
+            if not 0 <= channel <= 15:
+                raise HTTPException(status_code=400, detail=f"Channel must be between 0 and 15 inclusive, got {channel}")
+            if not 0 <= duty_cycle <= 65535:
+                raise HTTPException(status_code=400, detail=f"Duty cycle must be between 0 and 65535 inclusive, got {duty_cycle}")
+            
+            # Perform the hardware write
+            pca9685_driver.set_channel_duty_cycle(address=address, channel=channel, duty_cycle=duty_cycle)
+            
+            logger.info(f"DEBUG_PCA_WRITE_SUCCESS: Hardware write completed - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}")
+            
+            return {
+                "status": "success",
+                "message": f"Hardware write completed successfully",
+                "address": f"0x{address:02X}",
+                "channel": channel,
+                "duty_cycle": duty_cycle,
+                "timestamp": "now"
+            }
+            
+        except Exception as e:
+            logger.error(f"DEBUG_PCA_WRITE_ERROR: Hardware write failed - I2C=0x{address:02X}, Channel={channel}, DutyCycle={duty_cycle}, Error={type(e).__name__}: {e}")
+            raise HTTPException(
+                status_code=503, 
+                detail=f"Hardware write failed: {type(e).__name__}: {e}"
+            ) 
