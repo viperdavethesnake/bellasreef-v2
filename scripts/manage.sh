@@ -72,7 +72,7 @@ PORT_VARS=(
 )
 ENABLED_VARS=(
     "CORE_ENABLED" "HAL_ENABLED" "LIGHTING_API_ENABLED" "TEMP_ENABLED"
-    "SMART_OUTLETS_ENABLED" "TELEMETRY_ENABLED" "TELEmetry_ENABLED" "TELEMETRY_ENABLED"
+    "SMART_OUTLETS_ENABLED" "TELEMETRY_ENABLED" "TELEMETRY_ENABLED" "TELEMETRY_ENABLED"
 )
 LOG_FILES=(
     "core.log" "hal.log" "lighting.log" "temp.log"
@@ -101,8 +101,9 @@ load_environment() {
         print_error "'.env' file not found! Please copy 'env.example' to '.env'."
         exit 1
     fi
-    # Use a subshell to avoid polluting the main script's environment with `export`
-    (set -a; source "$PROJECT_ROOT/.env"; set +a)
+    set -o allexport
+    source "$PROJECT_ROOT/.env"
+    set +o allexport
 }
 
 # Starts a single service
@@ -201,8 +202,6 @@ show_status() {
         local pid="-"
         local port="-"
         
-        # <<< FIX IS HERE >>>
-        # Only try to get the port number if the variable name is not "N/A"
         if [[ "$port_var_name" != "N/A" ]]; then
             port="${!port_var_name:-}"
         fi
