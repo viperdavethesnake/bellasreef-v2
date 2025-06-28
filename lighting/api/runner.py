@@ -19,32 +19,11 @@ from lighting.models.schemas import (
     LightingBehaviorLog,
     LightingBehaviorLogCreate,
 )
-from lighting.runner.base_runner import LightingBehaviorRunner
-from lighting.services.behavior_manager import LightingBehaviorManager
+from lighting.api.runner_instance import get_runner
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/runner", tags=["Lighting Runner"])
-
-# Global runner instance (singleton)
-_runner_instance: Optional[LightingBehaviorRunner] = None
-
-
-def get_runner() -> LightingBehaviorRunner:
-    """
-    Get the global lighting runner instance.
-    
-    Returns:
-        LightingBehaviorRunner instance
-    """
-    global _runner_instance
-    if _runner_instance is None:
-        # Create behavior manager
-        behavior_manager = LightingBehaviorManager()
-        # Create runner with real HAL (no mocks)
-        _runner_instance = LightingBehaviorRunner(behavior_manager)
-        logger.info("Lighting runner initialized with real HAL layer")
-    return _runner_instance
 
 
 @router.post("/channels/{channel_id}/register", status_code=status.HTTP_200_OK)

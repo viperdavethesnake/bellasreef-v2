@@ -20,7 +20,7 @@ from lighting.models.schemas import (
     LightingBehaviorLog,
     LightingBehaviorLogCreate,
 )
-from lighting.api.runner import get_runner
+from lighting.api.runner_instance import get_runner
 
 logger = get_logger(__name__)
 
