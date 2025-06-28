@@ -428,17 +428,39 @@ async def discover_vesync_devices(
                 detail="Invalid VeSync credentials"
             )
         
+        # Update device list
+        if not manager.update():
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update device list from VeSync cloud"
+            )
+        
         # Get all devices
         devices = []
-        for device in manager.get_devices():
-            if hasattr(device, 'device_name') and hasattr(device, 'device_id'):
-                devices.append(DiscoveredDevice(
-                    device_id=device.device_id,
-                    device_name=device.device_name,
-                    device_type="vesync",
-                    ip_address="",  # Cloud devices don't have local IP
-                    capabilities=["on_off", "power_monitoring"] if hasattr(device, 'power') else ["on_off"]
-                ))
+        
+        # Process outlets
+        if hasattr(manager, 'outlets') and isinstance(manager.outlets, list):
+            for outlet in manager.outlets:
+                if hasattr(outlet, 'device_name') and hasattr(outlet, 'cid'):
+                    devices.append(DiscoveredDevice(
+                        device_id=outlet.cid,
+                        device_name=outlet.device_name,
+                        device_type="vesync",
+                        ip_address="",  # Cloud devices don't have local IP
+                        capabilities=["on_off", "power_monitoring"] if hasattr(outlet, 'power') else ["on_off"]
+                    ))
+        
+        # Process switches
+        if hasattr(manager, 'switches') and isinstance(manager.switches, list):
+            for switch in manager.switches:
+                if hasattr(switch, 'device_name') and hasattr(switch, 'cid'):
+                    devices.append(DiscoveredDevice(
+                        device_id=switch.cid,
+                        device_name=switch.device_name,
+                        device_type="vesync",
+                        ip_address="",  # Cloud devices don't have local IP
+                        capabilities=["on_off", "power_monitoring"] if hasattr(switch, 'power') else ["on_off"]
+                    ))
         
         return devices
         

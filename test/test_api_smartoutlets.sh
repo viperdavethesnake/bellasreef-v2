@@ -171,23 +171,23 @@ fi
 
 # Get local discovered devices
 LOCAL_DISCOVERY_RESULTS=$(echo "$LOCAL_DISCOVERY_STATUS_RESPONSE" | jq -r '.results')
-KASA_DEVICE=$(echo "$LOCAL_DISCOVERY_RESULTS" | jq -c '.[] | select(.device_type == "kasa")' | head -n 1)
-SHELLY_DEVICE=$(echo "$LOCAL_DISCOVERY_RESULTS" | jq -c '.[] | select(.device_type == "shelly")' | head -n 1)
+KASA_DEVICE=$(echo "$LOCAL_DISCOVERY_RESULTS" | jq -c '.[] | select(.driver_type == "kasa")' | head -n 1)
+SHELLY_DEVICE=$(echo "$LOCAL_DISCOVERY_RESULTS" | jq -c '.[] | select(.driver_type == "shelly")' | head -n 1)
 
 if [[ -n "$KASA_DEVICE" && "$KASA_DEVICE" != "null" ]]; then
   echo -e "${CHECK} Found Kasa device: $KASA_DEVICE"
-  KASA_DEVICE_ID=$(echo "$KASA_DEVICE" | jq -r '.device_id')
+  KASA_DEVICE_ID=$(echo "$KASA_DEVICE" | jq -r '.driver_device_id')
   KASA_IP=$(echo "$KASA_DEVICE" | jq -r '.ip_address')
-  KASA_NAME=$(echo "$KASA_DEVICE" | jq -r '.device_name')
+  KASA_NAME=$(echo "$KASA_DEVICE" | jq -r '.name')
 else
   echo -e "${YELLOW}No Kasa device found in local discovery results.${RESET}"
 fi
 
 if [[ -n "$SHELLY_DEVICE" && "$SHELLY_DEVICE" != "null" ]]; then
   echo -e "${CHECK} Found Shelly device: $SHELLY_DEVICE"
-  SHELLY_DEVICE_ID=$(echo "$SHELLY_DEVICE" | jq -r '.device_id')
+  SHELLY_DEVICE_ID=$(echo "$SHELLY_DEVICE" | jq -r '.driver_device_id')
   SHELLY_IP=$(echo "$SHELLY_DEVICE" | jq -r '.ip_address')
-  SHELLY_NAME=$(echo "$SHELLY_DEVICE" | jq -r '.device_name')
+  SHELLY_NAME=$(echo "$SHELLY_DEVICE" | jq -r '.name')
 else
   echo -e "${YELLOW}No Shelly device found in local discovery results.${RESET}"
 fi
