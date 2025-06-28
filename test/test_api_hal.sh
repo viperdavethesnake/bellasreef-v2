@@ -73,7 +73,8 @@ done
 # --- Step 4: Test CRUD and Feature Updates ---
 echo -e "\n--- Step 4: Verifying CRUD and Feature Updates ---"
 echo "Updating controller frequency to 1500 Hz..."
-curl -s -X PATCH "${HAL_URL}/api/hal/controllers/${CONTROLLER_ID}" \
+# CORRECTED URL: Added "/frequency" to the end of the URL
+curl -s -X PATCH "${HAL_URL}/api/hal/controllers/${CONTROLLER_ID}/frequency" \
   -H "Authorization: Bearer $AUTH_TOKEN" -H "Content-Type: application/json" \
   -d '{"frequency": 1500}' > /dev/null
 UPDATED_CONTROLLER=$(curl -s -X GET "${HAL_URL}/api/hal/controllers/${CONTROLLER_ID}" -H "Authorization: Bearer $AUTH_TOKEN")
