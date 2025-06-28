@@ -332,7 +332,17 @@ async def toggle_outlet(
     Returns:
         SmartOutletState: Current outlet state after toggle
     """
-    return await manager.toggle_outlet(outlet_id)
+    # Toggle the outlet
+    success = await manager.toggle_outlet(outlet_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to toggle outlet {outlet_id}"
+        )
+    
+    # Return the current state after toggle
+    return await manager.get_outlet_status(outlet_id)
 
 
 # Discovery Endpoints
