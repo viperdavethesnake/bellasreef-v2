@@ -28,13 +28,13 @@ from lighting.api.scheduler import router as scheduler_router
 lighting_router = APIRouter(prefix="/lighting", tags=["Lighting System"])
 
 # Include all lighting endpoints
-lighting_router.include_router(behavior_router, prefix="/behaviors")
-lighting_router.include_router(assignment_router, prefix="/assignments")
-lighting_router.include_router(group_router, prefix="/groups")
-lighting_router.include_router(log_router, prefix="/logs")
-lighting_router.include_router(runner_router, prefix="/runner")
-lighting_router.include_router(effects_router, prefix="/effects")
-lighting_router.include_router(scheduler_router, prefix="/scheduler")
+lighting_router.include_router(behavior_router)
+lighting_router.include_router(assignment_router)
+lighting_router.include_router(group_router)
+lighting_router.include_router(log_router)
+lighting_router.include_router(runner_router)
+lighting_router.include_router(effects_router)
+lighting_router.include_router(scheduler_router)
 
 # Export the main router
 __all__ = ["lighting_router"] 

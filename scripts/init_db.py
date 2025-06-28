@@ -21,6 +21,7 @@ from shared.db.database import engine, async_session, Base
 from shared.db.models import (
     User, Device, Alert, DeviceAction, History, HistoryHourlyAggregate, SmartOutlet, VeSyncAccount
 )
+from lighting.db.models import LightingBehavior, LightingGroup, LightingBehaviorAssignment, LightingBehaviorLog
 from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username
 from sqlalchemy import text
