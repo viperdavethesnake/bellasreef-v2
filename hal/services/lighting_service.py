@@ -48,7 +48,7 @@ class LightingHALService:
         channel_id: int, 
         controller_address: int, 
         channel_number: int
-    ) -> None:
+    ) -> bool:
         """
         Register a lighting channel with its hardware mapping.
         
@@ -56,6 +56,9 @@ class LightingHALService:
             channel_id: Lighting system channel identifier
             controller_address: I2C address of the PCA9685 controller
             channel_number: Channel number on the controller (0-15)
+            
+        Returns:
+            True if registration successful
         """
         if not 0 <= channel_number <= 15:
             raise ValueError(f"Channel number must be 0-15, got {channel_number}")
@@ -64,6 +67,7 @@ class LightingHALService:
             
         self._channel_mapping[channel_id] = (controller_address, channel_number)
         logger.info(f"Registered lighting channel {channel_id} -> I2C:{hex(controller_address)} Ch:{channel_number}")
+        return True
         
     def unregister_channel(self, channel_id: int) -> bool:
         """
