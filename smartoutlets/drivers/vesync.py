@@ -43,89 +43,57 @@ class VeSyncDriver(AbstractSmartOutletDriver):
     @classmethod
     async def discover_devices(cls, email: str, password: str, time_zone: str = "America/New_York") -> List[Dict[str, Any]]:
         """
-        Discover VeSync devices using cloud credentials.
-        
-        Args:
-            email (str): VeSync account email
-            password (str): VeSync account password
-            time_zone (str): IANA timezone for VeSync API communications
-            
-        Returns:
-            List[Dict]: List of discovered VeSync devices
-            
-        Raises:
-            OutletAuthenticationError: If credentials are invalid
-            OutletConnectionError: If discovery fails
+        Discover VeSync devices using cloud credentials with robust error handling.
         """
         logger = logging.getLogger("VeSyncDriver.discovery")
-        
         try:
             loop = asyncio.get_running_loop()
-            
-            # Create VeSync manager and login with timezone
             manager = VeSync(email, password, time_zone=time_zone)
+
+            # Step 1: Login and explicitly check the boolean result
             login_success = await loop.run_in_executor(None, manager.login)
-            
             if not login_success:
-                raise OutletAuthenticationError(f"VeSync authentication failed for {email}")
-            
-            # Update to populate devices - outlets and switches are available after this
-            await loop.run_in_executor(None, manager.update)
-            
-            devices = []
-            
-            # Process Outlets
-            if hasattr(manager, 'outlets') and manager.outlets:
+                # Use the error message from the library if available, otherwise use a generic message.
+                error_msg = getattr(manager, 'error_msg', 'Invalid credentials or VeSync API error')
+                raise OutletAuthenticationError(f"VeSync login failed: {error_msg}")
+
+            # Step 2: Update devices list and explicitly check the boolean result
+            update_success = await loop.run_in_executor(None, manager.update)
+            if not update_success:
+                raise OutletConnectionError("Failed to update device list from VeSync cloud.")
+
+            # Step 3: Now that updates are successful, safely access the device lists
+            discovered_devices = []
+
+            # Process outlets
+            if hasattr(manager, 'outlets') and isinstance(manager.outlets, list):
                 for outlet in manager.outlets:
-                    try:
-                        # Extract device information
-                        device_data = {
-                            "driver_type": "vesync",
-                            "driver_device_id": outlet.cid,  # CID as driver_device_id
-                            "ip_address": None,  # No IP address for cloud devices
-                            "name": outlet.device_name
-                        }
-                        devices.append(device_data)
-                        
-                    except Exception as e:
-                        logger.warning(f"Failed to process discovered VeSync outlet: {e}")
-                        continue
-            
-            # Process Switches
-            if hasattr(manager, 'switches') and manager.switches:
+                    discovered_devices.append({
+                        "driver_type": "vesync",
+                        "driver_device_id": outlet.cid,
+                        "ip_address": None,
+                        "name": outlet.device_name
+                    })
+
+            # Process switches
+            if hasattr(manager, 'switches') and isinstance(manager.switches, list):
                 for switch in manager.switches:
-                    try:
-                        # Extract device information
-                        device_data = {
-                            "driver_type": "vesync",
-                            "driver_device_id": switch.cid,  # CID as driver_device_id
-                            "ip_address": None,  # No IP address for cloud devices
-                            "name": switch.device_name
-                        }
-                        devices.append(device_data)
-                        
-                    except Exception as e:
-                        logger.warning(f"Failed to process discovered VeSync switch: {e}")
-                        continue
-            
-            logger.info(f"Discovered {len(devices)} VeSync devices")
-            return devices
-            
-        except requests.exceptions.Timeout as e:
-            logger.error(f"VeSync discovery timeout: {e}")
-            raise OutletTimeoutError(f"VeSync discovery timeout: {e}")
-        except requests.exceptions.ConnectionError as e:
-            logger.error(f"VeSync discovery connection error: {e}")
-            raise OutletConnectionError(f"VeSync discovery connection error: {e}")
-        except requests.exceptions.RequestException as e:
-            logger.error(f"VeSync discovery request error: {e}")
-            raise OutletConnectionError(f"VeSync discovery request error: {e}")
-        except OutletAuthenticationError:
-            # Re-raise authentication errors
-            raise
+                     discovered_devices.append({
+                        "driver_type": "vesync",
+                        "driver_device_id": switch.cid,
+                        "ip_address": None,
+                        "name": switch.device_name
+                    })
+
+            logger.info(f"Successfully discovered {len(discovered_devices)} VeSync devices.")
+            return discovered_devices
+
+        except (OutletAuthenticationError, OutletConnectionError) as e:
+            logger.error(f"A controlled error occurred during VeSync discovery: {e}")
+            raise  # Re-raise the specific, controlled exception
         except Exception as e:
-            logger.error(f"Unexpected error during VeSync discovery: {e}")
-            raise OutletConnectionError(f"VeSync discovery failed: {e}")
+            logger.error(f"An unexpected error occurred during VeSync discovery: {e}", exc_info=True)
+            raise OutletConnectionError(f"An unexpected error occurred during VeSync discovery: {e}")
     
     async def _get_manager(self) -> VeSync:
         """
