@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Bella's Reef - Unified Service Manager
+# Bella's Reef - Unified Service Manager (Portable Version)
 #
 # Description: A single script to start, stop, restart, and check the status
 #              of all Bella's Reef microservices and workers.
@@ -58,24 +58,42 @@ print_error() {
 }
 
 # =============================================================================
-# SERVICE DEFINITIONS
+# SERVICE DEFINITIONS (Using portable indexed arrays)
 # =============================================================================
-# This associative array is the single source of truth for all services.
-# Format: "key=Python Module Path|Port Variable Name|Enabled Variable Name|Log File Name"
-declare -A SERVICES
-SERVICES["core"]="core.main:app|SERVICE_PORT_CORE|CORE_ENABLED|core.log"
-SERVICES["hal"]="hal.main:app|SERVICE_PORT_HAL|HAL_ENABLED|hal.log"
-SERVICES["lighting"]="lighting.main:app|LIGHTING_API_PORT|LIGHTING_API_ENABLED|lighting.log"
-SERVICES["temp"]="temp.main:app|SERVICE_PORT_TEMP|TEMP_ENABLED|temp.log"
-SERVICES["smartoutlets"]="smartoutlets.main:app|SERVICE_PORT_SMARTOUTLETS|SMART_OUTLETS_ENABLED|smartoutlets.log"
-SERVICES["telemetry-api"]="telemetry.main:app|SERVICE_PORT_TELEMETRY|TELEMETRY_ENABLED|telemetry_api.log"
-SERVICES["telemetry-worker"]="telemetry.worker|N/A|TELEMETRY_ENABLED|telemetry_worker.log"
-SERVICES["aggregator-worker"]="telemetry.aggregator|N/A|TELEMETRY_ENABLED|aggregator_worker.log"
+SERVICE_KEYS=("core" "hal" "lighting" "temp" "smartoutlets" "telemetry-api" "telemetry-worker" "aggregator-worker")
 
+MODULE_PATHS=(
+    "core.main:app" "hal.main:app" "lighting.main:app" "temp.main:app" 
+    "smartoutlets.main:app" "telemetry.main:app" "telemetry.worker" "telemetry.aggregator"
+)
+PORT_VARS=(
+    "SERVICE_PORT_CORE" "SERVICE_PORT_HAL" "LIGHTING_API_PORT" "SERVICE_PORT_TEMP"
+    "SERVICE_PORT_SMARTOUTLETS" "SERVICE_PORT_TELEMETRY" "N/A" "N/A"
+)
+ENABLED_VARS=(
+    "CORE_ENABLED" "HAL_ENABLED" "LIGHTING_API_ENABLED" "TEMP_ENABLED"
+    "SMART_OUTLETS_ENABLED" "TELEMETRY_ENABLED" "TELEmetry_ENABLED" "TELEMETRY_ENABLED"
+)
+LOG_FILES=(
+    "core.log" "hal.log" "lighting.log" "temp.log"
+    "smartoutlets.log" "telemetry_api.log" "telemetry_worker.log" "aggregator_worker.log"
+)
 
 # =============================================================================
 # CORE FUNCTIONS
 # =============================================================================
+
+# Finds the index of a service in the SERVICE_KEYS array
+get_service_index() {
+    local service_name=$1
+    for i in "${!SERVICE_KEYS[@]}"; do
+        if [[ "${SERVICE_KEYS[$i]}" = "$service_name" ]]; then
+            echo $i
+            return
+        fi
+    done
+    echo -1
+}
 
 # Loads the environment from the .env file
 load_environment() {
@@ -83,20 +101,21 @@ load_environment() {
         print_error "'.env' file not found! Please copy 'env.example' to '.env'."
         exit 1
     fi
-    source "$PROJECT_ROOT/.env"
+    # Use a subshell to avoid polluting the main script's environment with `export`
+    (set -a; source "$PROJECT_ROOT/.env"; set +a)
 }
 
 # Starts a single service
 start_service() {
     local service_name=$1
-    
-    if [[ -z "${SERVICES[$service_name]}" ]]; then
+    local idx=$(get_service_index "$service_name")
+
+    if [[ $idx -lt 0 ]]; then
         echo -e "${YELLOW}⚠️  Warning: Service '$service_name' not defined. Skipping.${NC}"
         return
     fi
     
-    IFS='|' read -r module_path port_var_name enabled_var_name log_file_name <<< "${SERVICES[$service_name]}"
-    
+    local enabled_var_name="${ENABLED_VARS[$idx]}"
     local is_enabled="${!enabled_var_name:-true}"
     if [[ "$is_enabled" != "true" ]]; then
         echo -e "${CYAN}ℹ️ Service '$service_name' is disabled in .env. Skipping.${NC}"
@@ -114,12 +133,16 @@ start_service() {
     echo -n -e "${CYAN}⏳ Starting '$service_name'...${NC}"
     
     mkdir -p "$PID_DIR" "$LOG_DIR"
+    
+    local module_path="${MODULE_PATHS[$idx]}"
+    local port_var_name="${PORT_VARS[$idx]}"
+    local log_file="${LOG_FILES[$idx]}"
 
     if [[ "$port_var_name" == "N/A" ]]; then
-        python3 -m "$module_path" &> "${LOG_DIR}/${log_file_name}" &
+        python3 -m "$module_path" &> "${LOG_DIR}/${log_file}" &
     else
         local port="${!port_var_name}"
-        uvicorn "$module_path" --host "0.0.0.0" --port "$port" --log-level "info" &> "${LOG_DIR}/${log_file_name}" &
+        uvicorn "$module_path" --host "0.0.0.0" --port "$port" --log-level "info" &> "${LOG_DIR}/${log_file}" &
     fi
 
     local pid=$!
@@ -130,7 +153,7 @@ start_service() {
     if ps -p $pid > /dev/null; then
         echo -e "\r${GREEN}✅ Service '$service_name' started successfully (PID: $pid).${NC}"
     else
-        echo -e "\r${RED}❌ Service '$service_name' FAILED to start. Check logs: logs/${log_file_name}${NC}"
+        echo -e "\r${RED}❌ Service '$service_name' FAILED to start. Check logs: logs/${log_file}${NC}"
         rm -f "${PID_DIR}/${service_name}.pid"
     fi
 }
@@ -164,18 +187,25 @@ stop_service() {
 show_status() {
     print_section_header "Bella's Reef Service Status"
     
-    # Header
     printf "  ${BOLD}%-20s %-15s %-10s %-10s %-25s${NC}\n" "SERVICE" "STATUS" "PID" "PORT" "LOG FILE"
     printf "  ${BLUE}%-20s %-15s %-10s %-10s %-25s${NC}\n" "--------------------" "---------------" "----------" "----------" "-------------------------"
 
-    for service_name in "${!SERVICES[@]}"; do
-        IFS='|' read -r module_path port_var_name enabled_var_name log_file <<< "${SERVICES[$service_name]}"
+    for service_name in "${SERVICE_KEYS[@]}"; do
+        local idx=$(get_service_index "$service_name")
+        local port_var_name="${PORT_VARS[$idx]}"
+        local log_file="${LOG_FILES[$idx]}"
         local pid_file="${PID_DIR}/${service_name}.pid"
         
         local status_color="${RED}"
         local status_text="STOPPED"
         local pid="-"
-        local port="${!port_var_name:--}"
+        local port="-"
+        
+        # <<< FIX IS HERE >>>
+        # Only try to get the port number if the variable name is not "N/A"
+        if [[ "$port_var_name" != "N/A" ]]; then
+            port="${!port_var_name:-}"
+        fi
         
         if [ -f "$pid_file" ] && ps -p $(cat "$pid_file") > /dev/null; then
             status_color="${GREEN}"
@@ -191,8 +221,15 @@ show_status() {
 # Tails logs for a specific service
 tail_logs() {
     local service_name=$1
-    IFS='|' read -r _ _ _ log_file <<< "${SERVICES[$service_name]}"
-    local log_file_path="${LOG_DIR}/${log_file}"
+    local idx=$(get_service_index "$service_name")
+    
+    if [[ $idx -lt 0 ]]; then
+        print_error "Unknown service '$service_name'."
+        exit 1
+    fi
+    
+    local log_file_name="${LOG_FILES[$idx]}"
+    local log_file_path="${LOG_DIR}/${log_file_name}"
     
     if [ -f "$log_file_path" ]; then
         print_section_header "Tailing Logs for '$service_name'"
@@ -217,7 +254,7 @@ main() {
       start)
         if [ -z "$@" ]; then
             print_section_header "Starting All Enabled Services"
-            for service_name in "${!SERVICES[@]}"; do start_service "$service_name"; done
+            for service_name in "${SERVICE_KEYS[@]}"; do start_service "$service_name"; done
         else
             print_section_header "Starting Specific Services: $@"
             for service_name in "$@"; do start_service "$service_name"; done
@@ -228,7 +265,7 @@ main() {
       stop)
         if [ -z "$@" ]; then
             print_section_header "Stopping All Services"
-            for service_name in "${!SERVICES[@]}"; do stop_service "$service_name"; done
+            for service_name in "${SERVICE_KEYS[@]}"; do stop_service "$service_name"; done
         else
             print_section_header "Stopping Specific Services: $@"
             for service_name in "$@"; do stop_service "$service_name"; done
@@ -239,8 +276,8 @@ main() {
       restart)
         if [ -z "$@" ]; then
             print_section_header "Restarting All Enabled Services"
-            for service_name in "${!SERVICES[@]}"; do stop_service "$service_name"; done
-            for service_name in "${!SERVICES[@]}"; do start_service "$service_name"; done
+            for service_name in "${SERVICE_KEYS[@]}"; do stop_service "$service_name"; done
+            for service_name in "${SERVICE_KEYS[@]}"; do start_service "$service_name"; done
         else
             print_section_header "Restarting Specific Services: $@"
             for service_name in "$@"; do stop_service "$service_name"; done
@@ -255,7 +292,7 @@ main() {
       logs)
         if [ -z "$@" ]; then
             print_error "Please specify a service name to log."
-            echo "Available services: ${!SERVICES[@]}"
+            echo "Available services: ${SERVICE_KEYS[*]}"
             exit 1
         fi
         tail_logs "$1"
