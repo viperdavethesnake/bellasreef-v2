@@ -21,7 +21,6 @@ from lighting.models.schemas import (
     LightingGroup,
     LightingBehaviorAssignment,
 )
-from lighting.db.models import LightingBehaviorAssignment
 
 
 class LightingBehaviorManager:
@@ -81,8 +80,8 @@ class LightingBehaviorManager:
             )
         
         return {
-            "assignment": LightingBehaviorAssignment.from_orm(assignment),
-            "behavior": LightingBehavior.from_orm(behavior),
+            "assignment": LightingBehaviorAssignment.model_validate(assignment),
+            "behavior": LightingBehavior.model_validate(behavior),
             "message": "Behavior assigned successfully"
         }
 
@@ -138,9 +137,9 @@ class LightingBehaviorManager:
             )
         
         return {
-            "assignment": LightingBehaviorAssignment.from_orm(assignment),
-            "behavior": LightingBehavior.from_orm(behavior),
-            "group": LightingGroup.from_orm(group),
+            "assignment": LightingBehaviorAssignment.model_validate(assignment),
+            "behavior": LightingBehavior.model_validate(behavior),
+            "group": LightingGroup.model_validate(group),
             "message": "Behavior assigned to group successfully"
         }
 
@@ -243,24 +242,28 @@ class LightingBehaviorManager:
         """
         from sqlalchemy import select, and_
         from datetime import datetime, timezone
+        from lighting.db.models import LightingBehaviorAssignment as LightingBehaviorAssignmentModel
         
         current_time = datetime.now(timezone.utc)
         
         # Build query for active assignments within time windows
-        query = select(LightingBehaviorAssignment).filter(
+        query = select(LightingBehaviorAssignmentModel).filter(
             and_(
-                LightingBehaviorAssignment.active == True,
+                LightingBehaviorAssignmentModel.active == True,
                 # If start_time is set, current time must be >= start_time
-                (LightingBehaviorAssignment.start_time.is_(None) | 
-                 (LightingBehaviorAssignment.start_time <= current_time)),
+                (LightingBehaviorAssignmentModel.start_time.is_(None) | 
+                 (LightingBehaviorAssignmentModel.start_time <= current_time)),
                 # If end_time is set, current time must be < end_time
-                (LightingBehaviorAssignment.end_time.is_(None) | 
-                 (LightingBehaviorAssignment.end_time > current_time))
+                (LightingBehaviorAssignmentModel.end_time.is_(None) | 
+                 (LightingBehaviorAssignmentModel.end_time > current_time))
             )
         )
         
         result = await db.execute(query)
-        return result.scalars().all()
+        orm_assignments = result.scalars().all()
+        
+        # Convert ORM objects to Pydantic schemas
+        return [LightingBehaviorAssignment.model_validate(assignment) for assignment in orm_assignments]
 
     async def create_override(
         self,
@@ -385,7 +388,7 @@ class LightingBehaviorManager:
         
         return {
             "channel_id": channel_id,
-            "active_assignment": assignment,
+            "active_assignment": LightingBehaviorAssignment.model_validate(assignment) if assignment else None,
             "active_override": None,  # TODO: Implement override checking
             "active_effects": [],  # TODO: Implement effect checking
             "current_output": {
@@ -419,7 +422,7 @@ class LightingBehaviorManager:
         return {
             "group_id": group_id,
             "group_name": group.name,
-            "active_assignments": assignments,
+            "active_assignments": [LightingBehaviorAssignment.model_validate(assignment) for assignment in assignments],
             "channel_statuses": [],  # TODO: Implement channel status checking
             "notes": "Group status calculation not yet implemented"
         }
