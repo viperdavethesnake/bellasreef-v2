@@ -77,13 +77,17 @@ async def add_effect(
             )
         
         # Add effect
+        effective_start_time = request.start_time or datetime.utcnow()
+        
         effect_id = runner.add_effect(
             effect_type=request.effect_type,
             channels=request.channels,
             parameters=request.parameters,
-            start_time=request.start_time,
+            start_time=effective_start_time,
             duration_minutes=request.duration_minutes,
-            priority=request.priority
+            priority=request.priority,
+            # Pass the time for conflict checking
+            current_time=datetime.utcnow()
         )
         
         # Log the operation
@@ -99,6 +103,11 @@ async def add_effect(
             "message": f"Effect {request.effect_type} added successfully"
         }
         
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:

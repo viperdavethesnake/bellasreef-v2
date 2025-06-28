@@ -189,6 +189,7 @@ class QueueManager:
         start_time: Optional[datetime] = None,
         duration_minutes: int = 60,
         priority: int = 1,
+        current_time: Optional[datetime] = None,
     ) -> str:
         """
         Add an effect to the effect queue.
@@ -200,16 +201,15 @@ class QueueManager:
             start_time: When to start (defaults to now)
             duration_minutes: How long to run
             priority: Effect priority
+            current_time: Current time for conflict checking (defaults to now)
             
         Returns:
             Effect ID
             
         TODO: Add effect validation
-        TODO: Add effect conflict detection
         TODO: Add effect resource checking
         """
         # TODO: Add effect validation
-        # TODO: Add conflict detection
         # TODO: Add resource checking
         
         return self.effect_queue.add_effect(
@@ -219,6 +219,7 @@ class QueueManager:
             start_time=start_time,
             duration_minutes=duration_minutes,
             priority=priority,
+            current_time=current_time,
         )
 
     def add_override(

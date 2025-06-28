@@ -203,6 +203,7 @@ class EffectQueue:
         start_time: Optional[datetime] = None,
         duration_minutes: int = 60,
         priority: int = 1,
+        current_time: Optional[datetime] = None,
     ) -> str:
         """
         Add an effect to the queue.
@@ -214,16 +215,31 @@ class EffectQueue:
             start_time: When to start (defaults to now)
             duration_minutes: How long to run
             priority: Effect priority
+            current_time: Current time for conflict checking (defaults to now)
             
         Returns:
             Effect ID
             
+        Raises:
+            ValueError: If there are conflicts with already active effects
+            
         TODO: Add effect validation
-        TODO: Add conflict detection
         TODO: Add resource checking
         """
+        if current_time is None:
+            current_time = datetime.utcnow()
+            
         if start_time is None:
             start_time = datetime.utcnow()
+            
+        # Check for conflicts with already active effects
+        active_effects = self.get_active_effects(current_time)
+        if active_effects:
+            busy_channels = {ch for effect in active_effects for ch in effect.channels}
+            requested_channels = set(channels)
+            if not busy_channels.isdisjoint(requested_channels):
+                conflicting_channels = busy_channels.intersection(requested_channels)
+                raise ValueError(f"Cannot start effect. Channel(s) {conflicting_channels} are already running an active effect.")
             
         effect_id = f"effect_{self.next_effect_id}"
         self.next_effect_id += 1
