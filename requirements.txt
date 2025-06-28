@@ -24,6 +24,7 @@ email-validator
 # --- Hardware & Drivers (Platform Specific) ---
 # The following libraries will ONLY be installed on Linux systems (like Raspberry Pi)
 # Versions are pinned to the last known-good configuration from testing.
+lgpio
 RPi.GPIO==0.7.1 ; sys_platform == 'linux'
 Adafruit-Blinka==8.61.2 ; sys_platform == 'linux'
 adafruit-circuitpython-pca9685==3.4.19 ; sys_platform == 'linux'

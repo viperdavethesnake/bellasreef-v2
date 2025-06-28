@@ -181,6 +181,9 @@ start_api_services() {
     print_service_status "HAL Service" "starting" "${SERVICE_PORT_HAL:-8003}"
     "$SCRIPT_DIR/start_api_hal.sh" > /dev/null 2>&1 &
     
+    print_service_status "Lighting Service" "starting" "${LIGHTING_API_PORT:-8001}"
+    "$SCRIPT_DIR/start_api_lighting.sh" > /dev/null 2>&1 &
+    
     print_service_status "Temperature Service" "starting" "${SERVICE_PORT_TEMP:-8004}"
     "$SCRIPT_DIR/start_api_temp.sh" > /dev/null 2>&1 &
     
@@ -216,6 +219,17 @@ wait_for_services() {
             print_service_status "HAL Service" "warning" "${SERVICE_PORT_HAL:-8003}"
         else
             print_service_status "HAL Service" "ready" "${SERVICE_PORT_HAL:-8003}"
+        fi
+    fi
+    
+    # Check lighting service health (if enabled)
+    if [ "${LIGHTING_API_ENABLED:-true}" = "true" ]; then
+        print_subsection "Lighting Service Health Check"
+        if ! check_service_health "Lighting Service" "${LIGHTING_API_PORT:-8001}"; then
+            print_warning "Lighting service health check failed, but continuing..."
+            print_service_status "Lighting Service" "warning" "${LIGHTING_API_PORT:-8001}"
+        else
+            print_service_status "Lighting Service" "ready" "${LIGHTING_API_PORT:-8001}"
         fi
     fi
     
@@ -281,6 +295,7 @@ print_success_message() {
     echo -e "${WHITE}🌐 Service URLs:${NC}"
     echo -e "  • Core API: ${CYAN}http://localhost:${SERVICE_PORT_CORE:-8000}${NC}"
     echo -e "  • HAL API: ${CYAN}http://localhost:${SERVICE_PORT_HAL:-8003}${NC}"
+    echo -e "  • Lighting API: ${CYAN}http://localhost:${LIGHTING_API_PORT:-8001}${NC}"
     echo -e "  • Temperature API: ${CYAN}http://localhost:${SERVICE_PORT_TEMP:-8004}${NC}"
     echo -e "  • SmartOutlets API: ${CYAN}http://localhost:${SERVICE_PORT_SMARTOUTLETS:-8005}${NC}"
     echo -e "  • Telemetry API: ${CYAN}http://localhost:${SERVICE_PORT_TELEMETRY:-8006}${NC}"
