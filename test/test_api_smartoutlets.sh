@@ -146,19 +146,27 @@ echo -e "${CHECK} Local discovery started. Task ID: $LOCAL_DISCOVERY_TASK_ID"
 
 # Wait for local discovery to complete
 echo -e "${ARROW} Waiting for local discovery to complete..."
-for i in {1..3}; do
-  LOCAL_DISCOVERY_STATUS_RESPONSE=$(curl -s -X GET "${SMARTOUTLETS_URL}/api/smartoutlets/outlets/discover/local/${LOCAL_DISCOVERY_TASK_ID}/results" \
-    -H "Authorization: Bearer $AUTH_TOKEN")
-  LOCAL_DISCOVERY_STATUS=$(echo "$LOCAL_DISCOVERY_STATUS_RESPONSE" | jq -r '.status')
-  if [[ "$LOCAL_DISCOVERY_STATUS" == "completed" ]]; then
-    echo -e "${CHECK} Local discovery completed."
-    break
-  fi
-  sleep 2
+MAX_WAIT_SECONDS=30
+SECONDS_WAITED=0
+while [ $SECONDS_WAITED -lt $MAX_WAIT_SECONDS ]; do
+    LOCAL_DISCOVERY_STATUS_RESPONSE=$(curl -s -X GET "${SMARTOUTLETS_URL}/api/smartoutlets/outlets/discover/local/${LOCAL_DISCOVERY_TASK_ID}/results" \
+      -H "Authorization: Bearer $AUTH_TOKEN")
+    LOCAL_DISCOVERY_STATUS=$(echo "$LOCAL_DISCOVERY_STATUS_RESPONSE" | jq -r '.status')
+
+    if [[ "$LOCAL_DISCOVERY_STATUS" != "running" ]]; then
+        break
+    fi
+
+    echo -n "."
+    sleep 2
+    SECONDS_WAITED=$((SECONDS_WAITED + 2))
 done
-if [[ "$LOCAL_DISCOVERY_STATUS" != "completed" ]]; then
-  echo -e "${CROSS} ${RED}ERROR:${RESET} Local discovery did not complete in time. Status: $LOCAL_DISCOVERY_STATUS"
-  exit 1
+
+if [[ "$LOCAL_DISCOVERY_STATUS" == "completed" ]]; then
+    echo -e "\n${CHECK} Local discovery completed."
+else
+    echo -e "\n${CROSS} ${RED}ERROR:${RESET} Local discovery did not complete in time. Final status: $LOCAL_DISCOVERY_STATUS"
+    exit 1
 fi
 
 # Get local discovered devices
