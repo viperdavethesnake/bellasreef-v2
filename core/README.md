@@ -2,21 +2,96 @@
 
 ## Overview
 
-The Core Service is the central authentication and system management microservice within the Bella's Reef ecosystem. It provides user authentication, session management, system health monitoring, and serves as the foundation for all other services.
-
-This service handles user registration, login/logout, JWT token management, and provides system-wide health and information endpoints.
+The Core Service provides user authentication, session management, and system health monitoring APIs for the Bella's Reef ecosystem. It handles user registration, JWT token management, and system resource monitoring.
 
 ## Features
 
--   **User Authentication:** Secure user registration, login, and session management
--   **JWT Token Management:** Stateless authentication with configurable token expiration
--   **User Management:** User CRUD operations with role-based access control
--   **System Health:** Comprehensive health monitoring and status reporting
--   **System Information:** System metadata and configuration information
--   **Database Management:** Centralized database connectivity and initialization
--   **Enable/Disable:** Can be completely disabled via an environment variable
--   **Secure:** All endpoints are protected with proper authentication
--   **Standardized Entry Point:** Follows the project's `main:app` FastAPI pattern
+- User authentication and registration with JWT tokens
+- User management and permissions (admin-only operations)
+- System health monitoring and status checks
+- Host system information and resource utilization metrics
+- Database connectivity verification and table management
+
+## API Endpoints
+
+### Authentication
+
+- `POST /api/auth/login`
+  - **Description:** Authenticate a user and receive a JWT access token.
+  - **Authentication:** Not Required
+
+- `POST /api/auth/register`
+  - **Description:** Register a new user account and receive a JWT access token.
+  - **Authentication:** Not Required
+
+### Health
+
+- `GET /health`
+  - **Description:** Health check endpoint.
+  - **Authentication:** Not Required
+
+### Users
+
+- `GET /api/users/me`
+  - **Description:** Get current user information.
+  - **Authentication:** Required
+
+- `GET /api/users/`
+  - **Description:** Get all users (admin only).
+  - **Authentication:** Required (Admin)
+
+- `GET /api/users/{user_id}`
+  - **Description:** Get a specific user by ID (admin only).
+  - **Authentication:** Required (Admin)
+
+- `PATCH /api/users/{user_id}`
+  - **Description:** Update a user (admin only).
+  - **Authentication:** Required (Admin)
+
+- `PATCH /api/users/me`
+  - **Description:** Update current user's own information.
+  - **Authentication:** Required
+
+- `DELETE /api/users/{user_id}`
+  - **Description:** Delete a user (admin only).
+  - **Authentication:** Required (Admin)
+
+### System
+
+- `GET /api/host-info`
+  - **Description:** Get detailed host system information including kernel version, uptime, OS details, and hardware model.
+  - **Authentication:** Required
+
+- `GET /api/system-usage`
+  - **Description:** Get system resource utilization metrics including CPU, memory, and disk usage statistics.
+  - **Authentication:** Required
+
+## Service Information
+
+- **Host:** 192.168.33.122
+- **Port:** 8000
+- **Admin User:** bellas (from env.example)
+- **Admin Password:** reefrocks (from env.example)
+
+## Usage Examples
+
+### Get Authentication Token
+```bash
+curl -X POST "http://192.168.33.122:8000/api/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=bellas&password=reefrocks"
+```
+
+### Health Check
+```bash
+curl -X GET "http://192.168.33.122:8000/health"
+```
+
+### Get System Information (with auth token)
+```bash
+curl -X GET "http://192.168.33.122:8000/api/host-info" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
 
 ---
 
