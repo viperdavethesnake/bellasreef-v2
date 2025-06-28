@@ -17,6 +17,9 @@ from lighting.services.crud import (
 from lighting.models.schemas import (
     LightingBehaviorAssignmentCreate,
     LightingBehaviorLogCreate,
+    LightingBehavior,
+    LightingGroup,
+    LightingBehaviorAssignment,
 )
 from lighting.db.models import LightingBehaviorAssignment
 
@@ -78,8 +81,8 @@ class LightingBehaviorManager:
             )
         
         return {
-            "assignment": assignment,
-            "behavior": behavior,
+            "assignment": LightingBehaviorAssignment.model_validate(assignment),
+            "behavior": LightingBehavior.model_validate(behavior),
             "message": "Behavior assigned successfully"
         }
 
@@ -135,9 +138,9 @@ class LightingBehaviorManager:
             )
         
         return {
-            "assignment": assignment,
-            "behavior": behavior,
-            "group": group,
+            "assignment": LightingBehaviorAssignment.model_validate(assignment),
+            "behavior": LightingBehavior.model_validate(behavior),
+            "group": LightingGroup.model_validate(group),
             "message": "Behavior assigned to group successfully"
         }
 
