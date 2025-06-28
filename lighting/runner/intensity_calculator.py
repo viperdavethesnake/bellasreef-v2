@@ -50,13 +50,14 @@ class IntensityCalculator:
         # TODO: Initialize caching system
 
     async def calculate_behavior_intensity(
-        self, behavior: LightingBehavior, current_time: datetime
+        self, behavior: LightingBehavior, assignment: Any, current_time: datetime
     ) -> float:
         """
         Calculate the target intensity for a behavior at the given time.
         
         Args:
             behavior: The lighting behavior to calculate for
+            assignment: The behavior assignment containing start_time for acclimation
             current_time: Current UTC time
             
         Returns:
@@ -69,12 +70,24 @@ class IntensityCalculator:
         if not behavior.enabled:
             return 0.0
             
-        # TODO: Apply acclimation period if configured
+        # Initialize acclimation scale factor
+        acclimation_scale = 1.0
+        
+        # Apply acclimation period if configured
+        if behavior.acclimation_days and behavior.acclimation_days > 0:
+            # Calculate days elapsed since assignment started
+            if hasattr(assignment, 'start_time') and assignment.start_time:
+                days_elapsed = (current_time - assignment.start_time).days
+                
+                # If still within acclimation period, calculate scale factor
+                if days_elapsed < behavior.acclimation_days:
+                    acclimation_scale = min(1.0, (days_elapsed + 1) / behavior.acclimation_days)
         
         # Calculate base intensity based on behavior type
         base_intensity = await self._calculate_base_intensity(behavior, current_time)
         
         # Apply weather influence if enabled
+        weather_factor = 1.0
         if hasattr(behavior, 'weather_influence_enabled') and behavior.weather_influence_enabled:
             # Get location from behavior config for weather lookup
             config = behavior.behavior_config or {}
@@ -83,11 +96,27 @@ class IntensityCalculator:
             
             if latitude != 0.0 and longitude != 0.0:
                 weather_factor = await self._get_weather_factor(latitude, longitude)
-                base_intensity *= weather_factor
         
-        # TODO: Apply acclimation modifications
+        # Apply all factors: base intensity * weather factor * acclimation scale
+        final_intensity = base_intensity * weather_factor * acclimation_scale
         
-        return max(0.0, min(1.0, base_intensity))  # Clamp to valid range
+        return max(0.0, min(1.0, final_intensity))  # Clamp to valid range
+
+    async def calculate_intensity(
+        self, behavior: LightingBehavior, assignment: Any, current_time: datetime
+    ) -> float:
+        """
+        Alias for calculate_behavior_intensity for backward compatibility.
+        
+        Args:
+            behavior: The lighting behavior to calculate for
+            assignment: The behavior assignment containing start_time for acclimation
+            current_time: Current UTC time
+            
+        Returns:
+            Target intensity value (0.0-1.0)
+        """
+        return await self.calculate_behavior_intensity(behavior, assignment, current_time)
 
     async def _calculate_base_intensity(
         self, behavior: LightingBehavior, current_time: datetime

@@ -330,7 +330,7 @@ class LightingBehaviorRunner:
             logger.error(f"Error removing override {override_id}: {e}")
             return False
             
-    def run_iteration(self) -> Dict[int, float]:
+    async def run_iteration(self) -> Dict[int, float]:
         """
         Run a single iteration of the behavior runner.
         
@@ -356,7 +356,7 @@ class LightingBehaviorRunner:
                 if channel_id and channel_id in self._registered_channels:
                     behavior = self.behavior_manager.get_behavior(assignment.get("behavior_id"))
                     if behavior:
-                        intensity = self.intensity_calculator.calculate_intensity(
+                        intensity = await self.intensity_calculator.calculate_intensity(
                             behavior=behavior,
                             assignment=assignment,
                             current_time=current_time
