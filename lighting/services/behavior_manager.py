@@ -81,8 +81,8 @@ class LightingBehaviorManager:
             )
         
         return {
-            "assignment": LightingBehaviorAssignment.model_validate(assignment),
-            "behavior": LightingBehavior.model_validate(behavior),
+            "assignment": LightingBehaviorAssignment.from_orm(assignment),
+            "behavior": LightingBehavior.from_orm(behavior),
             "message": "Behavior assigned successfully"
         }
 
@@ -138,9 +138,9 @@ class LightingBehaviorManager:
             )
         
         return {
-            "assignment": LightingBehaviorAssignment.model_validate(assignment),
-            "behavior": LightingBehavior.model_validate(behavior),
-            "group": LightingGroup.model_validate(group),
+            "assignment": LightingBehaviorAssignment.from_orm(assignment),
+            "behavior": LightingBehavior.from_orm(behavior),
+            "group": LightingGroup.from_orm(group),
             "message": "Behavior assigned to group successfully"
         }
 
