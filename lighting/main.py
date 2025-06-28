@@ -8,6 +8,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os
 
+print("--- DEBUG: Top of lighting/main.py has been executed. ---")
+
 from lighting.api.main_router import lighting_router
 from shared.utils.logger import get_logger
 
@@ -33,7 +35,9 @@ app.add_middleware(
 )
 
 # Include lighting router
+print("--- DEBUG: About to include lighting_router... ---")
 app.include_router(lighting_router)
+print("--- DEBUG: Successfully included lighting_router. ---")
 
 @app.get("/")
 async def root():
