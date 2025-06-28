@@ -2,32 +2,30 @@
 
 ## Overview
 
-Bella's Reef is a comprehensive reef aquarium management system with multiple microservices. This document provides complete API documentation for UI development.
+Bella's Reef is a comprehensive reef aquarium management system with multiple microservices. This document provides complete API documentation for UI development based on the actual FastAPI implementations.
 
 ## Base URLs
 
 | Service | Port | Base URL | Status |
 |---------|------|----------|--------|
-| Core Service | 8000 | `http://localhost:8000` | ✅ Running |
-| HAL Service | 8003 | `http://localhost:8003` | ✅ Running |
-| Lighting Service | 8001 | `http://localhost:8001` | ✅ Running |
-| Temperature Service | 8004 | `http://localhost:8004` | ✅ Running |
-| SmartOutlets Service | 8005 | `http://localhost:8005` | ✅ Running |
-| Telemetry Service | 8006 | `http://localhost:8006` | ✅ Running |
+| Core Service | 8000 | `http://192.168.33.122:8000` | ✅ Running |
+| HAL Service | 8001 | `http://192.168.33.122:8001` | ✅ Running |
+| Temperature Service | 8004 | `http://192.168.33.122:8004` | ✅ Running |
+| SmartOutlets Service | 8005 | `http://192.168.33.122:8005` | ✅ Running |
 
 ## Authentication
 
 All protected endpoints require Bearer token authentication. Obtain a token by logging in:
 
 ```bash
-curl -X POST http://localhost:8000/api/auth/login \
+curl -X POST http://192.168.33.122:8000/api/auth/login \
   -H "Content-Type: application/x-www-form-urlencoded" \
   -d "username=bellas&password=reefrocks"
 ```
 
 Include the token in subsequent requests:
 ```bash
-curl -H "Authorization: Bearer <token>" http://localhost:8000/api/users/me
+curl -H "Authorization: Bearer <token>" http://192.168.33.122:8000/api/users/me
 ```
 
 ---
@@ -37,14 +35,16 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/api/users/me
 ### Authentication Endpoints
 
 #### POST `/api/auth/login`
-**Login with username and password**
+**Authenticate a user and receive a JWT access token**
 - **Content-Type**: `application/x-www-form-urlencoded`
 - **Body**: `username=bellas&password=reefrocks`
+- **Auth**: Not Required
 - **Response**: `{"access_token": "...", "token_type": "bearer"}`
 
 #### POST `/api/auth/register`
-**Register a new user**
+**Register a new user account and receive a JWT access token**
 - **Content-Type**: `application/json`
+- **Auth**: Not Required
 - **Body**:
 ```json
 {
@@ -65,35 +65,35 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/api/users/me
 - **Response**: User object with profile information
 
 #### PATCH `/api/users/me`
-**Update current user**
+**Update current user's own information**
 - **Auth**: Required
 - **Body**: UserUpdate object (email, phone_number, password, is_active, is_admin)
 
 #### GET `/api/users/`
 **Get all users (admin only)**
-- **Auth**: Required (admin)
+- **Auth**: Required (Admin)
 - **Response**: Array of User objects
 
 #### GET `/api/users/{user_id}`
-**Get user by ID (admin only)**
-- **Auth**: Required (admin)
+**Get a specific user by ID (admin only)**
+- **Auth**: Required (Admin)
 - **Path**: `user_id` (integer)
 
 #### PATCH `/api/users/{user_id}`
-**Update user (admin only)**
-- **Auth**: Required (admin)
+**Update a user (admin only)**
+- **Auth**: Required (Admin)
 - **Path**: `user_id` (integer)
 - **Body**: UserUpdate object
 
 #### DELETE `/api/users/{user_id}`
-**Delete user (admin only)**
-- **Auth**: Required (admin)
+**Delete a user (admin only)**
+- **Auth**: Required (Admin)
 - **Path**: `user_id` (integer)
 
 ### System Information Endpoints
 
 #### GET `/api/host-info`
-**Get detailed host system information**
+**Get detailed host system information including kernel version, uptime, OS details, and hardware model**
 - **Auth**: Required
 - **Response**:
 ```json
@@ -107,7 +107,7 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/api/users/me
 ```
 
 #### GET `/api/system-usage`
-**Get system resource utilization**
+**Get system resource utilization metrics including CPU, memory, and disk usage statistics**
 - **Auth**: Required
 - **Response**:
 ```json
@@ -125,299 +125,210 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/api/users/me
 ### Health Endpoints
 
 #### GET `/health`
-**Service health check**
-- **Response**: `{"status": "healthy", "service": "core", "version": "1.0.0"}`
+**Health check endpoint**
+- **Auth**: Not Required
+- **Response**: `{"status": "healthy", "service": "Bella's Reef API", "version": "1.0.0"}`
 
 #### GET `/`
-**Service information**
+**Root endpoint with service information**
+- **Auth**: Not Required
 - **Response**: Service details and available endpoints
 
 ---
 
-## 2. HAL Service (Port 8003)
+## 2. HAL Service (Port 8001)
 
-### Hardware Control Endpoints
+### Controllers Endpoints
+
+#### GET `/api/hal/controllers/discover`
+**Scans the I2C bus for all PCA9685 devices across a range of addresses**
+- **Auth**: Required
+- **Response**: Array of PCA9685DiscoveryResult objects
+
+#### POST `/api/hal/controllers`
+**Registers a new PCA9685 controller as a 'parent' device in the system**
+- **Auth**: Required
+- **Body**: PCA9685RegistrationRequest object
 
 #### GET `/api/hal/controllers`
-**Get all available hardware controllers**
+**Retrieves a list of all registered PCA9685 controller devices**
 - **Auth**: Required
-- **Response**: Array of controller information
+- **Response**: Array of Device objects
 
-#### GET `/api/hal/controllers/{controller_id}`
-**Get specific controller details**
+#### POST `/api/hal/controllers/{controller_id}/channels`
+**Registers an individual PWM channel as a new 'child' device, linked to a parent PCA9685 controller**
 - **Auth**: Required
-- **Path**: `controller_id` (string)
+- **Path**: `controller_id` (integer)
+- **Body**: PWMChannelRegistrationRequest object
 
-#### POST `/api/hal/controllers/{controller_id}/initialize`
-**Initialize a hardware controller**
+#### GET `/api/hal/controllers/{controller_id}/channels`
+**Retrieves a list of all PWM channels that have been configured for a specific PCA9685 controller**
 - **Auth**: Required
-- **Path**: `controller_id` (string)
+- **Path**: `controller_id` (integer)
+- **Response**: Array of Device objects
 
 #### DELETE `/api/hal/controllers/{controller_id}`
-**Shutdown a hardware controller**
+**Deletes a registered PCA9685 controller and all its associated PWM channels**
 - **Auth**: Required
-- **Path**: `controller_id` (string)
+- **Path**: `controller_id` (integer)
 
-### Channel Control Endpoints
+#### PATCH `/api/hal/controllers/{controller_id}/frequency`
+**Updates the PWM frequency for a specific PCA9685 controller**
+- **Auth**: Required
+- **Path**: `controller_id` (integer)
+- **Body**: PWMFrequencyUpdateRequest object
+
+#### GET `/api/hal/controllers/{controller_id}`
+**Get single controller details**
+- **Auth**: Required
+- **Path**: `controller_id` (integer)
+- **Response**: Device object
+
+#### PATCH `/api/hal/controllers/{controller_id}`
+**Update a controller's properties**
+- **Auth**: Required
+- **Path**: `controller_id` (integer)
+- **Body**: ControllerUpdateRequest object
+
+#### POST `/api/hal/controllers/{controller_id}/reconnect`
+**Attempts to reconnect to a PCA9685 controller and verify its status**
+- **Auth**: Required
+- **Path**: `controller_id` (integer)
+
+#### GET `/api/hal/controllers/hardware-manager/status`
+**Get the current status of the hardware manager singleton**
+- **Auth**: Required
+- **Response**: Hardware manager status object
+
+### Channels Endpoints
+
+#### POST `/api/hal/channels/{channel_id}/control`
+**Sets the intensity (duty cycle) for a configured PWM channel device**
+- **Auth**: Required
+- **Path**: `channel_id` (integer)
+- **Body**: PWMControlRequest object
+
+#### POST `/api/hal/channels/bulk-control`
+**Sets the intensity for multiple PWM channels in a single request. Supports both immediate and ramped changes**
+- **Auth**: Required
+- **Body**: Array of PWMControlRequestWithDevice objects
+
+#### GET `/api/hal/channels/{channel_id}/state`
+**Get current PWM channel state**
+- **Auth**: Required
+- **Path**: `channel_id` (integer)
+- **Response**: float (intensity percentage)
+
+#### GET `/api/hal/channels/{channel_id}/live-state`
+**Gets the current intensity directly from the hardware and updates the database**
+- **Auth**: Required
+- **Path**: `channel_id` (integer)
+- **Response**: float (intensity percentage)
+
+#### GET `/api/hal/channels/{channel_id}/hw_state`
+**Gets the current intensity directly from the hardware without updating the database**
+- **Auth**: Required
+- **Path**: `channel_id` (integer)
+- **Response**: float (intensity percentage)
 
 #### GET `/api/hal/channels`
-**Get all available channels**
+**Retrieves a list of all devices configured with the 'pwm_channel' role across all controllers**
 - **Auth**: Required
-- **Response**: Array of channel information
+- **Response**: Array of Device objects
+
+#### DELETE `/api/hal/channels/{channel_id}`
+**Deletes a single registered PWM channel device by its database ID**
+- **Auth**: Required
+- **Path**: `channel_id` (integer)
 
 #### GET `/api/hal/channels/{channel_id}`
-**Get specific channel details**
+**Retrieves the configuration of a single PWM channel by its database ID**
 - **Auth**: Required
-- **Path**: `channel_id` (string)
+- **Path**: `channel_id` (integer)
+- **Response**: Device object
 
-#### POST `/api/hal/channels/{channel_id}/set`
-**Set channel value**
+#### PATCH `/api/hal/channels/{channel_id}`
+**Updates the properties (e.g., name, role, min/max values) of a registered PWM channel**
 - **Auth**: Required
-- **Path**: `channel_id` (string)
-- **Body**:
-```json
-{
-  "value": 0.5,
-  "duration": 1000
-}
-```
+- **Path**: `channel_id` (integer)
+- **Body**: PWMChannelUpdateRequest object
 
-#### POST `/api/hal/channels/{channel_id}/ramp`
-**Ramp channel to target value**
-- **Auth**: Required
-- **Path**: `channel_id` (string)
-- **Body**:
-```json
-{
-  "target_value": 0.8,
-  "duration_ms": 5000,
-  "steps": 100
-}
-```
-
-#### POST `/api/hal/channels/{channel_id}/stop`
-**Stop channel operations**
-- **Auth**: Required
-- **Path**: `channel_id` (string)
-
-### Debug Endpoints
-
-#### GET `/debug/hardware-manager`
-**Get hardware manager status**
-- **Response**: Hardware manager configuration and status
-
-#### POST `/api/debug/pca-test`
-**Test PCA9685 functionality**
-- **Auth**: Required
-- **Body**: `{"address": 64}`
-
-### Health Endpoints
+### Health and Debug Endpoints
 
 #### GET `/health`
-**Service health check with hardware status**
+**Enhanced health check that includes hardware manager status**
+- **Auth**: Not Required
 - **Response**: Service and hardware manager status
+
+#### GET `/debug/hardware-manager`
+**Debug endpoint to check hardware manager status and configuration**
+- **Auth**: Not Required
+- **Response**: Hardware manager debug information
+
+#### POST `/api/debug/pca-test` (DEBUG only)
+**Debug endpoint to test PCA9685 instantiation and basic functionality. Only available when DEBUG=true**
+- **Auth**: Required
+- **Body**: `{"address": 64}` (optional, defaults to 0x40)
+
+#### POST `/api/hal/channels/debug/pca_write` (DEBUG only)
+**Temporary debug endpoint to perform a single hardware write to PCA9685. Only available when DEBUG=true**
+- **Auth**: Required
+- **Body**: `{"address": 64, "channel": 0, "duty_cycle": 32768}`
 
 #### GET `/`
 **Service information**
+- **Auth**: Not Required
 - **Response**: HAL service details
 
 ---
 
-## 3. Lighting Service (Port 8001)
+## 3. Temperature Service (Port 8004)
 
-### Behavior Management Endpoints
+### Temperature Probes Endpoints
 
-#### GET `/api/behaviors`
-**Get all lighting behaviors**
-- **Response**: Array of behavior configurations
+#### GET `/probe/discover`
+**Discover all attached 1-wire temperature sensors by their hardware IDs**
+- **Auth**: Required
+- **Response**: Array of hardware ID strings
 
-#### POST `/api/behaviors`
-**Create a new lighting behavior**
-- **Body**:
-```json
-{
-  "name": "Sunrise",
-  "description": "Gradual sunrise effect",
-  "channels": {
-    "white": {"start": 0, "end": 0.8, "duration": 3600},
-    "blue": {"start": 0, "end": 0.6, "duration": 3600}
-  },
-  "schedule": {
-    "start_time": "06:00",
-    "end_time": "07:00",
-    "days": ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
-  }
-}
-```
+#### GET `/probe/check`
+**Check the 1-wire subsystem and return its status and device count**
+- **Auth**: Not Required
+- **Response**: OneWireCheckResult object
 
-#### GET `/api/behaviors/{behavior_id}`
-**Get specific behavior details**
-- **Path**: `behavior_id` (string)
+#### GET `/probe/{hardware_id}/current`
+**Get the current temperature reading for a specific sensor by its hardware ID**
+- **Auth**: Required
+- **Path**: `hardware_id` (string)
+- **Query Parameters**: `unit` (string, enum: ["C", "F"], default: "C")
+- **Response**: float (temperature value)
 
-#### PUT `/api/behaviors/{behavior_id}`
-**Update behavior configuration**
-- **Path**: `behavior_id` (string)
-- **Body**: Behavior configuration object
+#### POST `/probe/`
+**Register a new temperature probe in the system as a 'device'**
+- **Auth**: Required
+- **Body**: DeviceCreate object (device_type must be 'temperature_sensor')
 
-#### DELETE `/api/behaviors/{behavior_id}`
-**Delete behavior**
-- **Path**: `behavior_id` (string)
+#### GET `/probe/list`
+**List all configured devices with type 'temperature_sensor'**
+- **Auth**: Required
+- **Response**: Array of Device objects
 
-### Effects Endpoints
+#### DELETE `/probe/{device_id}`
+**Delete a registered temperature probe device by its database ID**
+- **Auth**: Required
+- **Path**: `device_id` (integer)
 
-#### GET `/api/effects`
-**Get all available lighting effects**
-- **Response**: Array of effect definitions
-
-#### POST `/api/effects`
-**Create custom effect**
-- **Body**: Effect configuration object
-
-#### GET `/api/effects/{effect_id}`
-**Get specific effect details**
-- **Path**: `effect_id` (string)
-
-#### POST `/api/effects/{effect_id}/play`
-**Play an effect**
-- **Path**: `effect_id` (string)
-- **Body**: Effect parameters
-
-#### POST `/api/effects/{effect_id}/stop`
-**Stop an effect**
-- **Path**: `effect_id` (string)
-
-### Scheduler Endpoints
-
-#### GET `/api/scheduler/schedules`
-**Get all scheduled behaviors**
-- **Response**: Array of scheduled behaviors
-
-#### POST `/api/scheduler/schedules`
-**Create a new schedule**
-- **Body**: Schedule configuration
-
-#### GET `/api/scheduler/schedules/{schedule_id}`
-**Get specific schedule**
-- **Path**: `schedule_id` (string)
-
-#### PUT `/api/scheduler/schedules/{schedule_id}`
-**Update schedule**
-- **Path**: `schedule_id` (string)
-- **Body**: Schedule configuration
-
-#### DELETE `/api/scheduler/schedules/{schedule_id}`
-**Delete schedule**
-- **Path**: `schedule_id` (string)
-
-#### POST `/api/scheduler/schedules/{schedule_id}/enable`
-**Enable schedule**
-- **Path**: `schedule_id` (string)
-
-#### POST `/api/scheduler/schedules/{schedule_id}/disable`
-**Disable schedule**
-- **Path**: `schedule_id` (string)
-
-### Runner Control Endpoints
-
-#### GET `/api/runner/status`
-**Get runner status**
-- **Response**: Current runner state and active behaviors
-
-#### POST `/api/runner/start`
-**Start the lighting runner**
-- **Body**: Runner configuration
-
-#### POST `/api/runner/stop`
-**Stop the lighting runner**
-
-#### POST `/api/runner/pause`
-**Pause the lighting runner**
-
-#### POST `/api/runner/resume`
-**Resume the lighting runner**
-
-#### GET `/api/runner/current-behavior`
-**Get currently active behavior**
-- **Response**: Active behavior details
+#### PATCH `/probe/{device_id}`
+**Update a registered temperature probe's properties, including resolution**
+- **Auth**: Required
+- **Path**: `device_id` (integer)
+- **Body**: DeviceUpdate object
 
 ### Health Endpoints
 
 #### GET `/health`
-**Service health check**
-- **Response**: `{"status": "healthy", "service": "lighting-api", "version": "2.0.0"}`
-
-#### GET `/`
-**Service information**
-- **Response**: Lighting service details
-
----
-
-## 4. Temperature Service (Port 8004)
-
-### Sensor Endpoints
-
-#### GET `/api/probes`
-**Get all temperature probes**
-- **Auth**: Required
-- **Response**: Array of probe information
-
-#### GET `/api/probes/{probe_id}`
-**Get specific probe details**
-- **Auth**: Required
-- **Path**: `probe_id` (string)
-
-#### GET `/api/probes/{probe_id}/temperature`
-**Get current temperature reading**
-- **Auth**: Required
-- **Path**: `probe_id` (string)
-- **Response**:
-```json
-{
-  "probe_id": "28-0123456789ab",
-  "temperature_c": 25.6,
-  "temperature_f": 78.1,
-  "timestamp": "2025-06-28T03:15:30Z",
-  "unit": "celsius"
-}
-```
-
-#### GET `/api/probes/{probe_id}/history`
-**Get temperature history**
-- **Auth**: Required
-- **Path**: `probe_id` (string)
-- **Query Parameters**:
-  - `start_time` (ISO datetime)
-  - `end_time` (ISO datetime)
-  - `limit` (integer, default: 100)
-
-#### POST `/api/probes/{probe_id}/calibrate`
-**Calibrate temperature probe**
-- **Auth**: Required
-- **Path**: `probe_id` (string)
-- **Body**:
-```json
-{
-  "offset_celsius": 0.5,
-  "reference_temperature": 25.0
-}
-```
-
-### System Endpoints
-
-#### GET `/api/probes/scan`
-**Scan for new temperature probes**
-- **Auth**: Required
-- **Response**: Array of discovered probes
-
-#### GET `/api/probes/status`
-**Get overall probe system status**
-- **Auth**: Required
-- **Response**: System status and probe counts
-
-### Health Endpoints
-
-#### GET `/health`
-**Service health check**
+**Health check endpoint**
+- **Auth**: Not Required
 - **Response**: `{"status": "healthy", "service": "temperature", "version": "1.0.0"}`
 
 #### GET `/`
@@ -427,214 +338,147 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/api/users/me
 
 ---
 
-## 5. SmartOutlets Service (Port 8005)
+## 4. SmartOutlets Service (Port 8005)
 
-### Outlet Management Endpoints
+### Smart Outlets Endpoints
 
-#### GET `/api/smartoutlets`
-**Get all smart outlets**
-- **Response**: Array of outlet information
+#### POST `/api/smartoutlets/outlets/`
+**Creates a new smart outlet record in the database and registers it with the manager**
+- **Auth**: Required
+- **Body**: SmartOutletCreate object
 
-#### POST `/api/smartoutlets`
-**Register a new smart outlet**
-- **Body**:
-```json
-{
-  "name": "Return Pump",
-  "device_type": "kasa",
-  "ip_address": "192.168.1.100",
-  "credentials": {
-    "username": "admin",
-    "password": "password123"
-  },
-  "location": "sump",
-  "description": "Main return pump"
-}
-```
+#### GET `/api/smartoutlets/outlets/`
+**Retrieves a list of all smart outlets, optionally including disabled ones**
+- **Auth**: Required
+- **Query Parameters**: `include_disabled` (boolean, default: false), `driver_type` (string, optional)
 
-#### GET `/api/smartoutlets/{outlet_id}`
-**Get specific outlet details**
+#### DELETE `/api/smartoutlets/outlets/{outlet_id}`
+**Delete a smart outlet from the system**
+- **Auth**: Required
 - **Path**: `outlet_id` (string)
 
-#### PUT `/api/smartoutlets/{outlet_id}`
-**Update outlet configuration**
+#### PATCH `/api/smartoutlets/outlets/{outlet_id}`
+**Updates the configuration of an existing smart outlet**
+- **Auth**: Required
 - **Path**: `outlet_id` (string)
-- **Body**: Outlet configuration object
+- **Body**: SmartOutletUpdate object
 
-#### DELETE `/api/smartoutlets/{outlet_id}`
-**Remove outlet**
+### State Endpoints
+
+#### GET `/api/smartoutlets/outlets/{outlet_id}/state`
+**Retrieves the current state and telemetry of a smart outlet**
+- **Auth**: Required
 - **Path**: `outlet_id` (string)
+- **Response**: SmartOutletState object
 
-### Outlet Control Endpoints
+### Control Endpoints
 
-#### POST `/api/smartoutlets/{outlet_id}/on`
-**Turn outlet on**
-- **Path**: `outlet_id` (string)
-
-#### POST `/api/smartoutlets/{outlet_id}/off`
-**Turn outlet off**
-- **Path**: `outlet_id` (string)
-
-#### POST `/api/smartoutlets/{outlet_id}/toggle`
-**Toggle outlet state**
+#### POST `/api/smartoutlets/outlets/{outlet_id}/turn_on`
+**Activates the specified smart outlet using its configured driver**
+- **Auth**: Required
 - **Path**: `outlet_id` (string)
 
-#### GET `/api/smartoutlets/{outlet_id}/status`
-**Get outlet status**
+#### POST `/api/smartoutlets/outlets/{outlet_id}/turn_off`
+**Deactivates the specified smart outlet using its configured driver**
+- **Auth**: Required
 - **Path**: `outlet_id` (string)
-- **Response**:
-```json
-{
-  "outlet_id": "kasa_001",
-  "name": "Return Pump",
-  "state": "on",
-  "power_watts": 45.2,
-  "voltage": 120.1,
-  "current_ma": 376.8,
-  "last_updated": "2025-06-28T03:15:30Z"
-}
-```
+
+#### POST `/api/smartoutlets/outlets/{outlet_id}/toggle`
+**Toggles the state of the specified smart outlet (on/off)**
+- **Auth**: Required
+- **Path**: `outlet_id` (string)
+- **Response**: SmartOutletState object
 
 ### Discovery Endpoints
 
-#### POST `/api/smartoutlets/discover`
-**Discover smart outlets on network**
-- **Body**:
-```json
-{
-  "discovery_type": "local",
-  "device_types": ["kasa", "vesync"],
-  "timeout_seconds": 30
-}
-```
+#### POST `/api/smartoutlets/outlets/discover/local`
+**Initiates asynchronous discovery of Shelly and Kasa devices on the local network**
+- **Auth**: Required
+- **Response**: DiscoveryTaskResponse object
 
-#### GET `/api/smartoutlets/discover/status`
-**Get discovery status**
-- **Response**: Current discovery progress and results
+#### GET `/api/smartoutlets/outlets/discover/local/{task_id}/results`
+**Retrieves the results of a local device discovery task by task ID**
+- **Auth**: Required
+- **Path**: `task_id` (string)
+- **Response**: DiscoveryResults object
 
-### VeSync Account Management
+#### POST `/api/smartoutlets/outlets/discover/cloud/vesync`
+**Discovers VeSync smart outlets using provided cloud credentials**
+- **Auth**: Required
+- **Body**: VeSyncDiscoveryRequest object
+- **Response**: Array of DiscoveredDevice objects
 
-#### GET `/api/smartoutlets/vesync/accounts`
-**Get VeSync accounts**
-- **Response**: Array of VeSync account information
+### VeSync Accounts Endpoints
 
-#### POST `/api/smartoutlets/vesync/accounts`
-**Add VeSync account**
-- **Body**:
-```json
-{
-  "email": "user@example.com",
-  "password": "password123",
-  "timezone": "America/Los_Angeles"
-}
-```
+#### POST `/api/smartoutlets/vesync/accounts/`
+**Creates a new VeSync account for cloud device management**
+- **Auth**: Required
+- **Body**: VeSyncAccountCreate object
+
+#### GET `/api/smartoutlets/vesync/accounts/`
+**Retrieves a list of all registered VeSync accounts**
+- **Auth**: Required
+- **Response**: Array of VeSyncAccountRead objects
 
 #### DELETE `/api/smartoutlets/vesync/accounts/{account_id}`
-**Remove VeSync account**
-- **Path**: `account_id` (string)
+**Deletes a VeSync account and all its associated devices**
+- **Auth**: Required
+- **Path**: `account_id` (integer)
+
+#### POST `/api/smartoutlets/vesync/accounts/{account_id}/verify`
+**Verifies VeSync account credentials and updates sync status**
+- **Auth**: Required
+- **Path**: `account_id` (integer)
+- **Response**: VeSyncAccountRead object
+
+#### GET `/api/smartoutlets/vesync/accounts/{account_id}/devices/discover`
+**Discovers all VeSync devices associated with a specific account**
+- **Auth**: Required
+- **Path**: `account_id` (integer)
+- **Response**: Array of DiscoveredVeSyncDevice objects
+
+#### POST `/api/smartoutlets/vesync/accounts/{account_id}/devices`
+**Adds a discovered VeSync device to the system as a smart outlet**
+- **Auth**: Required
+- **Path**: `account_id` (integer)
+- **Body**: VeSyncDeviceCreate object
+- **Response**: SmartOutletRead object
+
+#### GET `/api/smartoutlets/vesync/accounts/{account_id}/devices`
+**Lists all VeSync devices registered for a specific account**
+- **Auth**: Required
+- **Path**: `account_id` (integer)
+- **Response**: Array of SmartOutletRead objects
+
+#### GET `/api/smartoutlets/vesync/accounts/{account_id}/devices/{device_id}`
+**Gets the current state of a specific VeSync device**
+- **Auth**: Required
+- **Path**: `account_id` (integer), `device_id` (string)
+- **Response**: SmartOutletWithState object
+
+#### POST `/api/smartoutlets/vesync/accounts/{account_id}/devices/{device_id}/turn_on`
+**Turns on a specific VeSync device**
+- **Auth**: Required
+- **Path**: `account_id` (integer), `device_id` (string)
+- **Response**: SmartOutletWithState object
+
+#### POST `/api/smartoutlets/vesync/accounts/{account_id}/devices/{device_id}/turn_off`
+**Turns off a specific VeSync device**
+- **Auth**: Required
+- **Path**: `account_id` (integer), `device_id` (string)
+- **Response**: SmartOutletWithState object
 
 ### Health Endpoints
 
 #### GET `/health`
-**Service health check**
+**Health check endpoint for the SmartOutlets service**
+- **Auth**: Not Required
 - **Response**: `{"status": "healthy", "service": "smartoutlets", "version": "1.0.0"}`
 
 #### GET `/`
 **Service information**
+- **Auth**: Not Required
 - **Response**: SmartOutlets service details and features
-
----
-
-## 6. Telemetry Service (Port 8006)
-
-### Historical Data Endpoints
-
-#### GET `/api/history/{device_id}/raw`
-**Get raw historical data for a device**
-- **Path**: `device_id` (string)
-- **Query Parameters**:
-  - `start_time` (ISO datetime)
-  - `end_time` (ISO datetime)
-  - `limit` (integer, default: 1000)
-  - `offset` (integer, default: 0)
-- **Response**: Array of raw data points
-
-#### GET `/api/history/{device_id}/hourly`
-**Get hourly aggregated data for a device**
-- **Path**: `device_id` (string)
-- **Query Parameters**:
-  - `start_time` (ISO datetime)
-  - `end_time` (ISO datetime)
-  - `limit` (integer, default: 168) // 1 week of hourly data
-  - `offset` (integer, default: 0)
-- **Response**: Array of hourly aggregated data points
-
-#### GET `/api/history/{device_id}/daily`
-**Get daily aggregated data for a device**
-- **Path**: `device_id` (string)
-- **Query Parameters**:
-  - `start_time` (ISO datetime)
-  - `end_time` (ISO datetime)
-  - `limit` (integer, default: 30) // 1 month of daily data
-  - `offset` (integer, default: 0)
-- **Response**: Array of daily aggregated data points
-
-### Device Management Endpoints
-
-#### GET `/api/devices`
-**Get all devices with telemetry data**
-- **Response**: Array of device information
-
-#### GET `/api/devices/{device_id}`
-**Get specific device details**
-- **Path**: `device_id` (string)
-
-#### GET `/api/devices/{device_id}/latest`
-**Get latest telemetry reading for device**
-- **Path**: `device_id` (string)
-- **Response**: Most recent data point
-
-### Analytics Endpoints
-
-#### GET `/api/analytics/{device_id}/summary`
-**Get data summary for device**
-- **Path**: `device_id` (string)
-- **Query Parameters**:
-  - `start_time` (ISO datetime)
-  - `end_time` (ISO datetime)
-- **Response**:
-```json
-{
-  "device_id": "temp_probe_001",
-  "data_points": 1440,
-  "min_value": 24.5,
-  "max_value": 26.8,
-  "avg_value": 25.6,
-  "std_deviation": 0.3,
-  "time_range": {
-    "start": "2025-06-27T00:00:00Z",
-    "end": "2025-06-27T23:59:59Z"
-  }
-}
-```
-
-#### GET `/api/analytics/{device_id}/trends`
-**Get trend analysis for device**
-- **Path**: `device_id` (string)
-- **Query Parameters**:
-  - `start_time` (ISO datetime)
-  - `end_time` (ISO datetime)
-  - `granularity` (string: "hourly", "daily", "weekly")
-
-### Health Endpoints
-
-#### GET `/health`
-**Service health check**
-- **Response**: `{"status": "healthy", "service": "telemetry", "timestamp": "2025-06-28T03:15:30Z"}`
-
-#### GET `/`
-**Service information**
-- **Response**: Telemetry service details and available endpoints
 
 ---
 
@@ -686,6 +530,37 @@ curl -H "Authorization: Bearer <token>" http://localhost:8000/api/users/me
 }
 ```
 
+### SmartOutletState Object
+```json
+{
+  "is_on": true,
+  "power_w": 45.2,
+  "voltage_v": 120.1,
+  "current_a": 0.376,
+  "energy_kwh": 12.5,
+  "temperature_c": 25.6,
+  "is_online": true
+}
+```
+
+### Device Object (Generic)
+```json
+{
+  "id": 1,
+  "name": "Example Device",
+  "device_type": "pwm_channel",
+  "address": "pca9685_1_ch0",
+  "role": "lighting",
+  "parent_device_id": 2,
+  "config": {"channel_number": 0},
+  "min_value": 0.0,
+  "max_value": 100.0,
+  "current_value": 50.0,
+  "created_at": "2025-06-28T03:15:30Z",
+  "updated_at": "2025-06-28T03:15:30Z"
+}
+```
+
 ---
 
 ## Error Responses
@@ -720,6 +595,13 @@ All endpoints may return the following error responses:
 }
 ```
 
+### 409 Conflict
+```json
+{
+  "detail": "Resource already exists"
+}
+```
+
 ### 422 Validation Error
 ```json
 {
@@ -737,6 +619,13 @@ All endpoints may return the following error responses:
 ```json
 {
   "detail": "Internal server error"
+}
+```
+
+### 503 Service Unavailable
+```json
+{
+  "detail": "Hardware error: Device not responding"
 }
 ```
 
@@ -761,16 +650,55 @@ For production, configure specific origins and methods.
 ## Development Notes
 
 1. **Authentication**: Use the core service for all authentication needs
-2. **Error Handling**: Implement proper error handling for network failures
+2. **Error Handling**: Implement proper error handling for network failures and hardware errors
 3. **Real-time Updates**: Consider WebSocket connections for real-time data
 4. **Caching**: Implement client-side caching for frequently accessed data
 5. **Pagination**: Use limit/offset parameters for large datasets
 6. **Time Zones**: All timestamps are in UTC, convert to local time as needed
+7. **Hardware Dependencies**: HAL service endpoints may fail if hardware is unavailable
+8. **Debug Endpoints**: Debug endpoints are only available when DEBUG=true in configuration
 
 ## Interactive Documentation
 
 Each service provides interactive API documentation:
-- **Swagger UI**: `http://localhost:[PORT]/docs`
-- **ReDoc**: `http://localhost:[PORT]/redoc` (where available)
+- **Swagger UI**: `http://192.168.33.122:[PORT]/docs`
+- **ReDoc**: `http://192.168.33.122:[PORT]/redoc` (where available)
 
-Use these for testing endpoints and understanding request/response schemas. 
+Use these for testing endpoints and understanding request/response schemas.
+
+## Service Dependencies
+
+- **Core Service**: Required for authentication and user management
+- **HAL Service**: Depends on PCA9685 hardware controllers
+- **Temperature Service**: Depends on 1-wire temperature sensors
+- **SmartOutlets Service**: Supports local network and cloud-based smart outlets
+
+## Testing Examples
+
+### Get Authentication Token
+```bash
+curl -X POST "http://192.168.33.122:8000/api/auth/login" \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "username=bellas&password=reefrocks"
+```
+
+### Health Check All Services
+```bash
+curl -X GET "http://192.168.33.122:8000/health"
+curl -X GET "http://192.168.33.122:8001/health"
+curl -X GET "http://192.168.33.122:8004/health"
+curl -X GET "http://192.168.33.122:8005/health"
+```
+
+### Discover Temperature Probes
+```bash
+curl -X GET "http://192.168.33.122:8004/probe/discover" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```
+
+### Control PWM Channel
+```bash
+curl -X POST "http://192.168.33.122:8001/api/hal/channels/1/control" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{"intensity": 50, "duration_ms": 1000}' 
