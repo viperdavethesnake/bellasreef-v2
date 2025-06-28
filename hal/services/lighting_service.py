@@ -6,7 +6,7 @@ with the hardware abstraction layer (HAL). It handles intensity to duty cycle
 conversion, channel mapping, and hardware writes while maintaining proper
 logging and error handling.
 """
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List, Tuple, Any
 from datetime import datetime
 import asyncio
 from shared.utils.logger import get_logger
@@ -43,30 +43,24 @@ class LightingHALService:
         self._intensity_cache: Dict[int, float] = {}  # channel_id -> last_intensity
         self._hardware_available = True
         
-    def register_channel(
-        self, 
-        channel_id: int, 
-        controller_address: int, 
-        channel_number: int
-    ) -> bool:
-        """
-        Register a lighting channel with its hardware mapping.
-        
-        Args:
-            channel_id: Lighting system channel identifier
-            controller_address: I2C address of the PCA9685 controller
-            channel_number: Channel number on the controller (0-15)
-            
-        Returns:
-            True if registration successful
-        """
-        if not 0 <= channel_number <= 15:
-            raise ValueError(f"Channel number must be 0-15, got {channel_number}")
-        if not 0x40 <= controller_address <= 0x7F:
-            raise ValueError(f"Controller address must be 0x40-0x7F, got {hex(controller_address)}")
-            
-        self._channel_mapping[channel_id] = (controller_address, channel_number)
-        logger.info(f"Registered lighting channel {channel_id} -> I2C:{hex(controller_address)} Ch:{channel_number}")
+    def register_channel(self, channel_id: int, controller_address: Any, channel_number: Any) -> bool:
+        try:
+            # Explicitly cast to int to handle string inputs
+            addr = int(controller_address)
+            chan = int(channel_number)
+        except (ValueError, TypeError):
+            logger.error(f"Invalid non-integer value for address or channel: addr={controller_address}, chan={channel_number}")
+            return False
+
+        if not 0 <= chan <= 15:
+            logger.error(f"Channel number out of range: {chan}")
+            return False  # Return False instead of raising an exception
+        if not 0x40 <= addr <= 0x7F:
+            logger.error(f"Controller address out of range: {hex(addr)}")
+            return False  # Return False instead of raising an exception
+
+        self._channel_mapping[channel_id] = (addr, chan)
+        logger.info(f"Registered lighting channel {channel_id} -> I2C:{hex(addr)} Ch:{chan}")
         return True
         
     def unregister_channel(self, channel_id: int) -> bool:
