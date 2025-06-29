@@ -207,7 +207,11 @@ async def create_predefined_behaviors():
             "name": "Fixed 50%",
             "behavior_type": LightingBehaviorType.FIXED,
             "enabled": True,
-            "behavior_config": {"intensity": 0.5}
+            "behavior_config": {
+                "intensity": 0.5,
+                "start_time": "09:00",
+                "end_time": "17:00"
+            }
         },
         {
             "name": "Standard Diurnal",
