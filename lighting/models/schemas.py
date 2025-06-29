@@ -59,7 +59,7 @@ class DiurnalTimingConfig(BaseModel):
 
 class DiurnalConfig(BaseModel):
     timing: DiurnalTimingConfig
-    channels: List[DiurnalChannelConfig] = Field(..., min_length=1)
+    channels: List[DiurnalChannelConfig] = Field(default_factory=list)
     ramp_curve: str = Field("exponential", description="The ramp curve type.")
 
     @field_validator('ramp_curve')
