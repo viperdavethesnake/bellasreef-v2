@@ -182,13 +182,24 @@ class OverrideQueue:
         Returns:
             Override ID
             
-        TODO: Add override validation
-        TODO: Add conflict detection
-        TODO: Add resource checking
+        Raises:
+            ValueError: If there's a channel conflict with existing overrides
         """
         if start_time is None:
             start_time = datetime.utcnow()
             
+        # Check for channel conflicts with existing active overrides
+        current_time = datetime.utcnow()
+        active_overrides = self.get_active_overrides(current_time)
+        for active_override in active_overrides:
+            # Check if any channels overlap
+            overlapping_channels = set(channels) & set(active_override.channels)
+            if overlapping_channels:
+                raise ValueError(
+                    f"Channel conflict: channels {list(overlapping_channels)} are already "
+                    f"part of active override {active_override.override_id} ({active_override.override_type})"
+                )
+        
         override_id = f"override_{self.next_override_id}"
         self.next_override_id += 1
         
@@ -204,13 +215,6 @@ class OverrideQueue:
         )
         
         self.overrides.append(override)
-        
-        # Sort by priority and start time
-        self.overrides.sort(key=lambda x: (-x.priority, x.start_time))
-        
-        # TODO: Log override addition
-        # TODO: Trigger override scheduling
-        
         return override_id
 
     def remove_override(self, override_id: str) -> bool:
@@ -218,16 +222,14 @@ class OverrideQueue:
         Remove an override from the queue.
         
         Args:
-            override_id: Override ID to remove
+            override_id: ID of override to remove
             
         Returns:
-            True if override was removed
+            True if override was removed, False if not found
         """
         for i, override in enumerate(self.overrides):
             if override.override_id == override_id:
                 del self.overrides[i]
-                # TODO: Add override cleanup
-                # TODO: Log override removal
                 return True
         return False
 
@@ -246,60 +248,64 @@ class OverrideQueue:
         if current_time is None:
             current_time = datetime.utcnow()
             
-        active_overrides = [override for override in self.overrides if override.is_active(current_time)]
-        return active_overrides
+        return [override for override in self.overrides if override.is_active(current_time)]
 
     def get_channel_overrides(
         self, channel_id: int, current_time: Optional[datetime] = None
     ) -> List[OverrideEntry]:
         """
-        Get active overrides for a specific channel.
+        Get all overrides affecting a specific channel.
         
         Args:
             channel_id: Channel ID
             current_time: Current UTC time (defaults to now)
             
         Returns:
-            List of active overrides for the channel
+            List of overrides affecting the channel
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        channel_overrides = [
+        return [
             override for override in self.overrides 
-            if override.is_active(current_time) and channel_id in override.channels
+            if channel_id in override.channels and override.is_active(current_time)
         ]
-        return channel_overrides
 
     def apply_overrides(
         self, intensities: Dict[int, float], current_time: Optional[datetime] = None
     ) -> Dict[int, float]:
         """
-        Apply active overrides to intensities.
+        Apply all active overrides to intensities.
         
         Args:
-            intensities: Current intensity values per channel
+            intensities: Intensity values per channel (from effects or base)
             current_time: Current UTC time (defaults to now)
             
         Returns:
-            Modified intensity values with overrides applied
+            Final intensity values with overrides applied
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # Get active overrides
-        active_overrides = self.get_active_overrides(current_time)
+        # Start with input intensities
+        result_intensities = intensities.copy()
         
-        # Apply overrides by priority (higher priority first)
-        modified_intensities = intensities.copy()
+        # Get active overrides sorted by priority (highest first)
+        active_overrides = sorted(
+            self.get_active_overrides(current_time),
+            key=lambda x: x.priority,
+            reverse=True
+        )
         
+        # Apply each override to its channels
         for override in active_overrides:
+            override_intensity = override.get_override_intensity(current_time)
+            
+            # Apply override to all affected channels (overrides replace the intensity)
             for channel_id in override.channels:
-                if channel_id in modified_intensities:
-                    override_intensity = override.get_override_intensity(current_time)
-                    modified_intensities[channel_id] = override_intensity
+                result_intensities[channel_id] = override_intensity
         
-        return modified_intensities
+        return result_intensities
 
     def cleanup_expired_overrides(self, current_time: Optional[datetime] = None) -> int:
         """
@@ -310,27 +316,17 @@ class OverrideQueue:
             
         Returns:
             Number of overrides removed
-            
-        TODO: Implement override cleanup
-        TODO: Add cleanup logging
-        TODO: Add cleanup metrics
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # Find expired overrides
-        expired_overrides = [
-            override for override in self.overrides 
-            if not override.is_active(current_time)
-        ]
+        initial_count = len(self.overrides)
         
         # Remove expired overrides
-        for expired_override in expired_overrides:
-            self.overrides.remove(expired_override)
+        self.overrides = [override for override in self.overrides if override.is_active(current_time)]
         
-        # TODO: Log cleanup actions
-        
-        return len(expired_overrides)
+        removed_count = initial_count - len(self.overrides)
+        return removed_count
 
     def get_override_status(self, channel_id: int, current_time: Optional[datetime] = None) -> Dict:
         """
@@ -342,39 +338,29 @@ class OverrideQueue:
             
         Returns:
             Dictionary containing override status information
-            
-        TODO: Implement override status reporting
-        TODO: Add override history
-        TODO: Add override metrics
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # Get active overrides for channel
         channel_overrides = self.get_channel_overrides(channel_id, current_time)
         
-        if channel_overrides:
-            # Get highest priority override
-            highest_priority_override = max(channel_overrides, key=lambda x: x.priority)
-            
+        if not channel_overrides:
             return {
-                "channel_id": channel_id,
-                "current_time": current_time,
-                "has_override": True,
-                "override_type": highest_priority_override.override_type,
-                "override_intensity": highest_priority_override.get_override_intensity(current_time),
-                "override_priority": highest_priority_override.priority,
-                "override_reason": highest_priority_override.reason,
-                "override_progress": highest_priority_override.get_progress(current_time),
-            }
-        else:
-            return {
-                "channel_id": channel_id,
-                "current_time": current_time,
                 "has_override": False,
+                "override_intensity": None,
                 "override_type": None,
-                "override_intensity": 0.0,
-                "override_priority": 0,
                 "override_reason": None,
-                "override_progress": 0.0,
-            } 
+                "override_priority": None,
+            }
+        
+        # Get the highest priority override
+        highest_priority_override = max(channel_overrides, key=lambda x: x.priority)
+        
+        return {
+            "has_override": True,
+            "override_intensity": highest_priority_override.get_override_intensity(current_time),
+            "override_type": highest_priority_override.override_type,
+            "override_reason": highest_priority_override.reason,
+            "override_priority": highest_priority_override.priority,
+            "override_id": highest_priority_override.override_id,
+        } 

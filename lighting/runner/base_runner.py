@@ -382,17 +382,8 @@ class LightingBehaviorRunner:
                         )
                         base_intensities[channel_id] = intensity
             
-            # Apply effects
-            effect_intensities = self.queue_manager.apply_effects(
-                base_intensities, 
-                current_time
-            )
-            
-            # Apply overrides
-            final_intensities = self.queue_manager.apply_overrides(
-                effect_intensities, 
-                current_time
-            )
+            # Process effects and overrides through queue manager
+            final_intensities = self.queue_manager.process_queues(base_intensities, current_time)
             
             # Write to hardware
             successful_writes = {}

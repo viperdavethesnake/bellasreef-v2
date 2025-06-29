@@ -47,25 +47,15 @@ class QueueManager:
             
         Returns:
             Final intensity values with effects and overrides applied
-            
-        TODO: Add queue processing optimization
-        TODO: Add queue conflict resolution
-        TODO: Add queue performance monitoring
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # TODO: Add performance timing
-        # TODO: Add error handling
-        
         # Apply effects first
         effect_intensities = self.effect_queue.apply_effects(base_intensities, current_time)
         
         # Apply overrides (which take precedence)
         final_intensities = self.override_queue.apply_overrides(effect_intensities, current_time)
-        
-        # TODO: Validate final intensities
-        # TODO: Log queue processing metrics
         
         return final_intensities
 
@@ -78,34 +68,36 @@ class QueueManager:
             
         Returns:
             Dictionary containing queue status information
-            
-        TODO: Add detailed queue analytics
-        TODO: Add queue performance metrics
-        TODO: Add queue health monitoring
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # TODO: Get actual queue statistics
-        # TODO: Calculate queue performance metrics
-        # TODO: Add queue health indicators
+        # Get actual queue statistics
+        active_effects = self.effect_queue.get_active_effects(current_time)
+        active_overrides = self.override_queue.get_active_overrides(current_time)
+        
+        total_effects = len(self.effect_queue.effects)
+        total_overrides = len(self.override_queue.overrides)
+        
+        expired_effects = total_effects - len(active_effects)
+        expired_overrides = total_overrides - len(active_overrides)
         
         return {
             "current_time": current_time,
             "effects": {
-                "total_effects": 0,  # TODO: Get actual count
-                "active_effects": 0,  # TODO: Get actual count
-                "expired_effects": 0,  # TODO: Get actual count
+                "total_effects": total_effects,
+                "active_effects": len(active_effects),
+                "expired_effects": expired_effects,
             },
             "overrides": {
-                "total_overrides": 0,  # TODO: Get actual count
-                "active_overrides": 0,  # TODO: Get actual count
-                "expired_overrides": 0,  # TODO: Get actual count
+                "total_overrides": total_overrides,
+                "active_overrides": len(active_overrides),
+                "expired_overrides": expired_overrides,
             },
             "performance": {
                 "processing_time_ms": 0,  # TODO: Calculate actual time
-                "queue_size": 0,  # TODO: Get actual size
-                "conflicts_resolved": 0,  # TODO: Get actual count
+                "queue_size": total_effects + total_overrides,
+                "conflicts_resolved": 0,  # TODO: Track conflicts
             },
         }
 
@@ -118,22 +110,12 @@ class QueueManager:
             
         Returns:
             Dictionary with cleanup counts for effects and overrides
-            
-        TODO: Add cleanup optimization
-        TODO: Add cleanup logging
-        TODO: Add cleanup metrics
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # TODO: Add cleanup performance monitoring
-        # TODO: Add cleanup error handling
-        
         effects_cleaned = self.effect_queue.cleanup_expired_effects(current_time)
         overrides_cleaned = self.override_queue.cleanup_expired_overrides(current_time)
-        
-        # TODO: Log cleanup actions
-        # TODO: Update cleanup metrics
         
         return {
             "effects_cleaned": effects_cleaned,
@@ -152,18 +134,10 @@ class QueueManager:
             
         Returns:
             Dictionary containing channel queue status
-            
-        TODO: Add channel-specific queue analytics
-        TODO: Add channel queue history
-        TODO: Add channel queue performance metrics
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # TODO: Get actual channel queue data
-        # TODO: Calculate channel queue metrics
-        # TODO: Add channel queue history
-        
         channel_effects = self.effect_queue.get_channel_effects(channel_id, current_time)
         channel_overrides = self.override_queue.get_channel_overrides(channel_id, current_time)
         
@@ -171,12 +145,29 @@ class QueueManager:
             "channel_id": channel_id,
             "current_time": current_time,
             "effects": {
-                "count": len(channel_effects),  # TODO: Get actual count
-                "active_effects": [],  # TODO: Get actual effects
+                "count": len(channel_effects),
+                "active_effects": [
+                    {
+                        "effect_id": effect.effect_id,
+                        "effect_type": effect.effect_type,
+                        "priority": effect.priority,
+                        "progress": effect.get_progress(current_time),
+                    }
+                    for effect in channel_effects
+                ],
             },
             "overrides": {
-                "count": len(channel_overrides),  # TODO: Get actual count
-                "active_overrides": [],  # TODO: Get actual overrides
+                "count": len(channel_overrides),
+                "active_overrides": [
+                    {
+                        "override_id": override.override_id,
+                        "override_type": override.override_type,
+                        "priority": override.priority,
+                        "intensity": override.get_override_intensity(current_time),
+                        "reason": override.reason,
+                    }
+                    for override in channel_overrides
+                ],
                 "override_status": self.override_queue.get_override_status(channel_id, current_time),
             },
         }

@@ -260,24 +260,14 @@ class EffectQueue:
     """
     Queue for managing lighting effects.
     
-    This class manages a queue of effects that can modify base
-    behavior intensities. Effects are processed in priority order
-    and can overlap in time.
-    
-    TODO: Add effect persistence
-    TODO: Add effect scheduling
-    TODO: Add effect monitoring
-    TODO: Add effect cleanup
+    This class manages a queue of effects that modify base behavior intensities.
+    Effects are processed in priority order and can overlap in time.
     """
 
     def __init__(self):
         """Initialize the effect queue."""
         self.effects: List[EffectEntry] = []
         self.next_effect_id = 1
-        
-        # TODO: Initialize effect storage
-        # TODO: Initialize effect scheduler
-        # TODO: Initialize effect monitor
 
     def add_effect(
         self,
@@ -299,32 +289,31 @@ class EffectQueue:
             start_time: When to start (defaults to now)
             duration_minutes: How long to run
             priority: Effect priority
-            current_time: Current time for conflict checking (defaults to now)
+            current_time: Current time for conflict checking
             
         Returns:
             Effect ID
             
         Raises:
-            ValueError: If there are conflicts with already active effects
-            
-        TODO: Add effect validation
-        TODO: Add resource checking
+            ValueError: If there's a channel conflict with existing effects
         """
-        if current_time is None:
-            current_time = datetime.utcnow()
-            
         if start_time is None:
             start_time = datetime.utcnow()
             
-        # Check for conflicts with already active effects
-        active_effects = self.get_active_effects(current_time)
-        if active_effects:
-            busy_channels = {ch for effect in active_effects for ch in effect.channels}
-            requested_channels = set(channels)
-            if not busy_channels.isdisjoint(requested_channels):
-                conflicting_channels = busy_channels.intersection(requested_channels)
-                raise ValueError(f"Cannot start effect. Channel(s) {conflicting_channels} are already running an active effect.")
+        if current_time is None:
+            current_time = datetime.utcnow()
             
+        # Check for channel conflicts with existing active effects
+        active_effects = self.get_active_effects(current_time)
+        for active_effect in active_effects:
+            # Check if any channels overlap
+            overlapping_channels = set(channels) & set(active_effect.channels)
+            if overlapping_channels:
+                raise ValueError(
+                    f"Channel conflict: channels {list(overlapping_channels)} are already "
+                    f"part of active effect {active_effect.effect_id} ({active_effect.effect_type})"
+                )
+        
         effect_id = f"effect_{self.next_effect_id}"
         self.next_effect_id += 1
         
@@ -339,13 +328,6 @@ class EffectQueue:
         )
         
         self.effects.append(effect)
-        
-        # Sort by priority and start time
-        self.effects.sort(key=lambda x: (-x.priority, x.start_time))
-        
-        # TODO: Log effect addition
-        # TODO: Trigger effect scheduling
-        
         return effect_id
 
     def remove_effect(self, effect_id: str) -> bool:
@@ -353,16 +335,14 @@ class EffectQueue:
         Remove an effect from the queue.
         
         Args:
-            effect_id: Effect ID to remove
+            effect_id: ID of effect to remove
             
         Returns:
-            True if effect was removed
+            True if effect was removed, False if not found
         """
         for i, effect in enumerate(self.effects):
             if effect.effect_id == effect_id:
                 del self.effects[i]
-                # TODO: Add effect cleanup
-                # TODO: Log effect removal
                 return True
         return False
 
@@ -381,36 +361,34 @@ class EffectQueue:
         if current_time is None:
             current_time = datetime.utcnow()
             
-        active_effects = [effect for effect in self.effects if effect.is_active(current_time)]
-        return active_effects
+        return [effect for effect in self.effects if effect.is_active(current_time)]
 
     def get_channel_effects(
         self, channel_id: int, current_time: Optional[datetime] = None
     ) -> List[EffectEntry]:
         """
-        Get active effects for a specific channel.
+        Get all effects affecting a specific channel.
         
         Args:
             channel_id: Channel ID
             current_time: Current UTC time (defaults to now)
             
         Returns:
-            List of active effects for the channel
+            List of effects affecting the channel
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        channel_effects = [
+        return [
             effect for effect in self.effects 
-            if effect.is_active(current_time) and channel_id in effect.channels
+            if channel_id in effect.channels and effect.is_active(current_time)
         ]
-        return channel_effects
 
     def apply_effects(
         self, base_intensities: Dict[int, float], current_time: Optional[datetime] = None
     ) -> Dict[int, float]:
         """
-        Apply active effects to base intensities.
+        Apply all active effects to base intensities.
         
         Args:
             base_intensities: Base intensity values per channel
@@ -422,22 +400,53 @@ class EffectQueue:
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # Get active effects
-        active_effects = self.get_active_effects(current_time)
+        # Start with base intensities
+        result_intensities = base_intensities.copy()
         
-        # Apply effects by priority (higher priority first)
-        modified_intensities = base_intensities.copy()
+        # Get active effects sorted by priority (highest first)
+        active_effects = sorted(
+            self.get_active_effects(current_time),
+            key=lambda x: x.priority,
+            reverse=True
+        )
         
+        # Apply each effect to its channels
         for effect in active_effects:
+            modified_intensity = effect.calculate_intensity_modification(
+                base_intensity=0.0,  # Effects modify the current result, not base
+                current_time=current_time
+            )
+            
+            # Apply effect to all affected channels
             for channel_id in effect.channels:
-                if channel_id in modified_intensities:
-                    base_intensity = modified_intensities[channel_id]
-                    modified_intensity = effect.calculate_intensity_modification(
-                        base_intensity, current_time
-                    )
-                    modified_intensities[channel_id] = modified_intensity
+                if channel_id in result_intensities:
+                    # Get the current intensity for this channel
+                    current_intensity = result_intensities[channel_id]
+                    
+                    # Apply effect modification
+                    if effect.effect_type == "fade":
+                        # Fade effect replaces the intensity
+                        result_intensities[channel_id] = modified_intensity
+                    elif effect.effect_type == "pulse":
+                        # Pulse effect modulates the current intensity
+                        result_intensities[channel_id] = current_intensity * modified_intensity
+                    elif effect.effect_type == "storm":
+                        # Storm effect adds variation to current intensity
+                        result_intensities[channel_id] = max(0.0, min(1.0, current_intensity + modified_intensity))
+                    elif effect.effect_type == "dim":
+                        # Dim effect reduces the current intensity
+                        result_intensities[channel_id] = current_intensity * (1.0 - modified_intensity)
+                    elif effect.effect_type == "boost":
+                        # Boost effect increases the current intensity
+                        result_intensities[channel_id] = min(1.0, current_intensity + modified_intensity)
+                    else:
+                        # Default: replace intensity
+                        result_intensities[channel_id] = modified_intensity
+                        
+                    # Ensure intensity stays within bounds
+                    result_intensities[channel_id] = max(0.0, min(1.0, result_intensities[channel_id]))
         
-        return modified_intensities
+        return result_intensities
 
     def cleanup_expired_effects(self, current_time: Optional[datetime] = None) -> int:
         """
@@ -448,24 +457,14 @@ class EffectQueue:
             
         Returns:
             Number of effects removed
-            
-        TODO: Implement effect cleanup
-        TODO: Add cleanup logging
-        TODO: Add cleanup metrics
         """
         if current_time is None:
             current_time = datetime.utcnow()
             
-        # Find expired effects
-        expired_effects = [
-            effect for effect in self.effects 
-            if not effect.is_active(current_time)
-        ]
+        initial_count = len(self.effects)
         
         # Remove expired effects
-        for expired_effect in expired_effects:
-            self.effects.remove(expired_effect)
+        self.effects = [effect for effect in self.effects if effect.is_active(current_time)]
         
-        # TODO: Log cleanup actions
-        
-        return len(expired_effects) 
+        removed_count = initial_count - len(self.effects)
+        return removed_count 

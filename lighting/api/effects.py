@@ -76,17 +76,14 @@ async def add_effect(
                 detail=f"Channels not registered: {unregistered_channels}"
             )
         
-        # Add effect
-        effective_start_time = request.start_time or datetime.utcnow()
-        
-        effect_id = runner.add_effect(
+        # Add effect through queue manager
+        effect_id = runner.queue_manager.add_effect(
             effect_type=request.effect_type,
             channels=request.channels,
             parameters=request.parameters,
-            start_time=effective_start_time,
+            start_time=request.start_time,
             duration_minutes=request.duration_minutes,
             priority=request.priority,
-            # Pass the time for conflict checking
             current_time=datetime.utcnow()
         )
         
@@ -137,8 +134,8 @@ async def remove_effect(
     try:
         runner = get_runner()
         
-        # Remove effect
-        success = runner.remove_effect(effect_id)
+        # Remove effect through queue manager
+        success = runner.queue_manager.remove_effect(effect_id)
         
         if not success:
             raise HTTPException(
@@ -193,8 +190,8 @@ async def add_override(
                 detail=f"Channels not registered: {unregistered_channels}"
             )
         
-        # Add override
-        override_id = runner.add_override(
+        # Add override through queue manager
+        override_id = runner.queue_manager.add_override(
             override_type=request.override_type,
             channels=request.channels,
             intensity=request.intensity,
@@ -205,7 +202,7 @@ async def add_override(
         )
         
         # Log the operation
-        logger.info(f"Override added by user {current_user.username}: {request.override_type} intensity {request.intensity} on channels {request.channels}")
+        logger.info(f"Override added by user {current_user.username}: {request.override_type} on channels {request.channels}")
         
         return {
             "success": True,
@@ -219,6 +216,11 @@ async def add_override(
             "message": f"Override {request.override_type} added successfully"
         }
         
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
     except HTTPException:
         raise
     except Exception as e:
@@ -248,8 +250,8 @@ async def remove_override(
     try:
         runner = get_runner()
         
-        # Remove override
-        success = runner.remove_override(override_id)
+        # Remove override through queue manager
+        success = runner.queue_manager.remove_override(override_id)
         
         if not success:
             raise HTTPException(
@@ -281,19 +283,58 @@ async def list_effects_and_overrides(
     current_user: User = Depends(get_current_user_or_service)
 ):
     """
-    Get list of active effects and overrides.
+    List all active effects and overrides.
     
     Returns:
         List of active effects and overrides
     """
     try:
         runner = get_runner()
-        queue_status = runner.get_queue_status()
+        current_time = datetime.utcnow()
+        
+        # Get active effects and overrides
+        active_effects = runner.queue_manager.effect_queue.get_active_effects(current_time)
+        active_overrides = runner.queue_manager.override_queue.get_active_overrides(current_time)
+        
+        # Format effects
+        effects_list = [
+            {
+                "effect_id": effect.effect_id,
+                "effect_type": effect.effect_type,
+                "channels": effect.channels,
+                "parameters": effect.parameters,
+                "start_time": effect.start_time,
+                "duration_minutes": effect.duration_minutes,
+                "priority": effect.priority,
+                "progress": effect.get_progress(current_time),
+                "is_active": effect.is_active(current_time),
+            }
+            for effect in active_effects
+        ]
+        
+        # Format overrides
+        overrides_list = [
+            {
+                "override_id": override.override_id,
+                "override_type": override.override_type,
+                "channels": override.channels,
+                "intensity": override.get_override_intensity(current_time),
+                "start_time": override.start_time,
+                "duration_minutes": override.duration_minutes,
+                "priority": override.priority,
+                "reason": override.reason,
+                "progress": override.get_progress(current_time),
+                "is_active": override.is_active(current_time),
+            }
+            for override in active_overrides
+        ]
         
         return {
-            "effects": queue_status.get("effects", []),
-            "overrides": queue_status.get("overrides", []),
-            "timestamp": datetime.utcnow()
+            "current_time": current_time,
+            "effects": effects_list,
+            "overrides": overrides_list,
+            "total_effects": len(effects_list),
+            "total_overrides": len(overrides_list),
         }
         
     except Exception as e:
@@ -313,7 +354,7 @@ async def get_channel_effects_status(
     Get effects and overrides status for a specific channel.
     
     Args:
-        channel_id: Channel identifier
+        channel_id: Channel ID
         
     Returns:
         Channel effects and overrides status
@@ -321,26 +362,13 @@ async def get_channel_effects_status(
     try:
         runner = get_runner()
         
-        # Check if channel is registered
-        if channel_id not in runner.get_registered_channels():
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Channel {channel_id} not registered"
-            )
-        
         # Get channel queue status
-        queue_status = runner.queue_manager.get_channel_queue_status(channel_id, datetime.utcnow())
+        channel_status = runner.queue_manager.get_channel_queue_status(channel_id)
         
-        return {
-            "channel_id": channel_id,
-            "queue_status": queue_status,
-            "timestamp": datetime.utcnow()
-        }
+        return channel_status
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error(f"Error getting effects status for channel {channel_id}: {e}")
+        logger.error(f"Error getting channel {channel_id} effects status: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal error getting channel effects status: {str(e)}"
@@ -361,22 +389,22 @@ async def clear_all_effects_and_overrides(
     """
     try:
         runner = get_runner()
-        queue_status = runner.get_queue_status()
         
-        # Get all effect and override IDs
-        effect_ids = [effect["id"] for effect in queue_status.get("effects", [])]
-        override_ids = [override["id"] for override in queue_status.get("overrides", [])]
+        # Get current counts
+        current_time = datetime.utcnow()
+        active_effects = runner.queue_manager.effect_queue.get_active_effects(current_time)
+        active_overrides = runner.queue_manager.override_queue.get_active_overrides(current_time)
         
-        # Remove all effects
+        # Remove all active effects
         effects_removed = 0
-        for effect_id in effect_ids:
-            if runner.remove_effect(effect_id):
+        for effect in active_effects:
+            if runner.queue_manager.remove_effect(effect.effect_id):
                 effects_removed += 1
         
-        # Remove all overrides
+        # Remove all active overrides
         overrides_removed = 0
-        for override_id in override_ids:
-            if runner.remove_override(override_id):
+        for override in active_overrides:
+            if runner.queue_manager.remove_override(override.override_id):
                 overrides_removed += 1
         
         # Log the operation
@@ -386,8 +414,6 @@ async def clear_all_effects_and_overrides(
             "success": True,
             "effects_removed": effects_removed,
             "overrides_removed": overrides_removed,
-            "total_removed": effects_removed + overrides_removed,
-            "timestamp": datetime.utcnow(),
             "message": f"Cleared {effects_removed} effects and {overrides_removed} overrides"
         }
         
