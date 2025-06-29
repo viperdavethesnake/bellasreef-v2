@@ -15,6 +15,7 @@ from lighting.services.crud import (
     lighting_behavior_log,
     lighting_group,
 )
+from lighting.services.weather_service import weather_service
 from lighting.models.schemas import (
     LightingBehaviorAssignmentCreate,
     LightingBehaviorLogCreate,
@@ -464,26 +465,46 @@ class LightingBehaviorManager:
         """
         Get the current status of a group including all channel assignments.
         
-        TODO: Implement group status logic that shows status for all channels in the group.
+        TODO: This will show status for all channels in the group when channel
+        relationships are implemented.
         """
         # Validate group exists
         group = await lighting_group.get(db, group_id=group_id)
         if not group:
             raise ValueError(f"Group with ID {group_id} not found")
         
-        # Get group assignments
-        assignments = await lighting_behavior_assignment.get_by_group(
-            db, group_id=group_id, active_only=True
-        )
-        
-        # TODO: Get all channels in group and their individual statuses
-        
+        # TODO: Get all channels in the group when channel relationships are available
+        # For now, return basic group info
         return {
             "group_id": group_id,
             "group_name": group.name,
-            "active_assignments": [LightingBehaviorAssignment.model_validate(assignment) for assignment in assignments],
-            "channel_statuses": [],  # TODO: Implement channel status checking
-            "notes": "Group status calculation not yet implemented"
+            "group_description": group.description,
+            "status": "Group status functionality not yet implemented",
+            "channels": []  # TODO: Add channel list when relationships are available
+        }
+
+    async def get_weather_for_assignment(self, db: AsyncSession, assignment_id: int) -> Dict:
+        """Gets the real-time weather for an active LocationBased behavior assignment."""
+        assignment = await lighting_behavior_assignment.get(db, assignment_id=assignment_id)
+        if not assignment:
+            raise ValueError("Assignment not found.")
+
+        behavior = await lighting_behavior.get(db, behavior_id=assignment.behavior_id)
+        if not behavior or behavior.behavior_type != "LocationBased":
+            raise ValueError("This action is only valid for LocationBased behaviors.")
+
+        config = behavior.behavior_config
+        if not config or 'latitude' not in config or 'longitude' not in config:
+            raise ValueError("Behavior configuration is missing latitude or longitude.")
+
+        weather_data = await weather_service.get_current_conditions(config['latitude'], config['longitude'])
+
+        return {
+            "location_name": config.get("location_name", "Custom Location"),
+            "status_text": weather_data["status_text"],
+            "cloud_cover_percent": weather_data["cloud_cover_percent"],
+            "current_intensity_modifier": round(weather_data["intensity_modifier"], 2),
+            "cycle_time_note": f"Lighting cycle is mapped with a {config.get('time_offset_hours', 0)}-hour offset."
         }
 
 

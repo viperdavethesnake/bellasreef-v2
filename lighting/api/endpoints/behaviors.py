@@ -1,7 +1,7 @@
 """
 FastAPI endpoints for lighting behavior management.
 """
-from typing import List, Optional
+from typing import List, Optional, Dict
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -10,6 +10,7 @@ from shared.schemas.user import User
 from shared.api.deps import get_current_user_or_service
 
 from lighting.services.crud import lighting_behavior
+from lighting.services.location_presets import get_all_presets
 from lighting.models.schemas import (
     LightingBehavior,
     LightingBehaviorCreate,
@@ -145,4 +146,13 @@ async def delete_behavior(
         )
     
     await lighting_behavior.remove(db, behavior_id=behavior_id)
-    return None 
+    return None
+
+
+@router.get("/location-presets", response_model=List[Dict])
+async def get_location_presets(current_user: User = Depends(get_current_user_or_service)):
+    """
+    Get a list of predefined famous reef locations to use as presets for
+    LocationBased behaviors.
+    """
+    return get_all_presets() 
