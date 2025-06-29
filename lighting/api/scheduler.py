@@ -228,7 +228,7 @@ async def run_single_iteration(
             )
         
         # Run single iteration
-        intensities = runner.run_iteration()
+        intensities = await runner.run_iteration()
         
         # Log the operation
         logger.info(f"Single iteration executed by user {current_user.username}: {len(intensities)} channels processed")

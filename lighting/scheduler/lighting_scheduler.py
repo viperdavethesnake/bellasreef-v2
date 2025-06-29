@@ -194,7 +194,7 @@ class LightingScheduler:
             start_time = datetime.utcnow()
             
             # Run the behavior runner
-            intensities = self.runner.run_iteration()
+            intensities = await self.runner.run_iteration()
             
             # Update statistics
             self._iteration_count += 1

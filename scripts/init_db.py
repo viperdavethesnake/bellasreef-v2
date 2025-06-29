@@ -24,6 +24,8 @@ from shared.db.models import (
 from lighting.db.models import LightingBehavior, LightingGroup, LightingBehaviorAssignment, LightingBehaviorLog
 from shared.core.security import get_password_hash
 from shared.crud.user import get_user_by_username
+from lighting.services.crud import lighting_behavior
+from lighting.models.schemas import LightingBehaviorCreate, LightingBehaviorType
 from sqlalchemy import text
 
 # ANSI Color Constants
@@ -196,6 +198,62 @@ async def create_admin_user():
         print_error(f"Admin user creation failed: {e}")
         raise
 
+async def create_predefined_behaviors():
+    """Create a set of default lighting behaviors if they don't already exist."""
+    print_section("Predefined Lighting Behaviors")
+
+    predefined_behaviors = [
+        {
+            "name": "Fixed 50%",
+            "behavior_type": LightingBehaviorType.FIXED,
+            "enabled": True,
+            "behavior_config": {"intensity": 0.5}
+        },
+        {
+            "name": "Standard Diurnal",
+            "behavior_type": LightingBehaviorType.DIURNAL,
+            "enabled": True,
+            "behavior_config": {
+              "timing": {
+                "sunrise_start": "08:00", "sunrise_end": "10:00",
+                "peak_start": "10:00", "peak_end": "18:00",
+                "sunset_start": "18:00", "sunset_end": "20:00"
+              },
+              "channels": [],
+              "ramp_curve": "exponential"
+            }
+        },
+        {
+            "name": "Simple Moonlight",
+            "behavior_type": LightingBehaviorType.MOONLIGHT,
+            "enabled": True,
+            "behavior_config": {"intensity": 0.05, "start_time": "20:00", "end_time": "08:00"}
+        },
+        {
+            "name": "Scheduled Lunar",
+            "behavior_type": LightingBehaviorType.LUNAR,
+            "enabled": True,
+            "behavior_config": {
+              "mode": "scheduled",
+              "max_intensity": 0.1,
+              "start_time": "21:00",
+              "end_time": "06:00"
+            }
+        }
+    ]
+
+    async with async_session() as session:
+        for behavior_data in predefined_behaviors:
+            existing = await lighting_behavior.get_by_name(session, name=behavior_data["name"])
+            if existing:
+                print_warning(f"Behavior '{behavior_data['name']}' already exists. Skipping.")
+                continue
+
+            print_progress(f"Creating behavior: '{behavior_data['name']}'")
+            behavior_create = LightingBehaviorCreate(**behavior_data)
+            await lighting_behavior.create(session, obj_in=behavior_create)
+            print_success(f"Successfully created '{behavior_data['name']}' behavior.")
+
 async def main():
     """Main function to initialize database and create admin user."""
     parser = argparse.ArgumentParser(description="Initialize Bella's Reef database")
@@ -247,6 +305,7 @@ async def main():
     try:
         await reset_db()
         await create_admin_user()
+        await create_predefined_behaviors()
         
         print_section("Success")
         print(f"{GREEN}╔══════════════════════════════════════════════════════════════╗")
