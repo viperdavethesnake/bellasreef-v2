@@ -13,11 +13,6 @@ from lighting.models.schemas import LightingBehaviorType
 class OverrideEntry:
     """
     Represents an override in the override queue.
-    
-    TODO: Add override validation
-    TODO: Add override priority system
-    TODO: Add override conflict resolution
-    TODO: Add override cleanup logic
     """
 
     def __init__(

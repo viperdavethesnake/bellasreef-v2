@@ -5,7 +5,7 @@ This module provides FastAPI endpoints for managing lighting effects and overrid
 including adding, removing, and monitoring effects and overrides.
 All operations use the real HAL layer for hardware control.
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Dict, List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -422,4 +422,85 @@ async def clear_all_effects_and_overrides(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal error clearing effects and overrides: {str(e)}"
+        )
+
+
+@router.get("/status")
+async def get_effects_and_overrides_status(
+    current_user: User = Depends(get_current_user_or_service)
+):
+    """
+    Get current state of all active effects and overrides for UI synchronization.
+    
+    This endpoint provides a comprehensive view of all active temporary states
+    for front-end synchronization, including remaining duration and detailed status.
+    
+    Returns:
+        JSON array containing details about each active temporary state
+    """
+    try:
+        runner = get_runner()
+        current_time = datetime.utcnow()
+        
+        # Get active effects and overrides
+        active_effects = runner.queue_manager.effect_queue.get_active_effects(current_time)
+        active_overrides = runner.queue_manager.override_queue.get_active_overrides(current_time)
+        
+        # Format effects with remaining duration
+        effects_status = []
+        for effect in active_effects:
+            end_time = effect.start_time + timedelta(minutes=effect.duration_minutes)
+            remaining_seconds = max(0, int((end_time - current_time).total_seconds()))
+            
+            effects_status.append({
+                "id": effect.effect_id,
+                "type": "effect",
+                "effect_type": effect.effect_type,
+                "channels": effect.channels,
+                "parameters": effect.parameters,
+                "start_time": effect.start_time,
+                "duration_minutes": effect.duration_minutes,
+                "remaining_seconds": remaining_seconds,
+                "progress": effect.get_progress(current_time),
+                "priority": effect.priority,
+                "is_active": effect.is_active(current_time),
+            })
+        
+        # Format overrides with remaining duration
+        overrides_status = []
+        for override in active_overrides:
+            end_time = override.start_time + timedelta(minutes=override.duration_minutes)
+            remaining_seconds = max(0, int((end_time - current_time).total_seconds()))
+            
+            overrides_status.append({
+                "id": override.override_id,
+                "type": "override",
+                "override_type": override.override_type,
+                "channels": override.channels,
+                "intensity": override.get_override_intensity(current_time),
+                "start_time": override.start_time,
+                "duration_minutes": override.duration_minutes,
+                "remaining_seconds": remaining_seconds,
+                "progress": override.get_progress(current_time),
+                "priority": override.priority,
+                "reason": override.reason,
+                "is_active": override.is_active(current_time),
+            })
+        
+        # Combine all active temporary states
+        all_active_states = effects_status + overrides_status
+        
+        return {
+            "current_time": current_time,
+            "active_states": all_active_states,
+            "effects_count": len(effects_status),
+            "overrides_count": len(overrides_status),
+            "total_active_states": len(all_active_states),
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting effects and overrides status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Internal error getting effects and overrides status: {str(e)}"
         ) 

@@ -14,11 +14,6 @@ from lighting.models.schemas import LightingBehaviorType
 class EffectEntry:
     """
     Represents an effect in the effect queue.
-    
-    TODO: Add effect validation
-    TODO: Add effect priority system
-    TODO: Add effect conflict resolution
-    TODO: Add effect cleanup logic
     """
 
     def __init__(

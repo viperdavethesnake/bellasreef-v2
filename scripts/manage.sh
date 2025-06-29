@@ -60,22 +60,22 @@ print_error() {
 # =============================================================================
 # SERVICE DEFINITIONS (Using portable indexed arrays)
 # =============================================================================
-SERVICE_KEYS=("core" "hal" "lighting" "temp" "smartoutlets" "telemetry-api" "telemetry-worker" "aggregator-worker")
+SERVICE_KEYS=("core" "hal" "lighting" "lighting-scheduler" "temp" "smartoutlets" "telemetry-api" "telemetry-worker" "aggregator-worker")
 
 MODULE_PATHS=(
-    "core.main:app" "hal.main:app" "lighting.main:app" "temp.main:app" 
+    "core.main:app" "hal.main:app" "lighting.main:app" "lighting/scheduler/start_lighting_service.py" "temp.main:app" 
     "smartoutlets.main:app" "telemetry.main:app" "telemetry.worker" "telemetry.aggregator"
 )
 PORT_VARS=(
-    "SERVICE_PORT_CORE" "SERVICE_PORT_HAL" "LIGHTING_API_PORT" "SERVICE_PORT_TEMP"
+    "SERVICE_PORT_CORE" "SERVICE_PORT_HAL" "LIGHTING_API_PORT" "N/A" "SERVICE_PORT_TEMP"
     "SERVICE_PORT_SMARTOUTLETS" "SERVICE_PORT_TELEMETRY" "N/A" "N/A"
 )
 ENABLED_VARS=(
-    "CORE_ENABLED" "HAL_ENABLED" "LIGHTING_API_ENABLED" "TEMP_ENABLED"
+    "CORE_ENABLED" "HAL_ENABLED" "LIGHTING_API_ENABLED" "LIGHTING_API_ENABLED" "TEMP_ENABLED"
     "SMART_OUTLETS_ENABLED" "TELEMETRY_ENABLED" "TELEMETRY_ENABLED" "TELEMETRY_ENABLED"
 )
 LOG_FILES=(
-    "core.log" "hal.log" "lighting.log" "temp.log"
+    "core.log" "hal.log" "lighting.log" "lighting_scheduler.log" "temp.log"
     "smartoutlets.log" "telemetry_api.log" "telemetry_worker.log" "aggregator_worker.log"
 )
 
@@ -140,7 +140,13 @@ start_service() {
     local log_file="${LOG_FILES[$idx]}"
 
     if [[ "$port_var_name" == "N/A" ]]; then
-        python3 -m "$module_path" &> "${LOG_DIR}/${log_file}" &
+        if [[ "$module_path" == *.py ]]; then
+            # Handle Python script files
+            python3 "$module_path" &> "${LOG_DIR}/${log_file}" &
+        else
+            # Handle Python modules
+            python3 -m "$module_path" &> "${LOG_DIR}/${log_file}" &
+        fi
     else
         local port="${!port_var_name}"
         uvicorn "$module_path" --host "0.0.0.0" --port "$port" --log-level "info" &> "${LOG_DIR}/${log_file}" &
@@ -164,24 +170,40 @@ stop_service() {
     local service_name=$1
     local pid_file="${PID_DIR}/${service_name}.pid"
 
-    if [ -f "$pid_file" ]; then
-        local pid=$(cat "$pid_file")
-        if ps -p $pid > /dev/null; then
-            echo -n -e "${CYAN}⏳ Stopping '$service_name' (PID: $pid)...${NC}"
-            # Kill the entire process group started by the background process
-            pkill -P $pid &>/dev/null || true
-            kill $pid &>/dev/null || true
-            sleep 1
-            rm -f "$pid_file"
-            echo -e "\r${GREEN}✅ Service '$service_name' stopped.${NC}                      "
-        else
-            # The process is not running, so just clean up the stale PID file
-            rm -f "$pid_file"
-            echo -e "${YELLOW}ℹ️ Service '$service_name' was not running. Cleaned up stale PID file.${NC}"
-        fi
-    else
+    if [ ! -f "$pid_file" ]; then
         echo -e "${CYAN}ℹ️ Service '$service_name' is already stopped.${NC}"
+        return
     fi
+
+    local pid=$(cat "$pid_file")
+    if ! ps -p $pid > /dev/null; then
+        rm -f "$pid_file"
+        echo -e "${YELLOW}ℹ️ Service '$service_name' was not running. Cleaned up stale PID file.${NC}"
+        return
+    fi
+
+    echo -n -e "${CYAN}⏳ Stopping '$service_name' (PID: $pid)...${NC}"
+    
+    # Stage 1: Ask politely (SIGTERM)
+    kill $pid &>/dev/null
+    
+    # Wait up to 3 seconds for graceful shutdown
+    for i in {1..3}; do
+        if ! ps -p $pid > /dev/null; then
+            rm -f "$pid_file"
+            echo -e "\r${GREEN}✅ Service '$service_name' stopped gracefully.      ${NC}"
+            return
+        fi
+        sleep 1
+    done
+    
+    # Stage 2: Force termination (SIGKILL)
+    echo -n -e "\r${YELLOW}⚠️ Service '$service_name' did not stop gracefully. Forcing termination...${NC}"
+    kill -9 $pid &>/dev/null
+    
+    sleep 1
+    rm -f "$pid_file"
+    echo -e "\r${GREEN}✅ Service '$service_name' terminated.                     ${NC}"
 }
 
 # Shows the status of all services in a formatted table

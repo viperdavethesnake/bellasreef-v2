@@ -387,14 +387,10 @@ async def create_override_assignment(
     """
     Create a temporary override assignment.
     
-    TODO: Implement override functionality that allows temporary behavior
-    overrides without affecting the underlying assignment.
-    
     - **channel_id**: The channel to override
     - **behavior_id**: The behavior to use for the override
     - **duration_minutes**: How long the override should last (1-1440 minutes)
     """
-    # TODO: Implement override logic
     raise HTTPException(
         status_code=status.HTTP_501_NOT_IMPLEMENTED,
         detail="Override functionality not yet implemented"

@@ -22,17 +22,6 @@ logger = logging.getLogger(__name__)
 class IntensityCalculator:
     """
     Calculator for computing lighting behavior intensities.
-    
-    This class provides profile functions for each behavior type that
-    calculate the target intensity based on the current time and behavior
-    configuration.
-    
-    TODO: Add weather influence calculations
-    TODO: Add acclimation period calculations
-    TODO: Add location-based calculations
-    TODO: Add lunar phase calculations
-    TODO: Add circadian rhythm calculations
-    TODO: Add performance optimization and caching
     """
 
     def __init__(self):
@@ -146,7 +135,7 @@ class IntensityCalculator:
         elif behavior_type == LightingBehaviorType.MOONLIGHT:
             return await self._calculate_moonlight_intensity(config, current_time)
         elif behavior_type == LightingBehaviorType.CIRCADIAN:
-            return self._calculate_circadian_intensity(config, current_time, channel_id)
+            return await self._calculate_circadian_intensity(config, current_time, channel_id)
         elif behavior_type == LightingBehaviorType.LOCATION_BASED:
             return await self._calculate_location_based_intensity(config, current_time, channel_id)
         elif behavior_type == LightingBehaviorType.OVERRIDE:
@@ -350,11 +339,11 @@ class IntensityCalculator:
             logger.error(f"Error in moonlight intensity calculation: {e}")
             return 0.0
 
-    def _calculate_circadian_intensity(
+    async def _calculate_circadian_intensity(
         self, config: Dict[str, Any], current_time: datetime, channel_id: Optional[int] = None
     ) -> float:
         """
-        Calculate intensity for 24-Hour Circadian behavior type.
+        Calculate intensity for Circadian behavior type.
         
         Args:
             config: Behavior configuration
@@ -365,14 +354,21 @@ class IntensityCalculator:
             Circadian intensity value (0.0-1.0)
         """
         try:
-            # This is a composite behavior that combines diurnal and lunar/moonlight
-            # Check if we're in day or night phase
-            current_hour = current_time.hour + current_time.minute / 60.0
+            # Parse configuration
+            day_config = config.get("day_config", {})
+            night_config = config.get("night_config", {})
             
-            # Simple day/night determination (6:00-18:00 = day)
-            if 6.0 <= current_hour <= 18.0:
+            # Determine if it's day or night based on sun position
+            # For now, use a simple time-based approach (6 AM to 6 PM = day)
+            current_hour = current_time.hour
+            
+            if 6 <= current_hour < 18:
                 # Day phase - use diurnal logic
-                return self._calculate_diurnal_intensity(config, current_time, channel_id)
+                if "diurnal_config" in config:
+                    return self._calculate_diurnal_intensity(config, current_time, channel_id)
+                else:
+                    # Default to high intensity during day
+                    return 0.8
             else:
                 # Night phase - use lunar or moonlight logic
                 if "lunar_config" in config:
