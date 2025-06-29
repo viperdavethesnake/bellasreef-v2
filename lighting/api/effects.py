@@ -48,6 +48,11 @@ class OverrideCreateRequest(BaseModel):
     reason: Optional[str] = Field(None, description="Reason for the override")
 
 
+class PreviewDayRequest(BaseModel):
+    channel_ids: List[int] = Field(..., min_length=1, description="List of channel IDs to include in the preview.")
+    duration_seconds: int = Field(60, ge=10, le=300, description="The real-time duration of the preview in seconds.")
+
+
 @router.post("/add", status_code=status.HTTP_200_OK)
 async def add_effect(
     request: EffectCreateRequest,
@@ -503,4 +508,29 @@ async def get_effects_and_overrides_status(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Internal error getting effects and overrides status: {str(e)}"
-        ) 
+        )
+
+
+@router.post("/preview-day", status_code=status.HTTP_202_ACCEPTED)
+async def start_day_preview(
+    request: PreviewDayRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_or_service),
+):
+    """
+    Triggers a fast-forward, 24-hour day preview for the specified channels.
+    This creates a temporary, high-priority override.
+    """
+    try:
+        from lighting.services.behavior_manager import lighting_behavior_manager
+        override_id = await lighting_behavior_manager.start_day_preview(
+            db, request.channel_ids, request.duration_seconds
+        )
+        return {
+            "message": "Day preview initiated successfully.",
+            "override_id": override_id,
+            "duration_seconds": request.duration_seconds,
+            "channels": request.channel_ids
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) 

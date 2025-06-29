@@ -7,7 +7,8 @@ lighting overrides that take precedence over base behaviors.
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
-from lighting.models.schemas import LightingBehaviorType
+from lighting.models.schemas import LightingBehaviorType, LightingBehavior, LightingBehaviorAssignment
+from lighting.runner.intensity_calculator import IntensityCalculator
 
 
 class OverrideEntry:
@@ -25,6 +26,7 @@ class OverrideEntry:
         duration_minutes: int,
         priority: int = 10,
         reason: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
     ):
         """
         Initialize an override entry.
@@ -38,6 +40,7 @@ class OverrideEntry:
             duration_minutes: How long the override should last
             priority: Override priority (higher = more important)
             reason: Reason for the override
+            parameters: Additional parameters for complex overrides
         """
         self.override_id = override_id
         self.override_type = override_type
@@ -48,6 +51,7 @@ class OverrideEntry:
         self.priority = priority
         self.reason = reason
         self.created_at = datetime.utcnow()
+        self.parameters = parameters or {}
         
         # TODO: Add override validation
         # TODO: Add intensity validation
@@ -161,6 +165,7 @@ class OverrideQueue:
         duration_minutes: int = 60,
         priority: int = 10,
         reason: Optional[str] = None,
+        parameters: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Add an override to the queue.
@@ -173,6 +178,7 @@ class OverrideQueue:
             duration_minutes: How long to run
             priority: Override priority
             reason: Reason for the override
+            parameters: Additional parameters for complex overrides
             
         Returns:
             Override ID
@@ -207,6 +213,7 @@ class OverrideQueue:
             duration_minutes=duration_minutes,
             priority=priority,
             reason=reason,
+            parameters=parameters,
         )
         
         self.overrides.append(override)
@@ -292,13 +299,53 @@ class OverrideQueue:
             reverse=True
         )
         
+        # This will hold channel_ids that are already controlled by a higher-priority preview
+        preview_controlled_channels = set()
+        
         # Apply each override to its channels
         for override in active_overrides:
-            override_intensity = override.get_override_intensity(current_time)
-            
-            # Apply override to all affected channels (overrides replace the intensity)
-            for channel_id in override.channels:
-                result_intensities[channel_id] = override_intensity
+            if override.override_type == "DayPreview":
+                # Handle the Day Preview Simulation
+                if not override.parameters or "assignments" not in override.parameters:
+                    continue
+
+                # Calculate real-time progress of the preview (0.0 to 1.0)
+                elapsed_seconds = (current_time - override.start_time).total_seconds()
+                total_duration_seconds = override.duration_minutes * 60
+                progress = min(elapsed_seconds / total_duration_seconds, 1.0)
+
+                # Map progress to a 24-hour clock starting at 6 AM
+                simulated_hour = (6 + (progress * 24)) % 24
+                simulated_time = current_time.replace(hour=int(simulated_hour), minute=int((simulated_hour % 1) * 60))
+
+                # For now, use a simplified calculation since we can't call async methods here
+                # In a production system, this would need to be handled differently
+                for assignment_data in override.parameters["assignments"]:
+                    channel_id = assignment_data["channel_id"]
+                    
+                    # Use a simple time-based intensity calculation for preview
+                    # This simulates a basic day/night cycle
+                    hour = simulated_time.hour
+                    if 6 <= hour <= 18:  # Daytime (6 AM to 6 PM)
+                        # Peak at noon, fade at edges
+                        peak_hour = 12
+                        intensity = 1.0 - abs(hour - peak_hour) / 6.0
+                        intensity = max(0.1, min(1.0, intensity))
+                    else:  # Nighttime
+                        intensity = 0.1
+                    
+                    result_intensities[channel_id] = intensity
+                    preview_controlled_channels.add(channel_id)
+
+            else:
+                # Handle normal, fixed-intensity overrides
+                override_intensity = override.get_override_intensity(current_time)
+                
+                # Apply override to all affected channels (overrides replace the intensity)
+                for channel_id in override.channels:
+                    # Do not apply if already handled by a higher-priority preview
+                    if channel_id not in preview_controlled_channels:
+                        result_intensities[channel_id] = override_intensity
         
         return result_intensities
 

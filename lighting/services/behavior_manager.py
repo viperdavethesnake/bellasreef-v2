@@ -507,6 +507,43 @@ class LightingBehaviorManager:
             "cycle_time_note": f"Lighting cycle is mapped with a {config.get('time_offset_hours', 0)}-hour offset."
         }
 
+    async def start_day_preview(self, db: AsyncSession, channel_ids: List[int], duration_seconds: int) -> str:
+        """
+        Initiates a high-priority 'DayPreview' override for the specified channels.
+        """
+        from lighting.runner.base_runner import get_runner # Local import to avoid circular dependency
+
+        if not channel_ids:
+            raise ValueError("At least one channel ID must be provided for a preview.")
+
+        assignments_to_preview = []
+        for channel_id in channel_ids:
+            assignment = await lighting_behavior_assignment.get_by_channel(db, channel_id=channel_id, active_only=True)
+            if assignment:
+                behavior = await lighting_behavior.get(db, behavior_id=assignment.behavior_id)
+                if behavior:
+                    assignments_to_preview.append({
+                        "channel_id": channel_id,
+                        # Convert models to dicts for clean parameter passing
+                        "assignment": LightingBehaviorAssignment.model_validate(assignment).model_dump(),
+                        "behavior": LightingBehavior.model_validate(behavior).model_dump()
+                    })
+
+        if not assignments_to_preview:
+            raise ValueError("None of the specified channels have active behavior assignments to preview.")
+
+        runner = get_runner()
+        override_id = runner.queue_manager.override_queue.add_override(
+            override_type="DayPreview",
+            channels=channel_ids,
+            intensity=0,  # Intensity is ignored for this type, but required by the model
+            duration_minutes=duration_seconds / 60.0,
+            priority=100, # High priority
+            reason=f"Day preview for {len(assignments_to_preview)} channels.",
+            parameters={"assignments": assignments_to_preview}
+        )
+        return override_id
+
 
 # Create instance for easy import
 lighting_behavior_manager = LightingBehaviorManager() 

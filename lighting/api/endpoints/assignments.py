@@ -4,7 +4,7 @@ FastAPI endpoints for lighting behavior assignment management.
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from datetime import datetime
+from datetime import datetime, date
 
 from shared.db.database import get_db
 from shared.schemas.user import User
@@ -12,6 +12,7 @@ from shared.api.deps import get_current_user_or_service
 
 from lighting.services.crud import lighting_behavior_assignment, lighting_behavior, lighting_group, lighting_behavior_log
 from lighting.services.behavior_manager import lighting_behavior_manager
+from lighting.services.schedule_presenter import schedule_presenter
 from lighting.models.schemas import (
     LightingBehaviorAssignment,
     LightingBehaviorAssignmentCreate,
@@ -504,4 +505,24 @@ async def get_assignment_weather(
         weather_status = await lighting_behavior_manager.get_weather_for_assignment(db, assignment_id=assignment_id)
         return weather_status
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) 
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+
+@router.get("/{assignment_id}/schedule", response_model=Dict[str, Any])
+async def get_assignment_schedule(
+    assignment_id: int,
+    on_date: Optional[date] = Query(None, description="Date to calculate schedule for (YYYY-MM-DD). Defaults to today."),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user_or_service),
+):
+    """
+    Gets a list of key time-based events for a lighting schedule on a given date.
+    Useful for rendering a timeline in a UI.
+    """
+    if on_date is None:
+        on_date = datetime.utcnow().date()
+
+    try:
+        return await schedule_presenter.generate_schedule_for_assignment(db, assignment_id, on_date)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) 
