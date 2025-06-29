@@ -57,7 +57,9 @@ class LightingBehaviorRunner:
         self, 
         channel_id: int, 
         controller_address: int, 
-        channel_number: int
+        channel_number: int,
+        min_value: float = 0.0,
+        max_value: float = 100.0
     ) -> bool:
         """
         Register a lighting channel with the HAL service.
@@ -66,6 +68,8 @@ class LightingBehaviorRunner:
             channel_id: Lighting system channel identifier
             controller_address: I2C address of the PCA9685 controller (0x40-0x7F)
             channel_number: Channel number on the controller (0-15)
+            min_value: Minimum physical value for the channel (0.0-100.0)
+            max_value: Maximum physical value for the channel (0.0-100.0)
             
         Returns:
             True if registration successful, False otherwise
@@ -80,18 +84,33 @@ class LightingBehaviorRunner:
                 logger.error(f"Invalid controller address: {hex(controller_address)} (must be 0x40-0x7F)")
                 return False
             
+            # Validate min/max values
+            if not isinstance(min_value, (int, float)) or not isinstance(max_value, (int, float)):
+                logger.error(f"Invalid min/max values: min={min_value}, max={max_value} (must be numbers)")
+                return False
+                
+            if min_value < 0.0 or max_value > 100.0:
+                logger.error(f"Invalid min/max values: min={min_value}, max={max_value} (must be 0.0-100.0)")
+                return False
+                
+            if min_value >= max_value:
+                logger.error(f"Invalid min/max values: min={min_value} must be less than max={max_value}")
+                return False
+            
             # Register with HAL service
             success = self.hal_service.register_channel(channel_id, controller_address, channel_number)
             
             if success:
-                # Track registration locally
+                # Track registration locally with min/max values
                 self._registered_channels[channel_id] = {
                     "controller_address": controller_address,
                     "channel_number": channel_number,
+                    "min_value": min_value,
+                    "max_value": max_value,
                     "registered_at": datetime.utcnow()
                 }
                 
-                logger.info(f"Channel {channel_id} registered: I2C:{hex(controller_address)} Ch:{channel_number}")
+                logger.info(f"Channel {channel_id} registered: I2C:{hex(controller_address)} Ch:{channel_number} Range:{min_value}-{max_value}")
                 self._log_execution_status("channel_registered", channel_id=channel_id)
                 return True
             else:
@@ -379,15 +398,26 @@ class LightingBehaviorRunner:
             successful_writes = {}
             for channel_id, intensity in final_intensities.items():
                 if channel_id in self._registered_channels:
+                    # Get min/max values for this channel
+                    channel_config = self._registered_channels[channel_id]
+                    min_value = channel_config.get("min_value", 0.0)
+                    max_value = channel_config.get("max_value", 100.0)
+                    
+                    # Map logical intensity (0.0-1.0) to physical intensity percentage
+                    physical_intensity_percent = min_value + (max_value - min_value) * intensity
+                    
+                    # Convert percentage back to 0.0-1.0 float for HAL service
+                    final_intensity_for_hal = physical_intensity_percent / 100.0
+                    
                     success = self.hal_service.write_channel_intensity(
                         channel_id, 
-                        intensity, 
+                        final_intensity_for_hal, 
                         {"runner": "iteration", "timestamp": current_time.isoformat()}
                     )
                     if success:
                         successful_writes[channel_id] = intensity
                     else:
-                        logger.error(f"Failed to write intensity {intensity} to channel {channel_id}")
+                        logger.error(f"Failed to write intensity {final_intensity_for_hal} to channel {channel_id}")
             
             # Log execution
             self._log_execution_status(

@@ -14,6 +14,7 @@ from shared.db.database import get_db
 from shared.schemas.user import User
 from shared.utils.logger import get_logger
 from shared.api.deps import get_current_user_or_service
+from shared.crud import device as device_crud
 
 from lighting.models.schemas import (
     LightingBehaviorLog,
@@ -61,8 +62,26 @@ async def register_channel(
                 detail=f"Controller address must be 0x40-0x7F, got {hex(controller_address)}"
             )
         
-        # Register channel
-        success = runner.register_channel(channel_id, controller_address, channel_number)
+        # Fetch device information from database to get min/max values
+        device = await device_crud.get(db, device_id=channel_id)
+        if not device:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Device with ID {channel_id} not found"
+            )
+        
+        # Extract min/max values from device
+        min_value = device.min_value if device.min_value is not None else 0.0
+        max_value = device.max_value if device.max_value is not None else 100.0
+        
+        # Register channel with min/max values
+        success = runner.register_channel(
+            channel_id, 
+            controller_address, 
+            channel_number,
+            min_value=min_value,
+            max_value=max_value
+        )
         
         if not success:
             raise HTTPException(
@@ -74,17 +93,19 @@ async def register_channel(
         log_entry = LightingBehaviorLogCreate(
             channel_id=channel_id,
             status="channel_registered",
-            notes=f"Channel registered with I2C:{hex(controller_address)} Ch:{channel_number} by user {current_user.username}"
+            notes=f"Channel registered with I2C:{hex(controller_address)} Ch:{channel_number} Range:{min_value}-{max_value} by user {current_user.username}"
         )
         
         # TODO: Create log entry through behavior manager when available
-        logger.info(f"Channel {channel_id} registered: I2C:{hex(controller_address)} Ch:{channel_number}")
+        logger.info(f"Channel {channel_id} registered: I2C:{hex(controller_address)} Ch:{channel_number} Range:{min_value}-{max_value}")
         
         return {
             "success": True,
             "channel_id": channel_id,
             "controller_address": hex(controller_address),
             "channel_number": channel_number,
+            "min_value": min_value,
+            "max_value": max_value,
             "message": f"Channel {channel_id} registered successfully"
         }
         
