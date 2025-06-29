@@ -19,7 +19,7 @@ app = FastAPI(
     version="1.0.0"
 )
 
-app.include_router(probes.router)
+# app.include_router(probes.router, prefix="/api")
 
 @app.get("/health")
 async def health_check():
@@ -30,7 +30,14 @@ async def health_check():
         "version": "1.0.0"
     }
 
-# This is a sample root endpoint with authentication
 @app.get("/")
-def read_root(current_user: User = Depends(get_current_user)):
-    return {"message": "Welcome to the Temperature Service"}
+async def root():
+    """Root endpoint with service information."""
+    return {
+        "service": "Bella's Reef Temperature Service",
+        "version": "1.0.0",
+        "description": "Manages 1-wire temperature sensors",
+        "endpoints": {
+            "probes": "/api/probes"
+        }
+    }
